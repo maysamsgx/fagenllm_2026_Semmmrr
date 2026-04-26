@@ -1,0 +1,33 @@
+# Core framework
+fastapi==0.115.5
+uvicorn[standard]==0.32.0
+
+# LangGraph + LangChain
+langgraph==0.2.53
+langchain==0.3.9
+langchain-openai==0.2.9          # Qwen3 is OpenAI-compatible via OpenRouter
+langchain-community==0.3.9
+
+# Supabase
+supabase==2.10.0
+
+# HTTP + async
+python-multipart==0.0.12         # for file uploads
+
+# Data + validation
+pydantic==2.10.1
+pydantic-settings==2.6.1
+python-dotenv==1.0.1
+
+# Document processing
+pypdf==5.1.0
+pillow==11.0.0                   # image preprocessing for OCR
+
+# Data science (for reconciliation matching + cash forecasting)
+numpy>=1.22.4,<2.0.0
+pandas==2.2.3
+scikit-learn==1.5.2
+
+# Utilities
+python-jose==3.3.0               # JWT for auth later
+tenacity==9.0.0                  # retry logic for LLM calls
