@@ -1,10 +1,10 @@
 """
 agents/state.py
 Defines the shared FinancialState that flows through the entire LangGraph.
-(V2 - Causal-Reasoning-Ready)
+(V3 - 10/10 Causal Architecture)
 """
 
-from typing import TypedDict, Literal, Any
+from typing import TypedDict, Literal, Any, List, Dict, Optional
 
 
 AgentName = Literal["supervisor", "invoice", "budget", "reconciliation", "credit", "cash"]
@@ -43,7 +43,7 @@ class ReconciliationContext(TypedDict, total=False):
     run_id: str
     match_rate: float
     unmatched_count: int
-    anomalies_detected: list[dict]
+    anomalies_detected: List[Dict[str, Any]]
     anomaly_summary: str
     decision_id: str
 
@@ -71,7 +71,7 @@ class CashContext(TypedDict, total=False):
 class FinancialState(TypedDict, total=False):
     """
     The complete shared state passed through the LangGraph.
-    V2 adds decision_ids to support the causal relationship graph (Schema v2).
+    V3 adds decision_ids to support the causal relationship graph (Schema v3).
     """
 
     # Control flow
@@ -91,14 +91,14 @@ class FinancialState(TypedDict, total=False):
 
     # Causal Graph tracking
     # Mapping of agent name -> last decision ID in this run
-    decision_ids: dict[str, str]
+    decision_ids: Dict[str, str]
 
     # XAI: reasoning traces
-    reasoning_trace: list[dict[str, str]]
+    reasoning_trace: List[Dict[str, str]]
 
     # Error handling
-    error: str | None
-    error_agent: AgentName | None
+    error: Optional[str]
+    error_agent: Optional[AgentName]
 
 
 def initial_state(trigger: str, entity_id: str) -> FinancialState:
@@ -124,4 +124,7 @@ def add_reasoning(state: FinancialState, agent: str, step: str, reasoning: str) 
     """Append a reasoning trace entry."""
     trace = state.get("reasoning_trace", [])
     trace.append({"agent": agent, "step": step, "reasoning": reasoning})
-    return {**state, "reasoning_trace": trace}
+    # Return a new dict to ensure LangGraph state update
+    new_state = state.copy()
+    new_state["reasoning_trace"] = trace
+    return new_state

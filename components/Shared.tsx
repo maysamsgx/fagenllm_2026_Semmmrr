@@ -21,8 +21,8 @@ export function Empty({ msg }: { msg: string }) {
   return <div className="empty">{msg}</div>
 }
 
-export const RISK_COLOR = { low: '#22c55e', medium: '#f59e0b', high: '#ef4444' }
-export const RISK_BG    = { low: '#dcfce7', medium: '#fef3c7', high: '#fee2e2' }
+export const RISK_COLOR: Record<string, string> = { low: '#22c55e', medium: '#f59e0b', high: '#ef4444' }
+export const RISK_BG: Record<string, string>    = { low: '#dcfce7', medium: '#fef3c7', high: '#fee2e2' }
 export const STATUS_COLOR: Record<string, string> = {
   pending: '#94a3b8', extracting: '#6366f1', validating: '#8b5cf6',
   awaiting_approval: '#f59e0b', approved: '#22c55e', rejected: '#ef4444', paid: '#0ea5e9',

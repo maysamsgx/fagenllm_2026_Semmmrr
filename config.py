@@ -3,9 +3,9 @@ config.py
 Central configuration and client initialisation for FAgentLLM.
 
 Provider map:
-  - Qwen3-32B           → Groq         (fast inference, free tier)
-  - Baidu OCR Fast      → OpenRouter   (free, model: baidu/qianfan-ocr-fast)
-  - Database + Storage  → Supabase
+  - Qwen3-32B           : Groq         (fast inference, free tier)
+  - Baidu OCR Fast      : OpenRouter   (free, model: baidu/qianfan-ocr-fast)
+  - Database + Storage  : Supabase
 """
 
 from functools import lru_cache
@@ -21,13 +21,13 @@ class Settings(BaseSettings):
     supabase_service_key: str
 
     # Qwen3-32B via Groq (OpenAI-compatible, free tier)
-    # Get key: https://console.groq.com → API Keys
+    # Get key: https://console.groq.com -> API Keys
     groq_api_key: str
     groq_base_url: str = "https://api.groq.com/openai/v1"
     qwen_model: str = "qwen/qwen3-32b"
 
     # Baidu Qianfan-OCR-Fast via OpenRouter (free)
-    # Get key: https://openrouter.ai → API Keys
+    # Get key: https://openrouter.ai -> API Keys
     openrouter_api_key: str
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
     ocr_model: str = "baidu/qianfan-ocr-fast"
@@ -41,13 +41,13 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
-    """Cached settings — reads .env once at startup."""
+    """Cached settings - reads .env once at startup."""
     return Settings()
 
 
 def get_supabase() -> Client:
     """
-    Server-side Supabase client (service role key — bypasses RLS).
+    Server-side Supabase client (service role key - bypasses RLS).
     Never expose this key to the frontend.
     """
     s = get_settings()
@@ -57,10 +57,10 @@ def get_supabase() -> Client:
 def get_llm(temperature: float = 0.0) -> ChatOpenAI:
     """
     Qwen3-32B via Groq.
-    Groq is OpenAI-compatible → LangChain's ChatOpenAI works directly.
+    Groq is OpenAI-compatible -> LangChain's ChatOpenAI works directly.
 
-    temperature=0.0  → deterministic extraction (invoices, reconciliation)
-    temperature=0.4  → natural language explanations (XAI traces)
+    temperature=0.0  -> deterministic extraction (invoices, reconciliation)
+    temperature=0.4  -> natural language explanations (XAI traces)
     """
     s = get_settings()
     return ChatOpenAI(

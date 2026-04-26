@@ -51,6 +51,14 @@ export interface CausalLink {
   created_at: string
 }
 
+export interface TraceEvent {
+  agent: 'invoice' | 'budget' | 'reconciliation' | 'credit' | 'cash'
+  event_type: string
+  timestamp: string
+  reasoning: string
+  details: Record<string, any>
+}
+
 // ── Invoice ────────────────────────────────────────────────────────────────
 export type InvoiceStatus =
   | 'pending' | 'extracting' | 'validating' | 'awaiting_approval'
@@ -60,9 +68,11 @@ export interface Invoice {
   id: string
   vendor_id: string | null
   vendor?: { name: string } | null
+  vendor_name?: string | null // UI expects this
   customer_id: string | null
   customer?: { name: string } | null
   department_id: string | null
+  department?: string | null // UI expects this
   invoice_number: string | null
   invoice_date: string | null
   due_date: string | null
@@ -76,13 +86,36 @@ export interface Invoice {
 }
 
 export const invoiceApi = {
-  list: (status?: string) => req<Invoice[]>(`/invoice/${status ? `?status=${status}` : ''}`),
-  get: (id: string) => req<Invoice>(`/invoice/${id}`),
+  list: (status?: string) => req<Invoice[]>(`/invoice/${status ? `?status=${status}` : ''}`).then(list => 
+    list.map(i => ({
+      ...i,
+      vendor_name: i.vendor?.name,
+      department: i.department_id // Basic mapping for UI
+    }))
+  ),
+  get: (id: string) => req<Invoice>(`/invoice/${id}`).then(i => ({
+    ...i,
+    vendor_name: i.vendor?.name,
+    department: i.department_id
+  })),
   trace: (id: string) => req<{ 
     decisions: AgentDecision[], 
     links: CausalLink[],
-    snapshot: FinancialStateSnapshot | null
-  }>(`/invoice/${id}/causal-trace`),
+    snapshot: FinancialStateSnapshot | null,
+    trace: TraceEvent[] // TracePanel expects this
+  }>(`/invoice/${id}/causal-trace`).then(r => {
+    // If backend doesn't return 'trace' field yet, we map decisions to trace events
+    if (!r.trace) {
+      r.trace = r.decisions.map(d => ({
+        agent: d.agent,
+        event_type: d.decision_type,
+        timestamp: d.created_at,
+        reasoning: d.reasoning,
+        details: {}
+      }))
+    }
+    return r
+  }),
   upload: async (file: File, departmentId: string) => {
     const fd = new FormData()
     fd.append('file', file)
@@ -90,18 +123,65 @@ export const invoiceApi = {
     if (!r.ok) throw new Error(`Upload failed: ${r.statusText}`)
     return r.json() as Promise<{ invoice_id: string }>
   },
+  approve: (id: string, approverId: string) => req(`/invoice/${id}/approve`, { 
+    method: 'POST', 
+    body: JSON.stringify({ approver_id: approverId }) 
+  }),
 }
 
 // ── Cash ──────────────────────────────────────────────────────────────────
+export interface CashAccount {
+  id: string
+  account_name: string
+  bank_name: string
+  currency: string
+  current_balance: number
+  minimum_balance: number
+}
+
+export interface ForecastDay {
+  forecast_date: string
+  projected_inflow: number
+  projected_outflow: number
+  net_position: number
+}
+
 export const cashApi = {
-  position: () => req<{ total_balance: number; accounts: any[] }>('/cash/position'),
-  forecast: () => req<{ forecast: any[] }>('/cash/forecast?days=7'),
+  position: () => req<{ total_balance: number; accounts: CashAccount[] }>('/cash/position'),
+  forecast: () => req<{ forecast: ForecastDay[] }>('/cash/forecast?days=7'),
 }
 
 // ── Budget ────────────────────────────────────────────────────────────────
+export interface Budget {
+  id: string
+  department: string | null
+  allocated: number
+  spent: number
+  committed: number
+  utilisation_pct?: number | null
+}
+
+export interface BudgetAlert {
+  id: string
+  department: string | null
+  alert_type: string
+  utilisation_pct: number
+  message?: string | null
+}
+
 export const budgetApi = {
-  list: () => req<any[]>('/budget/'),
-  alerts: () => req<any[]>('/budget/alerts/active'),
+  list: () => req<Budget[]>('/budget/').then(list => 
+    list.map((b: any) => ({
+      ...b,
+      department: b.department_id // UI expects 'department'
+    }))
+  ),
+  alerts: () => req<BudgetAlert[]>('/budget/alerts/active').then(list =>
+    list.map((a: any) => ({
+      ...a,
+      department: a.department_id // Assuming backend sends department_id
+    }))
+  ),
   ack: (id: string) => req(`/budget/alerts/${id}/acknowledge`, { method: 'POST' }),
 }
 
@@ -110,22 +190,42 @@ export interface ReconReport {
   id: string
   period: string
   match_rate: number
+  matched_count: number
   unmatched_count: number
+  generated_at: string
   generated_by_decision_id: string
   items?: any[]
 }
 
+export interface ReconStats {
+  total_transactions: number
+  matched: number
+  unmatched: number
+  match_rate_pct: number
+}
+
 export const reconApi = {
-  stats: () => req<any>('/reconciliation/stats'),
+  stats: () => req<ReconStats>('/reconciliation/stats'),
   run: () => req('/reconciliation/run', { method: 'POST' }),
   unmatched: () => req<any[]>('/reconciliation/unmatched?limit=20'),
   reports: () => req<ReconReport[]>('/reconciliation/reports'),
+  report: () => req<ReconReport>('/reconciliation/report'),
 }
 
 // ── Credit ────────────────────────────────────────────────────────────────
+export interface Customer {
+  id: string
+  name: string
+  risk_level: 'low' | 'medium' | 'high'
+  credit_score: number
+  payment_terms: number
+  payment_delay_avg?: number
+  total_outstanding: number
+}
+
 export const creditApi = {
-  customers: (risk?: string) => req<any[]>(`/credit/customers${risk ? `?risk_level=${risk}` : ''}`),
-  aging: () => req<any>('/credit/aging'),
+  customers: (risk?: string) => req<Customer[]>(`/credit/customers${risk ? `?risk_level=${risk}` : ''}`),
+  aging: () => req<{ buckets: Record<string, number>, total_open: number }>('/credit/aging'),
   assess: (id: string) => req(`/credit/assess/${id}`, { method: 'POST' }),
 }
 
@@ -154,3 +254,4 @@ export const intelApi = {
     req<AgentDecision[]>(`/intel/decisions?entity_table=${entityTable}&entity_id=${entityId}`),
   causalGraph: () => req<{ nodes: AgentDecision[], edges: CausalLink[] }>('/intel/causal-graph'),
 }
+

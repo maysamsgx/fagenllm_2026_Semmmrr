@@ -22,7 +22,7 @@ class SupabaseDB:
         result = self._ensure_client().table("invoices").select("*, vendors(name)").eq("id", invoice_id).execute()
         return result.data[0] if result.data else None
 
-    def update_invoice_status(self, invoice_id: str, status: str, extra_data: Dict[str, Any] = None):
+    def update_invoice_status(self, invoice_id: str, status: str, extra_data: Dict[str, Any] | None = None):
         update_data = {"status": status}
         if extra_data:
             update_data.update(extra_data)
@@ -95,7 +95,7 @@ class SupabaseDB:
             query = query.eq(k, v)
         return query.execute()
 
-    def select(self, table: str, filters: Dict[str, Any] = None) -> List[Dict[str, Any]]:
+    def select(self, table: str, filters: Dict[str, Any] | None = None) -> List[Dict[str, Any]]:
         query = self._ensure_client().table(table).select("*")
         if filters:
             for k, v in filters.items():
@@ -108,7 +108,8 @@ class SupabaseDB:
     # -- Intelligence Layers (V2/V3) --
 
     def log_agent_decision(self, agent: str, decision_type: str, entity_table: str, entity_id: str, 
-                           reasoning: str, input_state: Dict = None, output_action: Dict = None,
+                           reasoning: str, input_state: Dict[str, Any] | None = None, 
+                           output_action: Dict[str, Any] | None = None,
                            confidence: float = 100.0) -> str:
         snap = self.get_latest_snapshot()
         snap_id = snap["id"] if snap else None
