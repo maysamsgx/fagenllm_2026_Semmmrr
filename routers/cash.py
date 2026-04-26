@@ -1,4 +1,4 @@
-"""routers/cash.py — Cash Management Agent endpoints."""
+"""routers/cash.py — Cash Management Agent endpoints (V2)."""
 
 from fastapi import APIRouter, Query
 from db.supabase_client import db
@@ -22,14 +22,3 @@ def get_forecast(days: int = Query(7, le=30)):
              .gte("forecast_date", start).lte("forecast_date", end)
              .order("forecast_date").execute().data)
     return {"days": days, "forecast": rows}
-
-@router.get("/accounts")
-def list_accounts():
-    return db.get_cash_balances()
-
-@router.patch("/accounts/{account_id}/balance")
-def update_balance(account_id: str, balance: float):
-    from datetime import datetime, timezone
-    return db.update("cash_accounts", {"id": account_id},
-                     {"current_balance": balance,
-                      "last_updated": datetime.now(timezone.utc).isoformat()})

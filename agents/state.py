@@ -1,66 +1,61 @@
 """
 agents/state.py
 Defines the shared FinancialState that flows through the entire LangGraph.
-
-Every agent node reads from and writes to this state.
-This is the "shared financial state" described in the thesis — the mechanism
-that enables causal cross-domain reasoning between agents.
-
-LangGraph persists this state between node calls, so each agent always
-has the full context of what other agents have decided.
+(V2 - Causal-Reasoning-Ready)
 """
 
 from typing import TypedDict, Literal, Any
 
 
 AgentName = Literal["supervisor", "invoice", "budget", "reconciliation", "credit", "cash"]
-
 AgentStatus = Literal["idle", "running", "done", "error"]
 
 
 class InvoiceContext(TypedDict, total=False):
     """State populated by the Invoice agent."""
     invoice_id: str
+    vendor_id: str
     vendor_name: str
     amount: float
     currency: str
-    department: str
+    department_id: str
     due_date: str
-    status: str                  # current workflow status
+    status: str
     extraction_confidence: float
     requires_approval: bool
-    approval_reason: str         # Qwen3 explanation of why approval needed
+    approval_reason: str
+    decision_id: str             # ID from agent_decisions table
 
 
 class BudgetContext(TypedDict, total=False):
     """State populated by the Budget agent."""
-    department: str
+    department_id: str
     period: str
-    utilisation_pct: float       # 0–100
+    utilisation_pct: float
     remaining_budget: float
-    budget_breach: bool          # True if utilisation > threshold
+    budget_breach: bool
     breach_message: str
-    forecast_overrun: bool
+    decision_id: str
 
 
 class ReconciliationContext(TypedDict, total=False):
     """State populated by the Reconciliation agent."""
     run_id: str
-    period: str
-    match_rate: float            # 0–100
+    match_rate: float
     unmatched_count: int
     anomalies_detected: list[dict]
-    anomaly_summary: str         # Qwen3 natural language summary
+    anomaly_summary: str
+    decision_id: str
 
 
 class CreditContext(TypedDict, total=False):
     """State populated by the Credit agent."""
     customer_id: str
-    credit_score: float          # 0–100
-    risk_level: str              # 'low' | 'medium' | 'high'
+    credit_score: float
+    risk_level: str
     days_overdue: int
-    collection_stage: str
-    risk_explanation: str        # Qwen3 explanation
+    risk_explanation: str
+    decision_id: str
 
 
 class CashContext(TypedDict, total=False):
@@ -68,31 +63,24 @@ class CashContext(TypedDict, total=False):
     total_balance: float
     projected_shortfall: bool
     shortfall_amount: float
-    shortfall_date: str
-    can_approve_payment: bool    # KEY: used by Invoice agent to gate approvals
-    liquidity_note: str          # Qwen3 explanation for the decision
+    can_approve_payment: bool
+    liquidity_note: str
+    decision_id: str
 
 
 class FinancialState(TypedDict, total=False):
     """
     The complete shared state passed through the LangGraph.
-
-    `total=False` means all fields are optional — agents only populate
-    the fields they're responsible for.
-
-    Cross-agent causality examples:
-      invoice.amount → cash.can_approve_payment
-      reconciliation.anomalies → credit.risk_level
-      budget.breach → invoice.requires_approval (escalation)
+    V2 adds decision_ids to support the causal relationship graph (Schema v2).
     """
 
-    # Control flow — which agent to call next
+    # Control flow
     next_agent: AgentName
     current_agent: AgentName
 
-    # The triggering event — what kicked off this graph run
-    trigger: str                 # e.g. 'invoice_uploaded', 'daily_reconciliation', 'manual'
-    trigger_entity_id: str       # ID of the entity that triggered this run
+    # The triggering event
+    trigger: str                 
+    trigger_entity_id: str       
 
     # Agent-specific contexts
     invoice: InvoiceContext
@@ -101,8 +89,11 @@ class FinancialState(TypedDict, total=False):
     credit: CreditContext
     cash: CashContext
 
-    # XAI: accumulated reasoning traces from all agents in this run
-    # Each entry: {"agent": str, "step": str, "reasoning": str}
+    # Causal Graph tracking
+    # Mapping of agent name -> last decision ID in this run
+    decision_ids: dict[str, str]
+
+    # XAI: reasoning traces
     reasoning_trace: list[dict[str, str]]
 
     # Error handling
@@ -122,6 +113,7 @@ def initial_state(trigger: str, entity_id: str) -> FinancialState:
         reconciliation={},
         credit={},
         cash={},
+        decision_ids={},
         reasoning_trace=[],
         error=None,
         error_agent=None,
@@ -129,7 +121,7 @@ def initial_state(trigger: str, entity_id: str) -> FinancialState:
 
 
 def add_reasoning(state: FinancialState, agent: str, step: str, reasoning: str) -> FinancialState:
-    """Append a reasoning trace entry. Called by every agent after an LLM decision."""
+    """Append a reasoning trace entry."""
     trace = state.get("reasoning_trace", [])
     trace.append({"agent": agent, "step": step, "reasoning": reasoning})
     return {**state, "reasoning_trace": trace}

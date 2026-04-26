@@ -1,11 +1,11 @@
-
 from typing import Any, Dict, List, Optional
 from config import get_supabase
 
 class SupabaseDB:
     """
-    Database abstraction layer for FAgentLLM.
-    Provides simple methods for agents to interact with Supabase tables.
+    Database abstraction layer for FAgentLLM (v3 - 10/10 Causal Architecture).
+    Provides methods for agents to interact with the relational schema including 
+    the new payments and reconciliation junction layers.
     """
 
     def __init__(self):
@@ -16,11 +16,10 @@ class SupabaseDB:
             self.supabase = get_supabase()
         return self.supabase
 
-    def create_invoice(self, data: Dict[str, Any]):
-        return self._ensure_client().table("invoices").insert(data).execute()
-
+    # -- Entity Helpers --
+    
     def get_invoice(self, invoice_id: str) -> Optional[Dict[str, Any]]:
-        result = self._ensure_client().table("invoices").select("*").eq("id", invoice_id).execute()
+        result = self._ensure_client().table("invoices").select("*, vendors(name)").eq("id", invoice_id).execute()
         return result.data[0] if result.data else None
 
     def update_invoice_status(self, invoice_id: str, status: str, extra_data: Dict[str, Any] = None):
@@ -29,27 +28,119 @@ class SupabaseDB:
             update_data.update(extra_data)
         return self.update("invoices", {"id": invoice_id}, update_data)
 
+    def get_vendor_by_name(self, name: str) -> Optional[Dict[str, Any]]:
+        result = self._ensure_client().table("vendors").select("*").eq("name", name).execute()
+        return result.data[0] if result.data else None
+
+    def ensure_vendor(self, name: str) -> str:
+        v = self.get_vendor_by_name(name)
+        if v: return v["id"]
+        res = self._ensure_client().table("vendors").insert({"name": name}).execute()
+        return res.data[0]["id"]
+
+    def get_vendor_risk(self, vendor_id: str) -> Optional[Dict[str, Any]]:
+        res = self._ensure_client().table("vendor_risk_scores") \
+            .select("*").eq("vendor_id", vendor_id).order("last_assessed", desc=True).limit(1).execute()
+        return res.data[0] if res.data else None
+
+    def get_customer(self, customer_id: str) -> Optional[Dict[str, Any]]:
+        res = self._ensure_client().table("customers").select("*").eq("id", customer_id).execute()
+        return res.data[0] if res.data else None
+
+    def get_budget(self, department_id: str, period: str) -> Optional[Dict[str, Any]]:
+        res = self._ensure_client().table("budgets") \
+            .select("*").eq("department_id", department_id).eq("period", period).execute()
+        return res.data[0] if res.data else None
+
+    def get_cash_balances(self) -> List[Dict[str, Any]]:
+        return self._ensure_client().table("cash_accounts").select("*").execute().data
+
+    def get_unmatched_transactions(self, limit: int = 100) -> List[Dict[str, Any]]:
+        return self._ensure_client().table("transactions") \
+            .select("*").eq("matched", False).limit(limit).execute().data
+
+    # -- Reconciliation V3 --
+
+    def create_reconciliation_report(self, data: Dict[str, Any]) -> str:
+        res = self.insert("reconciliation_reports", data)
+        return res.data[0]["id"]
+
+    def add_reconciliation_items(self, report_id: str, items: List[Dict[str, Any]]):
+        for item in items:
+            item["report_id"] = report_id
+        return self.insert("reconciliation_report_items", items)
+
+    # -- Payments Layer V3 --
+
+    def record_payment(self, invoice_id: str, amount: float, method: str, reference: str = None) -> str:
+        data = {
+            "invoice_id": invoice_id,
+            "amount": amount,
+            "method": method,
+            "reference": reference,
+            "status": "completed"
+        }
+        res = self.insert("payments", data)
+        payment_id = res.data[0]["id"]
+        
+        # Mark invoice as paid
+        self.update_invoice_status(invoice_id, "paid")
+        return payment_id
+
+    # -- Generic Operations --
+
     def update(self, table: str, filters: Dict[str, Any], data: Dict[str, Any]):
         query = self._ensure_client().table(table).update(data)
         for k, v in filters.items():
             query = query.eq(k, v)
         return query.execute()
 
-    def select(self, table: str, filters: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def select(self, table: str, filters: Dict[str, Any] = None) -> List[Dict[str, Any]]:
         query = self._ensure_client().table(table).select("*")
-        for k, v in filters.items():
-            query = query.eq(k, v)
+        if filters:
+            for k, v in filters.items():
+                query = query.eq(k, v)
         return query.execute().data
 
-    def log_agent_event(self, agent: str, event_type: str, entity_id: str, details: Dict[str, Any], reasoning: str = ""):
-        event_data = {
+    def insert(self, table: str, data: Any):
+        return self._ensure_client().table(table).insert(data).execute()
+
+    # -- Intelligence Layers (V2/V3) --
+
+    def log_agent_decision(self, agent: str, decision_type: str, entity_table: str, entity_id: str, 
+                           reasoning: str, input_state: Dict = None, output_action: Dict = None,
+                           confidence: float = 100.0) -> str:
+        snap = self.get_latest_snapshot()
+        snap_id = snap["id"] if snap else None
+
+        decision_data = {
             "agent": agent,
-            "event_type": event_type,
+            "decision_type": decision_type,
+            "entity_table": entity_table,
             "entity_id": entity_id,
-            "details": details,
-            "reasoning": reasoning
+            "reasoning": reasoning,
+            "input_state": input_state or {},
+            "output_action": output_action or {},
+            "confidence": confidence,
+            "snapshot_id": snap_id
         }
-        return self._ensure_client().table("agent_events").insert(event_data).execute()
+        res = self._ensure_client().table("agent_decisions").insert(decision_data).execute()
+        return res.data[0]["id"]
+
+    def log_causal_link(self, cause_id: str, effect_id: str, rel_type: str, explanation: str, strength: float = 1.0):
+        link_data = {
+            "cause_decision_id": cause_id,
+            "effect_decision_id": effect_id,
+            "relationship_type": rel_type,
+            "explanation": explanation,
+            "strength": strength
+        }
+        return self._ensure_client().table("causal_links").insert(link_data).execute()
+
+    def get_latest_snapshot(self) -> Optional[Dict[str, Any]]:
+        res = self._ensure_client().table("financial_state_snapshots") \
+            .select("*").order("snapshot_time", desc=True).limit(1).execute()
+        return res.data[0] if res.data else None
 
 # Singleton instance
 db = SupabaseDB()
