@@ -1,6 +1,7 @@
 """
 agents/credit_agent.py
-Credit & Collection Agent — V2 (Causal-Reasoning-Ready).
+Credit Agent — this guy checks if our customers are actually paying on time
+and flags them if they're becoming a risk.
 """
 
 from __future__ import annotations
@@ -31,16 +32,20 @@ def _assess_customer(state: FinancialState) -> FinancialState:
     customer = db.get_customer(customer_id)
     if not customer: return {**state, "next_agent": END, "error": "Customer not found"}
 
-    # Deterministic Score (thesis Section 2.7.2)
-    score = float(customer.get("credit_score", 50.0))
+    # We're calculating a risk score here. The formula is basically a weighted sum of delays and outstanding debt.
+    f1 = float(customer.get("payment_delay_avg", 5.0))
+    f2 = float(customer.get("total_outstanding", 5000.0)) / 1000.0
+    w1, w2 = -2.0, -1.5
+    base_score = 100.0
+    score = max(0.0, min(100.0, base_score + (w1 * f1) + (w2 * f2)))
+    
     risk_level = "high" if score < 40 else "medium" if score < 70 else "low"
-
     # LLM Reasoning
     system, user = credit_risk_prompt(customer, [], score)
     assessment = qwen_json(system, user)
     reasoning  = assessment.get("reasoning", f"Risk assessed as {risk_level}.")
 
-    # Log Decision (V2)
+    # Logging the risk assessment so the group can see the reasoning in the dashboard.
     decision_id = db.log_agent_decision(
         agent="credit",
         decision_type="risk_assessed",

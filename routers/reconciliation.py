@@ -1,4 +1,8 @@
-"""routers/reconciliation.py — Reconciliation Agent endpoints."""
+"""
+routers/reconciliation.py
+Endpoints for the reconciliation agent.
+Handles triggering runs and pulling the latest match reports.
+"""
 
 from fastapi import APIRouter, Query, BackgroundTasks
 from db.supabase_client import db
@@ -18,6 +22,7 @@ def run_reconciliation(background_tasks: BackgroundTasks,
     run_period = period or f"{date.today().year}-Q{(date.today().month-1)//3+1}"
 
     def _run():
+        # Setting up the initial state for the reconciliation flow.
         state = initial_state("daily_reconciliation", f"recon-{run_period}")
         state["reconciliation"] = {"period": run_period}
         graph.invoke(state)

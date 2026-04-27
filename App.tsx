@@ -19,6 +19,8 @@ const NAV: { id: Tab; label: string; icon: React.ReactNode; desc: string }[] = [
   { id: 'credit',         label: 'Credit',         icon: <Users size={18} />,       desc: 'Risk scoring' },
 ]
 
+// This is the main shell of our dashboard.
+// We're using a simple tab system to switch between the different agent views.
 export default function App() {
   const [tab, setTab] = useState<Tab>('invoice')
 

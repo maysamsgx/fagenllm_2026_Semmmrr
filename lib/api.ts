@@ -86,18 +86,8 @@ export interface Invoice {
 }
 
 export const invoiceApi = {
-  list: (status?: string) => req<Invoice[]>(`/invoice/${status ? `?status=${status}` : ''}`).then(list => 
-    list.map(i => ({
-      ...i,
-      vendor_name: i.vendor?.name,
-      department: i.department_id // Basic mapping for UI
-    }))
-  ),
-  get: (id: string) => req<Invoice>(`/invoice/${id}`).then(i => ({
-    ...i,
-    vendor_name: i.vendor?.name,
-    department: i.department_id
-  })),
+  list: (status?: string) => req<Invoice[]>(`/invoice/${status ? `?status=${status}` : ''}`),
+  get: (id: string) => req<Invoice>(`/invoice/${id}`),
   trace: (id: string) => req<{ 
     decisions: AgentDecision[], 
     links: CausalLink[],
@@ -120,7 +110,12 @@ export const invoiceApi = {
     const fd = new FormData()
     fd.append('file', file)
     const r = await fetch(`${BASE}/invoice/upload?department_id=${departmentId}`, { method: 'POST', body: fd })
-    if (!r.ok) throw new Error(`Upload failed: ${r.statusText}`)
+    if (!r.ok) {
+      const body = await r.text().catch(() => '')
+      let detail = body
+      try { detail = JSON.parse(body).detail ?? body } catch { /* not JSON */ }
+      throw new Error(`Upload failed (${r.status}): ${detail || r.statusText}`)
+    }
     return r.json() as Promise<{ invoice_id: string }>
   },
   approve: (id: string, approverId: string) => req(`/invoice/${id}/approve`, { 
@@ -155,6 +150,7 @@ export const cashApi = {
 export interface Budget {
   id: string
   department: string | null
+  period: string
   allocated: number
   spent: number
   committed: number
@@ -170,18 +166,9 @@ export interface BudgetAlert {
 }
 
 export const budgetApi = {
-  list: () => req<Budget[]>('/budget/').then(list => 
-    list.map((b: any) => ({
-      ...b,
-      department: b.department_id // UI expects 'department'
-    }))
-  ),
-  alerts: () => req<BudgetAlert[]>('/budget/alerts/active').then(list =>
-    list.map((a: any) => ({
-      ...a,
-      department: a.department_id // Assuming backend sends department_id
-    }))
-  ),
+  list: (period?: string) => req<Budget[]>(`/budget/${period ? `?period=${encodeURIComponent(period)}` : ''}`),
+  periods: () => req<{ periods: string[]; current: string }>('/budget/periods'),
+  alerts: () => req<BudgetAlert[]>('/budget/alerts/active'),
   ack: (id: string) => req(`/budget/alerts/${id}/acknowledge`, { method: 'POST' }),
 }
 

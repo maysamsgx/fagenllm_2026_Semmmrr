@@ -3,9 +3,8 @@ from config import get_supabase
 
 class SupabaseDB:
     """
-    Database abstraction layer for FAgentLLM (v3 - 10/10 Causal Architecture).
-    Provides methods for agents to interact with the relational schema including 
-    the new payments and reconciliation junction layers.
+    Our database layer. We're using this to keep all the Supabase calls in one place
+    so the agents don't have to worry about the raw queries.
     """
 
     def __init__(self):
@@ -107,6 +106,8 @@ class SupabaseDB:
 
     # -- Intelligence Layers (V2/V3) --
 
+    # This is a key part of our V3 architecture — logging every decision
+    # so we can build a causal graph for the audit trail.
     def log_agent_decision(self, agent: str, decision_type: str, entity_table: str, entity_id: str, 
                            reasoning: str, input_state: Dict[str, Any] | None = None, 
                            output_action: Dict[str, Any] | None = None,

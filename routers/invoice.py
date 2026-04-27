@@ -1,6 +1,7 @@
 """
 routers/invoice.py
-FastAPI router for the Invoice Management Agent — V2.
+Endpoints for managing invoice uploads and their reconciliation workflows.
+This router triggers the LangGraph agent whenever a new invoice is uploaded.
 """
 
 import uuid
@@ -56,6 +57,7 @@ async def upload_invoice(
 
 def _run_invoice_graph(invoice_id: str) -> None:
     try:
+        # Initialize the graph state to begin processing the new invoice.
         state = initial_state(trigger="invoice_uploaded", entity_id=invoice_id)
         graph.invoke(state)
     except Exception as e:
@@ -66,6 +68,10 @@ def _run_invoice_graph(invoice_id: str) -> None:
 def get_invoice(invoice_id: str):
     invoice = db.get_invoice(invoice_id)
     if not invoice: raise HTTPException(404, "Not found")
+    
+    # Map for UI
+    invoice["vendor_name"] = invoice.get("vendors", {}).get("name") if invoice.get("vendors") else None
+    invoice["department"] = invoice.get("department_id")
     return invoice
 
 @router.get("/")
@@ -74,7 +80,11 @@ def list_invoices(status: str = None, department_id: str = None):
     query = supabase.table("invoices").select("*, vendors(name)").order("created_at", desc=True)
     if status: query = query.eq("status", status)
     if department_id: query = query.eq("department_id", department_id)
-    return query.execute().data
+    data = query.execute().data
+    for item in data:
+        item["vendor_name"] = item.get("vendors", {}).get("name") if item.get("vendors") else None
+        item["department"] = item.get("department_id")
+    return data
 
 @router.post("/{invoice_id}/approve")
 def approve_invoice(invoice_id: str, body: ApproveRequest):
@@ -87,7 +97,8 @@ def approve_invoice(invoice_id: str, body: ApproveRequest):
 
 @router.get("/{invoice_id}/causal-trace")
 def get_causal_trace(invoice_id: str):
-    """V2 Causal Trace: Returns decisions and their relationships."""
+    # This is where we pull the whole causal trail — decisions, links, and snapshots.
+    # It's basically the "How did we get here?" logic for the UI.
     decisions = db.select("agent_decisions", {"entity_id": invoice_id})
     dec_ids = [d["id"] for d in decisions]
     

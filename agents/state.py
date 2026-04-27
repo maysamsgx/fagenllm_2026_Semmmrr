@@ -1,15 +1,23 @@
 """
 agents/state.py
-Defines the shared FinancialState that flows through the entire LangGraph.
-(V3 - 10/10 Causal Architecture)
+The shared "brain" of the system. This dict flows through all the agents.
 """
 
 from typing import TypedDict, Literal, Any, List, Dict, Optional
-
+from enum import Enum
 
 AgentName = Literal["supervisor", "invoice", "budget", "reconciliation", "credit", "cash"]
 AgentStatus = Literal["idle", "running", "done", "error"]
 
+class TriggerType(str, Enum):
+    INVOICE_UPLOADED = "invoice_uploaded"
+    INVOICE_POST_CHECKS = "invoice_post_checks"
+    CASH_POSITION_REFRESH = "cash_position_refresh"
+    RECONCILIATION_REQUESTED = "reconciliation_requested"
+    DAILY_RECONCILIATION = "daily_reconciliation"
+    MANUAL_RECONCILIATION = "manual_reconciliation"
+    CUSTOMER_PAYMENT_CHECK = "customer_payment_check"
+    DONE = "done"
 
 class InvoiceContext(TypedDict, total=False):
     """State populated by the Invoice agent."""
@@ -69,10 +77,7 @@ class CashContext(TypedDict, total=False):
 
 
 class FinancialState(TypedDict, total=False):
-    """
-    The complete shared state passed through the LangGraph.
-    V3 adds decision_ids to support the causal relationship graph (Schema v3).
-    """
+    # This is the big one. It holds everything from control flow to agent-specific data.
 
     # Control flow
     next_agent: AgentName

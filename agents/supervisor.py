@@ -2,11 +2,8 @@ from typing import Any
 from agents.state import FinancialState
 from langgraph.graph import END
 
-def supervisor_node(state: FinancialState) -> Any:
-    """
-    Supervisor node that routes the initial trigger.
-    V3 Logic: Correctly handles triggering flows.
-    """
+def router_node(state: FinancialState) -> Any:
+    # The supervisor is like the traffic cop — it looks at the trigger and decides which agent starts first.
     trigger = state.get("trigger")
     
     if trigger == "invoice_uploaded":

@@ -1,6 +1,6 @@
 """
 agents/budget_agent.py
-Budget Management Agent — V2 (Causal-Reasoning-Ready).
+Budget Agent — keeps an eye on department spending so we don't go over budget.
 """
 
 from __future__ import annotations
@@ -49,12 +49,12 @@ def _check_budget(state: FinancialState) -> FinancialState:
     utilisation_pct = (total_committed / allocated * 100) if allocated > 0 else 0.0
     breach = utilisation_pct >= ALERT_THRESHOLD
 
-    # XAI Reasoning
+    # Logic for our XAI trail — making sure we explain why we made this call.
     reasoning = f"Utilisation for {dept_id} is {utilisation_pct:.1f}% (${total_committed:,.2f} of ${allocated:,.2f})."
     if breach:
         reasoning += " Threshold breached."
 
-    # Log Decision (V2)
+    # Logging the decision so the audit trail stays clean.
     decision_id = db.log_agent_decision(
         agent="budget",
         decision_type="budget_checked",
@@ -65,7 +65,7 @@ def _check_budget(state: FinancialState) -> FinancialState:
         output_action={"utilisation_pct": utilisation_pct, "breach": breach}
     )
 
-    # Causal Link: Invoice validation triggers budget check
+    # Creating a causal link so we know *why* this budget check happened.
     if invoice_ctx.get("decision_id"):
         db.log_causal_link(invoice_ctx["decision_id"], decision_id, "breaches_budget" if breach else "enables_approval", 
                           "Invoice amount increases department budget utilisation.")

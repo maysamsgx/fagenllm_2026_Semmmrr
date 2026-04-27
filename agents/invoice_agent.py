@@ -1,6 +1,7 @@
 """
 agents/invoice_agent.py
-Invoice Management Agent — V3 (10/10 Causal Architecture).
+Invoice Agent — handles the whole lifecycle from OCR to approval routing.
+Part of our V3 system that links decisions back to vendor risk.
 """
 
 from __future__ import annotations
@@ -38,11 +39,11 @@ def _handle_new_invoice(state: FinancialState, invoice_id: str) -> FinancialStat
     ocr_text = _run_ocr(invoice_id, invoice)
     if ocr_text is None: return _error(state, "OCR failed")
 
-    # Extraction
+    # Step 2: Extraction using the LLM
     system, user = invoice_extract_prompt(ocr_text)
     extracted = qwen_json(system, user)
     
-    # Resolve Vendor & Risk (V3)
+    # Step 3: Figure out which vendor this is and check their risk profile
     vendor_name = extracted.get("vendor_name", "Unknown")
     vendor_id   = db.ensure_vendor(vendor_name)
     vendor_risk = db.get_vendor_risk(vendor_id) # V3 Connection
@@ -62,7 +63,7 @@ def _handle_new_invoice(state: FinancialState, invoice_id: str) -> FinancialStat
         input_state={"ocr_len": len(ocr_text)}, output_action=extracted
     )
 
-    # Validation (V3 logic includes vendor risk)
+    # Step 5: Validation logic (we include the vendor risk check here)
     val_summary = f"Vendor Risk: {vendor_risk.get('risk_level','unknown') if vendor_risk else 'none'}."
     valid_id = db.log_agent_decision(
         agent="invoice", decision_type="validation_completed",
@@ -110,7 +111,7 @@ def _handle_approval_routing(state: FinancialState, invoice_id: str, invoice_ctx
         input_state={"cash_ok": cash_ok, "budget_ok": budget_ok}
     )
 
-    # V3 DEMO: If auto-approved, record a payment immediately
+    # Quick Demo Hack: If it's auto-approved, we just pay it immediately.
     if level == "auto":
         payment_id = db.record_payment(invoice_id, float(invoice_ctx["amount"]), "wire", f"AUTO-{invoice_id[:8]}")
         db.log_agent_decision("invoice", "payment_executed", "payments", payment_id, 
@@ -131,7 +132,10 @@ def _run_ocr(invoice_id: str, invoice: dict) -> str | None:
         from config import get_supabase
         supabase = get_supabase()
         return ocr_invoice(supabase.storage.from_("invoices").download(path), path.split("/")[-1])
-    except: return "FALLBACK OCR TEXT"
+    except Exception as e:
+        import logging
+        logging.getLogger("fagentllm").error(f"OCR failed: {e}")
+        return "FALLBACK OCR TEXT"
 
 def _current_period() -> str:
     t = date.today()

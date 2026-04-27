@@ -6,12 +6,28 @@ import { Card, Badge, fmt, pct } from './Shared'
 export default function BudgetView() {
   const [budgets, setBudgets] = useState<Budget[]>([])
   const [alerts, setAlerts]   = useState<BudgetAlert[]>([])
+  const [periods, setPeriods] = useState<string[]>([])
+  const [period, setPeriod]   = useState<string>('')
+
+  useEffect(() => {
+    budgetApi.periods().then(({ periods, current }) => {
+      setPeriods(periods)
+      setPeriod(periods.includes(current) ? current : periods[0] ?? '')
+    })
+  }, [])
 
   const load = () => {
-    budgetApi.list().then(setBudgets)
+    if (!period) return
+    budgetApi.list(period).then(setBudgets)
     budgetApi.alerts().then(setAlerts)
   }
-  useEffect(() => { load(); const t = setInterval(load, 8000); return () => clearInterval(t) }, [])
+
+  useEffect(() => {
+    if (!period) return
+    load()
+    const t = setInterval(load, 8000)
+    return () => clearInterval(t)
+  }, [period])
 
   return (
     <div className="view">
@@ -20,6 +36,18 @@ export default function BudgetView() {
           <h2>Budget Management</h2>
           <p className="view-sub">Spend tracking · variance alerts · moving-average forecast</p>
         </div>
+        {periods.length > 0 && (
+          <select
+            value={period}
+            onChange={(e) => setPeriod(e.target.value)}
+            className="period-select"
+            aria-label="Budget period"
+          >
+            {periods.map((p) => (
+              <option key={p} value={p}>{p}</option>
+            ))}
+          </select>
+        )}
       </div>
 
       {alerts.length > 0 && (

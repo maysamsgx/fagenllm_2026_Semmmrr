@@ -1,13 +1,18 @@
 """
 main.py
-FAgentLLM FastAPI application entrypoint (V3 - 10/10 Causal).
+The main entry point for our FastAPI app. This is what uvicorn runs.
 """
 
+import logging
 from typing import Annotated
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from utils.auth import create_access_token
+import os
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+logger = logging.getLogger("fagentllm")
 
 app = FastAPI(
     title="FAgentLLM API",
@@ -17,14 +22,17 @@ app = FastAPI(
 
 @app.post("/token")
 async def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
-    if form_data.username == "admin" and form_data.password == "admin123":
+    admin_user = os.getenv("ADMIN_USER", "admin")
+    admin_pass = os.getenv("ADMIN_PASS", "admin123")
+    if form_data.username == admin_user and form_data.password == admin_pass:
         access_token = create_access_token(data={"sub": form_data.username})
         return {"access_token": access_token, "token_type": "bearer"}
+    logger.warning(f"Failed login attempt for user: {form_data.username}")
     raise HTTPException(status_code=400, detail="Incorrect username or password")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -1,10 +1,10 @@
 """
 utils/llm.py
 Utility wrappers for:
-  - Qwen3-32B via OpenRouter  (reasoning, extraction, risk analysis)
-  - Baidu Qianfan OCR Fast    (invoice image/PDF text extraction)
+  - Qwen3-32B via Groq         (reasoning, extraction, risk analysis)
+  - Baidu Qianfan OCR Fast via OpenRouter (invoice image/PDF text extraction)
 
-All agents import from here. Retry logic and error handling is centralised.
+All agents import from here. Shared by the group for clean LLM calls.
 """
 
 import base64
