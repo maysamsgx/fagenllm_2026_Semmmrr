@@ -11,10 +11,10 @@ export default function ReconciliationView() {
   const [running, setRunning] = useState(false)
 
   const load = () => {
-    reconApi.stats().then(setStats)
+    reconApi.stats().then(setStats).catch(() => {})
     reconApi.report().then(r => {
       if (r && 'match_rate' in r) setReport(r as any)
-    })
+    }).catch(() => {})
   }
   useEffect(() => { load() }, [])
 
@@ -23,13 +23,13 @@ export default function ReconciliationView() {
 
   async function runRecon() {
     setRunning(true)
-    await reconApi.run()
+    try { await reconApi.run() } catch (e) { alert(`Run failed: ${e}`) }
     setTimeout(() => { load(); setRunning(false) }, 8000)
   }
 
   const pieData = stats ? [
-    { name: 'Matched',   value: stats.matched,   fill: '#22c55e' },
-    { name: 'Unmatched', value: stats.unmatched,  fill: '#f59e0b' },
+    { name: 'Matched',   value: stats.matched,   fill: '#34d399' },
+    { name: 'Unmatched', value: stats.unmatched,  fill: '#fbbf24' },
   ] : []
 
   return (
@@ -40,7 +40,7 @@ export default function ReconciliationView() {
           <p className="view-sub">TF-IDF cosine similarity · threshold ≥ 0.85 · Qwen3 anomaly analysis</p>
         </div>
         <button className="btn-primary" onClick={runRecon} disabled={running}>
-          <RefreshCw size={14} className={running ? 'spin' : ''} />
+          <RefreshCw size={14} className={running ? 'spin' : ''} strokeWidth={2.5} />
           {running ? 'Running…' : 'Run Reconciliation'}
         </button>
       </div>
@@ -48,7 +48,7 @@ export default function ReconciliationView() {
       <div className="stats-row">
         <Card>
           <div className="stat-label">Match rate</div>
-          <div className="stat-value" style={{ color: (stats?.match_rate_pct ?? 0) >= 90 ? '#22c55e' : '#f59e0b' }}>
+          <div className="stat-value" style={{ color: (stats?.match_rate_pct ?? 0) >= 90 ? '#34d399' : '#fbbf24' }}>
             {stats ? pct(stats.match_rate_pct) : '—'}
           </div>
         </Card>
@@ -58,7 +58,7 @@ export default function ReconciliationView() {
         </Card>
         <Card>
           <div className="stat-label">Unmatched</div>
-          <div className="stat-value" style={{ color: (stats?.unmatched ?? 0) > 0 ? '#f59e0b' : '#22c55e' }}>
+          <div className="stat-value" style={{ color: (stats?.unmatched ?? 0) > 0 ? '#fbbf24' : '#34d399' }}>
             {stats?.unmatched ?? '—'}
           </div>
         </Card>
@@ -70,12 +70,13 @@ export default function ReconciliationView() {
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
         <Card>
-          <h3 style={{ marginBottom: 12 }}>Match distribution</h3>
+          <h3 style={{ marginBottom: 14 }}>Match distribution</h3>
           {pieData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={200}>
+            <ResponsiveContainer width="100%" height={220}>
               <PieChart>
-                <Pie data={pieData} cx="50%" cy="50%" innerRadius={55} outerRadius={80}
-                  dataKey="value" label={({ name, value }: { name: string; value: number }) => `${name}: ${value}`} labelLine={false}>
+                <Pie data={pieData} cx="50%" cy="50%" innerRadius={60} outerRadius={88}
+                  dataKey="value" stroke="rgba(0,0,0,.4)" strokeWidth={2}
+                  label={({ name, value }: { name: string; value: number }) => `${name}: ${value}`} labelLine={false}>
                   {pieData.map((d, i) => <Cell key={i} fill={d.fill} />)}
                 </Pie>
                 <Tooltip />
@@ -85,9 +86,9 @@ export default function ReconciliationView() {
         </Card>
 
         <Card>
-          <h3 style={{ marginBottom: 12 }}>Latest report</h3>
+          <h3 style={{ marginBottom: 14 }}>Latest report</h3>
           {report ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {[
                 ['Period', String(report.period)],
                 ['Match rate', `${Number(report.match_rate).toFixed(1)}%`],
@@ -95,9 +96,9 @@ export default function ReconciliationView() {
                 ['Unmatched', String(report.unmatched_count)],
                 ['Generated', new Date(String(report.generated_at)).toLocaleString()],
               ].map(([k, v]) => (
-                <div key={k} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, borderBottom: '1px solid #f1f5f9', paddingBottom: 4 }}>
-                  <span style={{ color: '#64748b' }}>{k}</span>
-                  <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 500 }}>{v}</span>
+                <div key={k} className="kv-row">
+                  <span className="kv-key">{k}</span>
+                  <span className="kv-val">{v}</span>
                 </div>
               ))}
             </div>

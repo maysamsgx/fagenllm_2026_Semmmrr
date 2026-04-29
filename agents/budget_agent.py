@@ -33,7 +33,12 @@ def _check_budget(state: FinancialState) -> FinancialState:
 
     if not budget:
         note = f"No budget defined for {dept_id} / {period}."
-        decision_id = db.log_agent_decision("budget", "no_budget", "budgets", "none", note)
+        decision_id = db.log_agent_decision(
+            agent="budget", decision_type="no_budget", entity_table="budgets", entity_id="none",
+            technical_explanation=note,
+            business_explanation="Could not find a budget allocation for this department.",
+            causal_explanation="Bypasses budget breach checks and proceeds to invoice approval.",
+        )
         return {
             **state,
             "current_agent": "budget",
@@ -49,10 +54,13 @@ def _check_budget(state: FinancialState) -> FinancialState:
     utilisation_pct = (total_committed / allocated * 100) if allocated > 0 else 0.0
     breach = utilisation_pct >= ALERT_THRESHOLD
 
-    # Logic for our XAI trail — making sure we explain why we made this call.
-    reasoning = f"Utilisation for {dept_id} is {utilisation_pct:.1f}% (${total_committed:,.2f} of ${allocated:,.2f})."
+    technical_explanation = f"Utilisation for {dept_id} is {utilisation_pct:.1f}% (${total_committed:,.2f} of ${allocated:,.2f})."
+    business_explanation = f"Department has spent {utilisation_pct:.1f}% of its allocated budget."
+    causal_explanation = "Determines whether invoice requires high-level approval or rejection due to lack of funds."
     if breach:
-        reasoning += " Threshold breached."
+        technical_explanation += " Threshold breached."
+        business_explanation += " Warning: Spending exceeds safe thresholds."
+        causal_explanation = "Flags invoice for strict approval routing due to budget constraints."
 
     # Logging the decision so the audit trail stays clean.
     decision_id = db.log_agent_decision(
@@ -60,7 +68,9 @@ def _check_budget(state: FinancialState) -> FinancialState:
         decision_type="budget_checked",
         entity_table="budgets",
         entity_id=budget["id"],
-        reasoning=reasoning,
+        technical_explanation=technical_explanation,
+        business_explanation=business_explanation,
+        causal_explanation=causal_explanation,
         input_state={"allocated": allocated, "spent": spent, "committed": committed, "new_invoice": amount},
         output_action={"utilisation_pct": utilisation_pct, "breach": breach}
     )
@@ -76,17 +86,26 @@ def _check_budget(state: FinancialState) -> FinancialState:
             "budget_id": budget["id"],
             "utilisation_pct": round(utilisation_pct, 2),
             "alert_type": "threshold_breach",
-            "message": reasoning,
+            "message": technical_explanation,
             "triggered_by_invoice_id": invoice_id if invoice_id != "system" else None
         })
 
     # Update committed amount
     db.update("budgets", {"id": budget["id"]}, {"committed": round(committed + amount, 2)})
 
+    trace = state.get("reasoning_trace", []) + [{
+        "agent": "budget",
+        "step": "Checked Budget",
+        "technical_explanation": technical_explanation,
+        "business_explanation": business_explanation,
+        "causal_explanation": causal_explanation
+    }]
+
     return {
         **state,
         "current_agent": "budget",
         "next_agent":    "invoice",
+        "reasoning_trace": trace,
         "budget": {
             **budget_ctx,
             "department_id": dept_id,

@@ -37,18 +37,30 @@ def _liquidity_check(state: FinancialState) -> FinancialState:
 
     # Assessment logic
     can_approve = (projected_next - invoice_amount) > min_balance
-    reasoning = f"Current balance: ${total_balance:,.0f}. Projected next 7d: +${inflows:,.0f} -${outflows:,.0f} = ${projected_next:,.0f}."
-    
+    technical_explanation = f"Current balance: ${total_balance:,.0f}. Projected next 7d: +${inflows:,.0f} -${outflows:,.0f} = ${projected_next:,.0f}."
+    business_explanation = f"Evaluating liquidity for invoice {invoice_id}. Projected balance after payment: ${projected_next - invoice_amount:,.0f}."
+    causal_explanation = "Determines if invoice can be approved without breaching minimum balance requirements."
+
     # Record this decision in our decision log.
     decision_id = db.log_agent_decision(
         agent="cash",
         decision_type="liquidity_check",
         entity_table="cash_accounts",
         entity_id=accounts[0]["id"] if accounts else str(uuid.uuid4()),
-        reasoning=reasoning,
+        technical_explanation=technical_explanation,
+        business_explanation=business_explanation,
+        causal_explanation=causal_explanation,
         input_state={"balance": total_balance, "inflows": inflows, "outflows": outflows, "invoice": invoice_amount},
         output_action={"can_approve": can_approve}
     )
+
+    trace = state.get("reasoning_trace", []) + [{
+        "agent": "cash",
+        "step": "Liquidity Check",
+        "technical_explanation": technical_explanation,
+        "business_explanation": business_explanation,
+        "causal_explanation": causal_explanation
+    }]
 
     # Causal Link: Invoice validation triggers liquidity check
     if invoice_ctx.get("decision_id"):
@@ -63,9 +75,9 @@ def _liquidity_check(state: FinancialState) -> FinancialState:
             **state.get("cash", {}),
             "total_balance": round(total_balance, 2),
             "can_approve_payment": can_approve,
-            "liquidity_note": reasoning,
             "decision_id": decision_id
-        }
+        },
+        "reasoning_trace": trace
     }
 
 def _refresh_forecast(state: FinancialState) -> FinancialState:
@@ -73,9 +85,12 @@ def _refresh_forecast(state: FinancialState) -> FinancialState:
     customer_id = credit_ctx.get("customer_id")
     risk_level = credit_ctx.get("risk_level")
     
-    reasoning = "7-day cash flow forecast refreshed."
+    technical_explanation = "7-day cash flow forecast refreshed using Weighted Moving Average (WMA) of historical payments."
+    business_explanation = "Updated treasury projections based on recent collection patterns."
+    causal_explanation = "Ensures liquidity assessments use the most recent data."
     if customer_id and risk_level == "high":
-        reasoning += f" Adjusted AR forecasts for Customer {customer_id} due to high risk classification."
+        technical_explanation += f" Adjusted AR forecasts for Customer {customer_id} due to high risk classification."
+        business_explanation += f" Conservative inflow estimates applied for Customer {customer_id}."
         
     accounts = db.get_cash_balances()
     db.log_agent_decision(
@@ -83,7 +98,9 @@ def _refresh_forecast(state: FinancialState) -> FinancialState:
         decision_type="forecast_refreshed",
         entity_table="cash_accounts",
         entity_id=accounts[0]["id"] if accounts else str(uuid.uuid4()),
-        reasoning=reasoning,
+        technical_explanation=technical_explanation,
+        business_explanation=business_explanation,
+        causal_explanation=causal_explanation,
         input_state={"credit_risk": risk_level, "customer_id": customer_id}
     )
     return {**state, "current_agent": "cash", "next_agent": END}

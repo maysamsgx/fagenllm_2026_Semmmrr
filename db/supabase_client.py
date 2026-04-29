@@ -108,10 +108,23 @@ class SupabaseDB:
 
     # This is a key part of our V3 architecture — logging every decision
     # so we can build a causal graph for the audit trail.
-    def log_agent_decision(self, agent: str, decision_type: str, entity_table: str, entity_id: str, 
-                           reasoning: str, input_state: Dict[str, Any] | None = None, 
+    # All explanation fields are optional: pass `reasoning=` as a shortcut
+    # when you only have a single message (typically used by error paths).
+    def log_agent_decision(self, agent: str, decision_type: str, entity_table: str, entity_id: str,
+                           technical_explanation: str | None = None,
+                           business_explanation: str | None = None,
+                           causal_explanation: str | None = None,
+                           reasoning: str | None = None,
+                           input_state: Dict[str, Any] | None = None,
                            output_action: Dict[str, Any] | None = None,
                            confidence: float = 100.0) -> str:
+        # Fan a single `reasoning` shortcut into all three slots so the trace
+        # panel never has an empty event.
+        if reasoning and not (technical_explanation or business_explanation or causal_explanation):
+            technical_explanation = reasoning
+            business_explanation = reasoning
+            causal_explanation = reasoning
+
         snap = self.get_latest_snapshot()
         snap_id = snap["id"] if snap else None
 
@@ -120,7 +133,9 @@ class SupabaseDB:
             "decision_type": decision_type,
             "entity_table": entity_table,
             "entity_id": entity_id,
-            "reasoning": reasoning,
+            "technical_explanation": technical_explanation or "",
+            "business_explanation": business_explanation or "",
+            "causal_explanation": causal_explanation or "",
             "input_state": input_state or {},
             "output_action": output_action or {},
             "confidence": confidence,

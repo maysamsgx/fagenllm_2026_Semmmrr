@@ -1,26 +1,25 @@
 import { useState } from 'react'
 import {
-  FileText, DollarSign, RefreshCw, Users, TrendingUp, ChevronRight, Activity, Zap
+  ChevronRight
 } from 'lucide-react'
 import InvoiceView from './components/InvoiceView'
 import CashView from './components/CashView'
 import BudgetView from './components/BudgetView'
 import ReconciliationView from './components/ReconciliationView'
 import CreditView from './components/CreditView'
+import { BRAND_LOGO, LEGACY_BRAND_LOGO, getAgentAvatar, getLegacyAgentAvatar } from './components/Shared'
 import './index.css'
 
 type Tab = 'invoice' | 'cash' | 'budget' | 'reconciliation' | 'credit'
 
-const NAV: { id: Tab; label: string; icon: React.ReactNode; desc: string }[] = [
-  { id: 'invoice',        label: 'Invoice',        icon: <FileText size={18} />,    desc: 'OCR + approval' },
-  { id: 'cash',           label: 'Cash',           icon: <DollarSign size={18} />,  desc: 'Liquidity gate' },
-  { id: 'budget',         label: 'Budget',         icon: <TrendingUp size={18} />,  desc: 'Spend control' },
-  { id: 'reconciliation', label: 'Reconciliation', icon: <RefreshCw size={18} />,   desc: 'TX matching' },
-  { id: 'credit',         label: 'Credit',         icon: <Users size={18} />,       desc: 'Risk scoring' },
+const NAV: { id: Tab; label: string; desc: string }[] = [
+  { id: 'invoice',        label: 'Invoice',        desc: 'OCR · approval' },
+  { id: 'cash',           label: 'Cash',           desc: 'Liquidity gate' },
+  { id: 'budget',         label: 'Budget',         desc: 'Spend control' },
+  { id: 'reconciliation', label: 'Reconciliation', desc: 'TX matching' },
+  { id: 'credit',         label: 'Credit',         desc: 'Risk scoring' },
 ]
 
-// This is the main shell of our dashboard.
-// We're using a simple tab system to switch between the different agent views.
 export default function App() {
   const [tab, setTab] = useState<Tab>('invoice')
 
@@ -28,7 +27,14 @@ export default function App() {
     <div className="layout">
       <aside className="sidebar">
         <div className="sidebar-brand">
-          <div className="brand-icon"><Zap size={18} /></div>
+          <div className="brand-icon">
+            <img
+              className="brand-logo-img"
+              src={BRAND_LOGO}
+              alt="FAgentLLM logo"
+              onError={(e) => { e.currentTarget.src = LEGACY_BRAND_LOGO }}
+            />
+          </div>
           <div>
             <div className="brand-name">FAgentLLM</div>
             <div className="brand-sub">Financial Intelligence</div>
@@ -37,9 +43,19 @@ export default function App() {
 
         <nav className="sidebar-nav">
           {NAV.map(n => (
-            <button key={n.id} className={`nav-item ${tab === n.id ? 'active' : ''}`}
-              onClick={() => setTab(n.id)}>
-              <span className="nav-icon">{n.icon}</span>
+            <button
+              key={n.id}
+              className={`nav-item ${tab === n.id ? 'active' : ''}`}
+              onClick={() => setTab(n.id)}
+            >
+              <span className="nav-icon">
+                <img
+                  className="nav-avatar"
+                  src={getAgentAvatar(n.id)}
+                  alt={`${n.label} avatar`}
+                  onError={(e) => { e.currentTarget.src = getLegacyAgentAvatar(n.id) }}
+                />
+              </span>
               <span className="nav-text">
                 <span className="nav-label">{n.label}</span>
                 <span className="nav-desc">{n.desc}</span>
@@ -50,13 +66,8 @@ export default function App() {
         </nav>
 
         <div className="sidebar-footer">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-            <Activity size={12} color="#22c55e" />
-            <span style={{ fontSize: 11, color: '#22c55e', fontWeight: 500 }}>System live</span>
-          </div>
-          <div style={{ fontSize: 10, color: '#64748b', lineHeight: 1.4 }}>
-            LangGraph · Supabase<br />Qwen3-32B · Baidu OCR
-          </div>
+          <div className="system-live">System live</div>
+          <div>LangGraph · Supabase<br />Qwen3-32B · Baidu OCR</div>
         </div>
       </aside>
 

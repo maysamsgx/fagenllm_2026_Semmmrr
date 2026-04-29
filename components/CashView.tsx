@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { RefreshCw } from 'lucide-react'
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from 'recharts'
+import { RefreshCw, TrendingUp, TrendingDown } from 'lucide-react'
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts'
 import { cashApi, CashAccount, ForecastDay } from '../lib/api'
 import { Card, Badge, Empty, fmt } from './Shared'
 import { useRealtime } from '../lib/useRealtime'
@@ -11,8 +11,8 @@ export default function CashView() {
   const [running, setRunning] = useState(false)
 
   const load = () => {
-    cashApi.position().then(setPos)
-    cashApi.forecast().then(r => setFore(r.forecast))
+    cashApi.position().then(setPos).catch(() => {})
+    cashApi.forecast().then(r => setFore(r.forecast)).catch(() => {})
   }
 
   useEffect(() => { load() }, [])
@@ -39,7 +39,7 @@ export default function CashView() {
             setTimeout(() => { load(); setRunning(false) }, 4000)
           }}
         >
-          <RefreshCw size={14} className={running ? 'spin' : ''} />
+          <RefreshCw size={14} className={running ? 'spin' : ''} strokeWidth={2.5} />
           {running ? 'Refreshing…' : 'Refresh Position'}
         </button>
       </div>
@@ -47,21 +47,23 @@ export default function CashView() {
       <div className="stats-row">
         <Card className="stat-featured">
           <div className="stat-label">Total balance</div>
-          <div className="stat-value-lg">{pos ? fmt(pos.total_balance) : '—'}</div>
-          <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>across all accounts</div>
+          <div className="stat-value-lg" style={{ color: '#67e8f9', textShadow: '0 0 24px rgba(34, 211, 238, .35)' }}>
+            {pos ? fmt(pos.total_balance) : '—'}
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 6 }}>across all accounts</div>
         </Card>
         {pos?.accounts.map((a: CashAccount) => (
           <Card key={a.id}>
             <div className="stat-label">{a.account_name}</div>
-            <div className="stat-value" style={{ fontFamily: 'DM Mono, monospace' }}>
+            <div className="stat-value">
               {fmt(a.current_balance, a.currency)}
             </div>
-            <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
+            <div style={{ fontSize: 11, color: 'var(--text-4)', marginTop: 6 }}>
               {a.bank_name} · min {fmt(a.minimum_balance, a.currency)}
             </div>
             {a.current_balance < a.minimum_balance * 1.2 && (
-              <div style={{ marginTop: 6 }}>
-                <Badge label="Low" color="#ef4444" bg="#fee2e2" />
+              <div style={{ marginTop: 8 }}>
+                <Badge label="Low" color="#fb7185" bg="rgba(251, 113, 133, .14)" />
               </div>
             )}
           </Card>
@@ -69,9 +71,19 @@ export default function CashView() {
       </div>
 
       <Card>
-        <h3 style={{ marginBottom: 16 }}>7-Day Cash Flow Forecast</h3>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+          <h3>7-Day Cash Flow Forecast</h3>
+          <div style={{ display: 'flex', gap: 14, fontSize: 11, color: 'var(--text-3)' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <TrendingUp size={12} color="#34d399" /> Inflows
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <TrendingDown size={12} color="#fb7185" /> Outflows
+            </span>
+          </div>
+        </div>
         {forecast.length === 0 ? <Empty msg="No forecast data — run seed_data.py" /> : (
-          <ResponsiveContainer width="100%" height={220}>
+          <ResponsiveContainer width="100%" height={260}>
             <AreaChart data={forecast.map((d: ForecastDay) => ({
               day: fmtDay(d.forecast_date),
               inflow: d.projected_inflow,
@@ -80,19 +92,20 @@ export default function CashView() {
             }))}>
               <defs>
                 <linearGradient id="gi" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
+                  <stop offset="0%" stopColor="#34d399" stopOpacity={0.45} />
+                  <stop offset="100%" stopColor="#34d399" stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="go" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                  <stop offset="0%" stopColor="#fb7185" stopOpacity={0.45} />
+                  <stop offset="100%" stopColor="#fb7185" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <XAxis dataKey="day" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
+              <CartesianGrid strokeDasharray="2 4" stroke="rgba(255,255,255,.05)" />
+              <XAxis dataKey="day" tick={{ fontSize: 11, fill: 'var(--text-3)' }} stroke="rgba(255,255,255,.08)" />
+              <YAxis tick={{ fontSize: 11, fill: 'var(--text-3)' }} stroke="rgba(255,255,255,.08)" tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
               <Tooltip formatter={(v: number) => fmt(v)} />
-              <Area type="monotone" dataKey="inflow"  stroke="#22c55e" fill="url(#gi)" name="Inflows" strokeWidth={2} />
-              <Area type="monotone" dataKey="outflow" stroke="#ef4444" fill="url(#go)" name="Outflows" strokeWidth={2} />
+              <Area type="monotone" dataKey="inflow"  stroke="#34d399" fill="url(#gi)" name="Inflows" strokeWidth={2} />
+              <Area type="monotone" dataKey="outflow" stroke="#fb7185" fill="url(#go)" name="Outflows" strokeWidth={2} />
             </AreaChart>
           </ResponsiveContainer>
         )}

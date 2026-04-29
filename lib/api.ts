@@ -33,6 +33,9 @@ export interface AgentDecision {
   entity_table: string
   entity_id: string
   confidence: number
+  technical_explanation: string | null
+  business_explanation: string | null
+  causal_explanation: string | null
   reasoning: string
   snapshot_id: string | null
   created_at: string
@@ -55,6 +58,9 @@ export interface TraceEvent {
   agent: 'invoice' | 'budget' | 'reconciliation' | 'credit' | 'cash'
   event_type: string
   timestamp: string
+  technical_explanation?: string | null
+  business_explanation?: string | null
+  causal_explanation?: string | null
   reasoning: string
   details: Record<string, any>
 }
@@ -100,7 +106,10 @@ export const invoiceApi = {
         agent: d.agent,
         event_type: d.decision_type,
         timestamp: d.created_at,
-        reasoning: d.reasoning,
+        technical_explanation: d.technical_explanation,
+        business_explanation: d.business_explanation,
+        causal_explanation: d.causal_explanation,
+        reasoning: d.technical_explanation || d.reasoning,
         details: {}
       }))
     }

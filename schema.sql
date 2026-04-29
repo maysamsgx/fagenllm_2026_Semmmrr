@@ -262,7 +262,9 @@ CREATE TABLE IF NOT EXISTS agent_decisions (
     confidence          NUMERIC(5,2),
     llm_prompt          TEXT,
     llm_response        TEXT,
-    reasoning           TEXT,
+    technical_explanation TEXT,
+    business_explanation  TEXT,
+    causal_explanation    TEXT,
     snapshot_id         UUID REFERENCES financial_state_snapshots(id),
     created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

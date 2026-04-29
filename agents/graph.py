@@ -50,7 +50,7 @@ def route(state: FinancialState) -> str:
         return END
 
     next_agent = state.get("next_agent", "")
-    return next_agent if next_agent in NODE_MAP else END
+    return NODE_MAP.get(next_agent, END)
 
 
 def build_graph() -> StateGraph:

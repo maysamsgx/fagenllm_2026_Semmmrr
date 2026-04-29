@@ -34,7 +34,12 @@ def _run_reconciliation(state: FinancialState) -> FinancialState:
     
     if not internal_txs:
         note = f"Reconciliation {period}: No internal transactions to match."
-        db.log_agent_decision("reconciliation", "reconciliation_complete", "system", "system", note)
+        db.log_agent_decision(
+            agent="reconciliation", decision_type="reconciliation_complete", entity_table="system", entity_id="system",
+            technical_explanation=note,
+            business_explanation="Reconciliation run completed successfully with no items to process.",
+            causal_explanation="No downstream actions required."
+        )
         return {**state, "current_agent": "reconciliation", "next_agent": END}
 
     matched = []
@@ -89,11 +94,13 @@ def _run_reconciliation(state: FinancialState) -> FinancialState:
         anomalies = internal_txs
 
 
+    from utils.contracts import DecisionOutput
+    from utils.llm import qwen_structured
+
     # Analyze anomalies with Qwen3
     system, user = reconciliation_anomaly_prompt(anomalies, period)
-    analysis = qwen_json(system, user)
-    summary  = analysis.get("summary", "Discrepancies found.")
-    systematic = bool(analysis.get("systematic_issue", False))
+    analysis = qwen_structured(system, user, DecisionOutput)
+    systematic = "systematic" in analysis.technical_explanation.lower() or "pattern" in analysis.technical_explanation.lower()
 
     # 1. Log the Agent Decision FIRST (to get decision_id for the report)
     decision_id = db.log_agent_decision(
@@ -101,10 +108,21 @@ def _run_reconciliation(state: FinancialState) -> FinancialState:
         decision_type="reconciliation_complete",
         entity_table="reconciliation_reports",
         entity_id=run_id,
-        reasoning=summary,
+        technical_explanation=analysis.technical_explanation,
+        business_explanation=analysis.business_explanation,
+        causal_explanation=analysis.causal_explanation,
         input_state={"total_unmatched_internal": len(internal_txs), "total_unmatched_bank": len(bank_txs)},
-        output_action={"matched": len(matched), "anomalies": len(anomalies), "systematic": systematic}
+        output_action={"matched": len(matched), "anomalies": len(anomalies), "systematic": systematic},
+        confidence=analysis.confidence
     )
+
+    trace = state.get("reasoning_trace", []) + [{
+        "agent": "reconciliation",
+        "step": "Analyse Anomalies",
+        "technical_explanation": analysis.technical_explanation,
+        "business_explanation": analysis.business_explanation,
+        "causal_explanation": analysis.causal_explanation
+    }]
 
     # 2. Create the V3 Reconciliation Report (linked to decision)
     report_id = db.create_reconciliation_report({
@@ -141,8 +159,9 @@ def _run_reconciliation(state: FinancialState) -> FinancialState:
             "run_id": run_id,
             "report_id": report_id,
             "decision_id": decision_id,
-            "anomaly_summary": summary
+            "anomaly_summary": analysis.business_explanation
         },
+        "reasoning_trace": trace,
         "credit": { **state.get("credit", {}), "customer_id": customer_id or "" }
     }
 

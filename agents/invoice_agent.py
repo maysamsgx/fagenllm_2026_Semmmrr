@@ -47,7 +47,9 @@ def _handle_new_invoice(state: FinancialState, invoice_id: str) -> FinancialStat
         db.log_agent_decision(
             agent="invoice", decision_type="ocr_failed",
             entity_table="invoices", entity_id=invoice_id,
-            reasoning=f"OCR could not extract text from this file: {e}",
+            technical_explanation=f"OCR pipeline raised: {e}",
+            business_explanation="The invoice file could not be digitised, so no fields could be read.",
+            causal_explanation="Blocks all downstream agents (cash, budget, approval) for this invoice.",
             input_state={"file_path": invoice.get("file_path")},
             confidence=0.0,
         )
@@ -56,10 +58,9 @@ def _handle_new_invoice(state: FinancialState, invoice_id: str) -> FinancialStat
     ocr_id = db.log_agent_decision(
         agent="invoice", decision_type="ocr_completed",
         entity_table="invoices", entity_id=invoice_id,
-        reasoning=(
-            f"Extracted {len(ocr_text)} characters from {invoice.get('file_path','file')} "
-            f"using {'local fallback' if ocr_text.startswith('[LOCAL OCR') else 'Baidu Qianfan-OCR-Fast'}."
-        ),
+        technical_explanation=f"Processed {len(ocr_text)} characters using {'local fallback' if ocr_text.startswith('[LOCAL OCR') else 'Baidu Qianfan-OCR-Fast'} pipeline.",
+        business_explanation="Digitizing the physical invoice into structured text to allow automated processing.",
+        causal_explanation="Enables downstream field extraction and validation.",
         input_state={"file_path": invoice.get("file_path")},
         output_action={"ocr_text_excerpt": ocr_text[:1200]},
         confidence=99.0 if not ocr_text.startswith("[LOCAL OCR") else 80.0,
@@ -80,7 +81,9 @@ def _handle_new_invoice(state: FinancialState, invoice_id: str) -> FinancialStat
         db.log_agent_decision(
             agent="invoice", decision_type="extraction_failed",
             entity_table="invoices", entity_id=invoice_id,
-            reasoning="Qwen3 returned non-JSON output; cannot proceed with validation.",
+            technical_explanation="Qwen3 returned non-JSON output; cannot proceed with validation.",
+            business_explanation="Failed to extract required fields, halting invoice processing.",
+            causal_explanation="Blocks invoice progression, requires human intervention.",
             input_state={"ocr_excerpt": ocr_text[:600]},
             output_action={"raw_response": extracted.get("raw", "")[:600]},
             confidence=0.0,
@@ -116,13 +119,9 @@ def _handle_new_invoice(state: FinancialState, invoice_id: str) -> FinancialStat
     extract_id = db.log_agent_decision(
         agent="invoice", decision_type="extraction_completed",
         entity_table="invoices", entity_id=invoice_id,
-        reasoning=(
-            f"Identified vendor '{vendor_name}' (risk: {vendor_risk.get('risk_level','unrated')}). "
-            f"Captured invoice {extracted.get('invoice_number','?')} "
-            f"for {extracted.get('total_amount','?')} {extracted.get('currency','USD')}. "
-            f"Confidence {confidence:.0f}% "
-            f"({'all required fields present' if not missing else 'missing: ' + ', '.join(missing)})."
-        ),
+        technical_explanation=f"LLM extraction mapped OCR to schema with {confidence:.0f}% confidence.",
+        business_explanation=f"Identified vendor '{vendor_name}' for {extracted.get('total_amount','?')} {extracted.get('currency','USD')}.",
+        causal_explanation="Allows vendor risk check and department budget verification.",
         input_state={"ocr_excerpt": ocr_text[:600]},
         output_action=extracted,
         confidence=confidence,
@@ -131,15 +130,13 @@ def _handle_new_invoice(state: FinancialState, invoice_id: str) -> FinancialStat
                        "OCR output enabled the structured field extraction.")
 
     # ── 3. Validation summary (vendor risk gate) ─────────────────────────
-    val_reason = (
-        f"Vendor risk score {vendor_risk.get('risk_score','—')}/100 "
-        f"({vendor_risk.get('risk_level','unrated')}). "
-        f"{'Will require manual review.' if vendor_risk.get('risk_level') == 'high' else 'Cleared for downstream checks.'}"
-    )
+    val_reason = f"Vendor risk score {vendor_risk.get('risk_score','—')}/100."
     valid_id = db.log_agent_decision(
         agent="invoice", decision_type="validation_completed",
         entity_table="invoices", entity_id=invoice_id,
-        reasoning=val_reason,
+        technical_explanation=val_reason,
+        business_explanation=f"{'Will require manual review.' if vendor_risk.get('risk_level') == 'high' else 'Cleared for downstream checks.'}",
+        causal_explanation="Determines if invoice triggers manual routing or proceeds to auto-approval rules.",
         input_state={"vendor_id": vendor_id, **{k: v for k, v in vendor_risk.items() if k != "factors"}},
         output_action={"validation": "passed", "needs_human": vendor_risk.get("risk_level") == "high"},
         confidence=confidence,
@@ -179,15 +176,18 @@ def _handle_approval_routing(state: FinancialState, invoice_id: str, invoice_ctx
     cash_ok = cash_ctx.get("can_approve_payment", True)
     budget_ok = not budget_ctx.get("budget_breach", False)
 
+    from utils.contracts import DecisionOutput
+    from utils.llm import qwen_structured
+
     ap_system, ap_user = invoice_approval_routing_prompt(
         invoice_ctx, cash_ok, budget_ok, budget_ctx.get("utilisation_pct", 0.0)
     )
-    routing = qwen_json(ap_system, ap_user)
-    level = routing.get("approval_level", "manager")
+    routing = qwen_structured(ap_system, ap_user, DecisionOutput)
+    level = routing.decision.lower()
 
-    if level == "auto":
+    if "auto" in level:
         new_status = "approved"
-    elif level == "rejected":
+    elif "reject" in level:
         new_status = "rejected"
     else:
         new_status = "awaiting_approval"
@@ -201,15 +201,25 @@ def _handle_approval_routing(state: FinancialState, invoice_id: str, invoice_ctx
     route_id = db.log_agent_decision(
         agent="invoice", decision_type=f"approval_{level}",
         entity_table="invoices", entity_id=invoice_id,
-        reasoning=routing.get("reasoning", "Routing complete."),
+        technical_explanation=routing.technical_explanation,
+        business_explanation=routing.business_explanation,
+        causal_explanation=routing.causal_explanation,
         input_state={
             "cash_ok": cash_ok, "budget_ok": budget_ok,
             "amount": invoice_ctx.get("amount"),
             "utilisation_pct": budget_ctx.get("utilisation_pct"),
         },
         output_action={"approval_level": level, "new_status": new_status},
-        confidence=float(routing.get("confidence", 90.0)),
+        confidence=routing.confidence,
     )
+
+    trace = state.get("reasoning_trace", []) + [{
+        "agent": "invoice",
+        "step": "Approval Routing",
+        "technical_explanation": routing.technical_explanation,
+        "business_explanation": routing.business_explanation,
+        "causal_explanation": routing.causal_explanation
+    }]
 
     if invoice_ctx.get("decision_id"):
         db.log_causal_link(invoice_ctx["decision_id"], route_id,
@@ -224,7 +234,9 @@ def _handle_approval_routing(state: FinancialState, invoice_id: str, invoice_ctx
             pay_id = db.log_agent_decision(
                 agent="invoice", decision_type="payment_executed",
                 entity_table="payments", entity_id=payment_id,
-                reasoning=f"Auto-payment dispatched for invoice {invoice_id} after auto-approval.",
+                technical_explanation=f"Dispatched wire transfer AUTO-{invoice_id[:8]}.",
+                business_explanation="Settled vendor invoice automatically.",
+                causal_explanation="Reduces available cash balance.",
                 input_state={"amount": invoice_ctx["amount"]},
                 output_action={"method": "wire", "reference": f"AUTO-{invoice_id[:8]}"},
                 confidence=100.0,
@@ -239,6 +251,7 @@ def _handle_approval_routing(state: FinancialState, invoice_id: str, invoice_ctx
         **state,
         "current_agent": "invoice",
         "next_agent": END,
+        "reasoning_trace": trace,
         "invoice": {**invoice_ctx, "status": new_status, "decision_id": route_id},
     }
 

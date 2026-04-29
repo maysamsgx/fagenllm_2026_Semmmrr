@@ -10,7 +10,7 @@ import base64
 import io
 import json
 import logging
-from functools import lru_cache
+import re
 
 from tenacity import retry, stop_after_attempt, wait_exponential
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -22,24 +22,194 @@ logger = logging.getLogger("fagentllm")
 
 # ── Qwen3 helpers ─────────────────────────────────────────────────────────────
 
+# qwen3-32b is a reasoning model: it emits <think>…</think> before the answer.
+# Groq lets us turn that off per-request via reasoning_effort="none".
+_THINK_RE = re.compile(r"<think>.*?</think>", re.DOTALL | re.IGNORECASE)
+_JSON_OBJ_RE = re.compile(r"\{(?:[^{}]|(?:\{[^{}]*\}))*\}", re.DOTALL)
+
+
+def _strip_reasoning(text: str) -> str:
+    """Remove <think>…</think> blocks and code fences left around JSON."""
+    text = _THINK_RE.sub("", text or "").strip()
+    if text.startswith("```"):
+        text = text.split("\n", 1)[1] if "\n" in text else text
+        text = text.removeprefix("json").lstrip()
+    if text.endswith("```"):
+        text = text.rsplit("```", 1)[0].rstrip()
+    return text.strip()
+
+
+def _coerce_json(text: str) -> dict | None:
+    """Best-effort parse: strict first, then first {...} object, then None."""
+    if not text:
+        return None
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+    # First top-level object via greedy balanced match
+    m = _JSON_OBJ_RE.search(text)
+    if m:
+        try:
+            return json.loads(m.group(0))
+        except json.JSONDecodeError:
+            pass
+    # Last resort: substring between first `{` and last `}`
+    if "{" in text and "}" in text:
+        chunk = text[text.index("{"): text.rindex("}") + 1]
+        try:
+            return json.loads(chunk)
+        except json.JSONDecodeError:
+            return None
+    return None
+
+
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
 def qwen_extract(system_prompt: str, user_prompt: str, temperature: float = 0.0) -> str:
+    """Plain text completion via langchain. Used for free-form explanations."""
     llm = get_llm(temperature=temperature)
     response = llm.invoke([SystemMessage(content=system_prompt), HumanMessage(content=user_prompt)])
     return response.content
 
 
-def qwen_json(system_prompt: str, user_prompt: str) -> dict:
-    system_with_json = (
-        system_prompt
-        + "\n\nIMPORTANT: Respond with valid JSON only. No explanation, no markdown, no code fences."
+def _groq_client():
+    """Direct OpenAI-compatible client for Groq. Cached per process."""
+    from openai import OpenAI
+    from config import get_settings
+    s = get_settings()
+    if not hasattr(_groq_client, "_c"):
+        _groq_client._c = OpenAI(api_key=s.groq_api_key, base_url=s.groq_base_url)
+    return _groq_client._c
+
+
+def _qwen_chat_json(messages: list[dict], temperature: float = 0.0,
+                    force_json: bool = True, max_tokens: int = 4096) -> str:
+    """
+    Single Groq call with reasoning disabled and (optionally) JSON mode forced.
+    Returns the raw assistant content. We try JSON mode first; if Groq rejects
+    it for this model we retry without that flag — `reasoning_effort=none` plus
+    our parser is enough.
+    """
+    from config import get_settings
+    s = get_settings()
+    client = _groq_client()
+
+    base = dict(
+        model=s.qwen_model,
+        messages=messages,
+        temperature=temperature,
+        max_tokens=max_tokens,
+        extra_body={"reasoning_effort": "none"},
     )
-    raw = qwen_extract(system_with_json, user_prompt, temperature=0.0)
-    cleaned = raw.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
     try:
-        return json.loads(cleaned)
-    except json.JSONDecodeError:
-        return {"error": "parse_failed", "raw": cleaned}
+        if force_json:
+            r = client.chat.completions.create(**base, response_format={"type": "json_object"})
+        else:
+            r = client.chat.completions.create(**base)
+    except Exception as e:
+        msg = str(e)
+        if force_json and ("response_format" in msg or "json_object" in msg or "unsupported" in msg.lower()):
+            logger.warning(f"Groq rejected response_format for {s.qwen_model}; retrying without JSON mode.")
+            r = client.chat.completions.create(**base)
+        else:
+            raise
+    return (r.choices[0].message.content or "").strip()
+
+
+_JSON_SYSTEM_SUFFIX = (
+    "\n\nOUTPUT CONTRACT — ABSOLUTE:\n"
+    "1. Return ONLY a single JSON object.\n"
+    "2. The first character of your response MUST be `{` and the last MUST be `}`.\n"
+    "3. NO prose, NO markdown, NO code fences, NO <think> blocks, NO commentary.\n"
+    "4. If a value is unknown, use null. Strings must be JSON-quoted."
+)
+
+
+@retry(stop=stop_after_attempt(2), wait=wait_exponential(multiplier=1, min=1, max=4),
+       reraise=True)
+def qwen_json(system_prompt: str, user_prompt: str) -> dict:
+    """
+    Robust JSON extraction with two attempts:
+      attempt 1 → JSON mode + reasoning_effort=none
+      attempt 2 → corrective re-prompt with the broken output as context
+    """
+    system = system_prompt + _JSON_SYSTEM_SUFFIX
+    messages = [
+        {"role": "system", "content": system},
+        {"role": "user",   "content": user_prompt},
+    ]
+    raw = _qwen_chat_json(messages, temperature=0.0, force_json=True)
+    cleaned = _strip_reasoning(raw)
+    parsed = _coerce_json(cleaned)
+    if parsed is not None:
+        return parsed
+
+    # ── Attempt 2: tell the model exactly what it did wrong ─────────────────
+    logger.warning(f"qwen_json: first attempt did not yield JSON. Raw head: {cleaned[:240]!r}")
+    correction = (
+        "Your previous response was NOT valid JSON. "
+        "You returned this (truncated):\n"
+        f"---\n{cleaned[:600]}\n---\n"
+        "Now reply again. Output ONLY the JSON object — start with `{` and end with `}`. "
+        "No reasoning, no prose, no fences."
+    )
+    messages.append({"role": "assistant", "content": cleaned[:1500]})
+    messages.append({"role": "user", "content": correction})
+    raw2 = _qwen_chat_json(messages, temperature=0.0, force_json=True)
+    cleaned2 = _strip_reasoning(raw2)
+    parsed = _coerce_json(cleaned2)
+    if parsed is not None:
+        return parsed
+
+    logger.error(f"qwen_json: both attempts failed. Final raw head: {cleaned2[:400]!r}")
+    return {"error": "parse_failed", "raw": cleaned2[:1200] or cleaned[:1200]}
+
+
+from pydantic import BaseModel
+from typing import Type, TypeVar
+T = TypeVar("T", bound=BaseModel)
+
+
+def qwen_structured(system_prompt: str, user_prompt: str, schema: Type[T]) -> T:
+    """
+    Same robust loop as qwen_json but validates against a Pydantic schema.
+    Retries once if validation fails.
+    """
+    schema_doc = json.dumps(schema.model_json_schema(), indent=2)
+    system = (
+        system_prompt
+        + "\n\nYou must return JSON that exactly matches this JSON Schema:\n"
+        + schema_doc
+        + _JSON_SYSTEM_SUFFIX
+    )
+    messages = [
+        {"role": "system", "content": system},
+        {"role": "user",   "content": user_prompt},
+    ]
+    last_raw = ""
+    for attempt in range(2):
+        raw = _qwen_chat_json(messages, temperature=0.0, force_json=True)
+        last_raw = raw
+        cleaned = _strip_reasoning(raw)
+        parsed = _coerce_json(cleaned)
+        if parsed is not None:
+            try:
+                return schema(**parsed)
+            except Exception as e:
+                logger.warning(f"qwen_structured: schema mismatch on attempt {attempt + 1}: {e}")
+                # Feed the bad output back for a corrective retry
+                messages.append({"role": "assistant", "content": cleaned[:1500]})
+                messages.append({"role": "user", "content":
+                    f"Validation failed: {e}. Return ONLY a JSON object that strictly matches "
+                    "the schema above. Use null for unknown values."})
+                continue
+        # Bad JSON entirely
+        messages.append({"role": "assistant", "content": cleaned[:1500]})
+        messages.append({"role": "user", "content":
+            "Your previous response was not valid JSON. Output ONLY the JSON object now."})
+
+    logger.error(f"qwen_structured: gave up after retries. Raw: {last_raw[:400]!r}")
+    raise ValueError("Qwen3 returned non-JSON output even after corrective retry.")
 
 
 def qwen_explain(context: str, question: str) -> str:

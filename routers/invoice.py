@@ -136,7 +136,10 @@ def get_causal_trace(invoice_id: str):
             "agent": d.get("agent"),
             "event_type": d.get("decision_type"),
             "timestamp": d.get("created_at"),
-            "reasoning": d.get("reasoning") or "",
+            "reasoning": d.get("technical_explanation") or d.get("reasoning") or "",
+            "technical_explanation": d.get("technical_explanation"),
+            "business_explanation": d.get("business_explanation"),
+            "causal_explanation": d.get("causal_explanation"),
             "details": {
                 "input": d.get("input_state") or {},
                 "output": d.get("output_action") or {},

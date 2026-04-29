@@ -126,12 +126,12 @@ Approval thresholds:
 - Senior manager: amount > 50,000 OR cash FAILED OR budget > 95%
 - Reject: budget FAILED AND amount > 10,000
 
-Return JSON:
-{{
-  "approval_level": "auto" | "manager" | "senior_manager" | "rejected",
-  "reasoning": "2-3 sentence explanation a finance manager can read and understand",
-  "flags": ["list of specific flags that influenced this decision"]
-}}"""
+Your response must provide:
+1. Technical Explanation: Logic behind the routing decision.
+2. Business Explanation: Financial implications of this routing.
+3. Causal Explanation: Downstream impacts on cash and budget.
+4. Decision: One of "auto", "manager", "senior_manager", "rejected".
+"""
 
     return system, user
 
@@ -206,14 +206,12 @@ Identify:
 2. Likely root causes (timing differences, data entry errors, missing records)
 3. Recommended actions
 
-Return JSON:
-{{
-  "patterns": ["list of identified patterns"],
-  "likely_causes": ["list of probable root causes"],
-  "systematic_issue": true/false,
-  "summary": "2-3 sentence plain-English summary for finance manager",
-  "recommended_actions": ["list of specific actions to resolve"]
-}}"""
+Your response must provide:
+1. Technical Explanation: Data patterns and discrepancies found.
+2. Business Explanation: Probable root causes and business impact.
+3. Causal Explanation: Recommended actions and downstream triggers.
+4. Decision: Status of the reconciliation.
+"""
 
     return system, user
 
@@ -251,14 +249,11 @@ Computed risk score R: {risk_score:.1f} / 100
 Recent payment history (last 5):
 {payment_text}
 
-Return JSON:
-{{
-  "risk_level": "low" | "medium" | "high",
-  "key_risk_factors": ["top 3 specific factors driving this score"],
-  "positive_indicators": ["any positive payment behaviour worth noting"],
-  "recommended_action": "reminder" | "formal_notice" | "escalate" | "legal_referral" | "monitor",
-  "reasoning": "2-3 sentence plain-English explanation of the risk level and recommended action",
-  "collection_urgency": "low" | "medium" | "high"
-}}"""
+Your response must provide:
+1. Technical Explanation: Interpretation of the risk score R.
+2. Business Explanation: What this means for the company's credit exposure.
+3. Causal Explanation: How this affects payment terms or future transactions.
+4. Decision: One of "reminder", "formal_notice", "escalate", "legal_referral", "monitor".
+"""
 
     return system, user

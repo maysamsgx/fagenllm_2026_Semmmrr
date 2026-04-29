@@ -125,10 +125,16 @@ def initial_state(trigger: str, entity_id: str) -> FinancialState:
     )
 
 
-def add_reasoning(state: FinancialState, agent: str, step: str, reasoning: str) -> FinancialState:
-    """Append a reasoning trace entry."""
+def add_reasoning(state: FinancialState, agent: str, step: str, technical: str, business: str, causal: str) -> FinancialState:
+    """Append a structured XAI reasoning trace entry."""
     trace = state.get("reasoning_trace", [])
-    trace.append({"agent": agent, "step": step, "reasoning": reasoning})
+    trace.append({
+        "agent": agent, 
+        "step": step, 
+        "technical_explanation": technical,
+        "business_explanation": business,
+        "causal_explanation": causal
+    })
     # Return a new dict to ensure LangGraph state update
     new_state = state.copy()
     new_state["reasoning_trace"] = trace
