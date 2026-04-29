@@ -4,6 +4,8 @@ import { invoiceApi, Invoice } from '../lib/api'
 import { Card, Badge, Spinner, Empty, STATUS_COLOR, fmt } from './Shared'
 import TracePanel from './TracePanel'
 
+import { useRealtime } from '../lib/useRealtime'
+
 export default function InvoiceView() {
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [loading, setLoading]   = useState(true)
@@ -16,7 +18,8 @@ export default function InvoiceView() {
     invoiceApi.list().then(setInvoices).finally(() => setLoading(false))
   }, [])
 
-  useEffect(() => { load(); const t = setInterval(load, 5000); return () => clearInterval(t) }, [load])
+  useEffect(() => { load() }, [load])
+  useRealtime('invoices', load)
 
   async function upload(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0]; if (!f) return

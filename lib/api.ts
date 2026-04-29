@@ -144,6 +144,7 @@ export interface ForecastDay {
 export const cashApi = {
   position: () => req<{ total_balance: number; accounts: CashAccount[] }>('/cash/position'),
   forecast: () => req<{ forecast: ForecastDay[] }>('/cash/forecast?days=7'),
+  run: () => req<{ message: string }>('/cash/run', { method: 'POST' }),
 }
 
 // ── Budget ────────────────────────────────────────────────────────────────
@@ -170,6 +171,13 @@ export const budgetApi = {
   periods: () => req<{ periods: string[]; current: string }>('/budget/periods'),
   alerts: () => req<BudgetAlert[]>('/budget/alerts/active'),
   ack: (id: string) => req(`/budget/alerts/${id}/acknowledge`, { method: 'POST' }),
+  run: (period?: string, departmentId?: string) => {
+    const qs = new URLSearchParams()
+    if (period) qs.set('period', period)
+    if (departmentId) qs.set('department_id', departmentId)
+    const tail = qs.toString() ? `?${qs.toString()}` : ''
+    return req<{ message: string }>(`/budget/run${tail}`, { method: 'POST' })
+  },
 }
 
 // ── Reconciliation ────────────────────────────────────────────────────────

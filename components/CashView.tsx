@@ -1,21 +1,25 @@
 import { useState, useEffect } from 'react'
+import { RefreshCw } from 'lucide-react'
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from 'recharts'
 import { cashApi, CashAccount, ForecastDay } from '../lib/api'
 import { Card, Badge, Empty, fmt } from './Shared'
+import { useRealtime } from '../lib/useRealtime'
 
 export default function CashView() {
   const [pos, setPos]       = useState<{ total_balance: number; accounts: CashAccount[] } | null>(null)
   const [forecast, setFore] = useState<ForecastDay[]>([])
+  const [running, setRunning] = useState(false)
 
-  useEffect(() => {
+  const load = () => {
     cashApi.position().then(setPos)
     cashApi.forecast().then(r => setFore(r.forecast))
-    const t = setInterval(() => {
-      cashApi.position().then(setPos)
-      cashApi.forecast().then(r => setFore(r.forecast))
-    }, 10000)
-    return () => clearInterval(t)
-  }, [])
+  }
+
+  useEffect(() => { load() }, [])
+
+  useRealtime('cash_accounts', load)
+  useRealtime('transactions', load)
+  useRealtime('cash_flow_forecasts', load)
 
   const fmtDay = (d: string) => new Date(d).toLocaleDateString('en', { weekday: 'short', day: 'numeric' })
 
@@ -26,6 +30,18 @@ export default function CashView() {
           <h2>Cash Management</h2>
           <p className="view-sub">C<sub>t+1</sub> = C<sub>t</sub> + I<sub>t</sub> − O<sub>t</sub> &nbsp;·&nbsp; 7-day liquidity forecast</p>
         </div>
+        <button
+          className="btn-primary"
+          disabled={running}
+          onClick={async () => {
+            setRunning(true)
+            try { await cashApi.run() } catch (e) { alert(`Run failed: ${e}`) }
+            setTimeout(() => { load(); setRunning(false) }, 4000)
+          }}
+        >
+          <RefreshCw size={14} className={running ? 'spin' : ''} />
+          {running ? 'Refreshing…' : 'Refresh Position'}
+        </button>
       </div>
 
       <div className="stats-row">

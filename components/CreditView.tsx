@@ -3,6 +3,7 @@ import { Shield } from 'lucide-react'
 import { ResponsiveContainer, BarChart, Bar, Cell, XAxis, YAxis, Tooltip } from 'recharts'
 import { creditApi, Customer } from '../lib/api'
 import { Card, Badge, Empty, RISK_COLOR, RISK_BG, fmt } from './Shared'
+import { useRealtime } from '../lib/useRealtime'
 
 export default function CreditView() {
   const [customers, setCustomers] = useState<Customer[]>([])
@@ -13,7 +14,10 @@ export default function CreditView() {
     creditApi.customers().then(setCustomers)
     creditApi.aging().then(r => { setAging(r.buckets); setTotalOpen(r.total_open) })
   }
-  useEffect(() => { load(); const t = setInterval(load, 10000); return () => clearInterval(t) }, [])
+  useEffect(() => { load() }, [])
+
+  useRealtime('customers', load)
+  useRealtime('receivables', load)
 
   const agingData = Object.entries(aging).map(([k, v]) => ({
     bucket: k.replace('_', '–').replace('1', '1'), amount: v,

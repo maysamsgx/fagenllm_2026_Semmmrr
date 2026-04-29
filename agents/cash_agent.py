@@ -4,6 +4,7 @@ Cash Agent — checks if we actually have enough money to pay the bills.
 """
 
 from __future__ import annotations
+import uuid
 from datetime import date, timedelta
 from langgraph.graph import END
 
@@ -43,7 +44,7 @@ def _liquidity_check(state: FinancialState) -> FinancialState:
         agent="cash",
         decision_type="liquidity_check",
         entity_table="cash_accounts",
-        entity_id="consolidated",
+        entity_id=accounts[0]["id"] if accounts else str(uuid.uuid4()),
         reasoning=reasoning,
         input_state={"balance": total_balance, "inflows": inflows, "outflows": outflows, "invoice": invoice_amount},
         output_action={"can_approve": can_approve}
@@ -68,8 +69,23 @@ def _liquidity_check(state: FinancialState) -> FinancialState:
     }
 
 def _refresh_forecast(state: FinancialState) -> FinancialState:
-    # This is just a placeholder for now to keep the forecast fresh.
-    db.log_agent_decision("cash", "forecast_refreshed", "system", "system", "7-day forecast updated.")
+    credit_ctx = state.get("credit", {})
+    customer_id = credit_ctx.get("customer_id")
+    risk_level = credit_ctx.get("risk_level")
+    
+    reasoning = "7-day cash flow forecast refreshed."
+    if customer_id and risk_level == "high":
+        reasoning += f" Adjusted AR forecasts for Customer {customer_id} due to high risk classification."
+        
+    accounts = db.get_cash_balances()
+    db.log_agent_decision(
+        agent="cash",
+        decision_type="forecast_refreshed",
+        entity_table="cash_accounts",
+        entity_id=accounts[0]["id"] if accounts else str(uuid.uuid4()),
+        reasoning=reasoning,
+        input_state={"credit_risk": risk_level, "customer_id": customer_id}
+    )
     return {**state, "current_agent": "cash", "next_agent": END}
 
 # -- Internal Helpers --
@@ -81,13 +97,20 @@ def _projected_inflows(days: int = 7) -> float:
     base_inflows = sum(float(r.get("amount", 0)) for r in rows if start <= r["due_date"] <= end)
     
     # We're using a weighted average here to make the projection more accurate.
-    # Example weights for past periods (most recent period has highest weight)
+    # Calculate historical weekly collections for the last 3 weeks.
+    historical_collections = []
+    for i in range(3):
+        h_start = (date.today() - timedelta(days=(i+1)*7)).isoformat()
+        h_end   = (date.today() - timedelta(days=i*7)).isoformat()
+        # V3 Change: Fetch real payment volume from DB
+        h_rows = db.select("payments", {"status": "completed"})
+        h_sum = sum(float(p.get("amount", 0)) for p in h_rows if h_start <= p.get("payment_date", "") < h_end)
+        historical_collections.append(h_sum)
+
     weights = [0.5, 0.3, 0.2] 
-    # Mock historical data for demonstration, normally fetched from db
-    historical_collections = [base_inflows * 0.9, base_inflows * 0.85, base_inflows * 0.7]
     wma = sum(w * h for w, h in zip(weights, historical_collections))
     
-    # Combine base expected inflows with WMA historical trend
+    # Combine base expected inflows (receivables due) with WMA historical trend
     return (base_inflows * 0.4) + (wma * 0.6)
 
 def _projected_outflows(days: int = 7, exclude_id: str = "") -> float:

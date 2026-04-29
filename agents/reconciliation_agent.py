@@ -109,7 +109,6 @@ def _run_reconciliation(state: FinancialState) -> FinancialState:
     # 2. Create the V3 Reconciliation Report (linked to decision)
     report_id = db.create_reconciliation_report({
         "period": period,
-        "run_id": run_id,
         "total_internal": len(internal_txs),
         "total_external": len(bank_txs),
         "matched_count": len(matched),

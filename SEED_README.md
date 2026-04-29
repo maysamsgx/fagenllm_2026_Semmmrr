@@ -1,6 +1,6 @@
 # FAgentLLM Synthetic Data Seeder
 
-Seeds your v2 schema with ~10K rows of realistic financial data covering **Nov 2025 → Apr 2026**.
+~10K rows of realistic financial data covering **Nov 2025 → Apr 2026**.
 
 ## What gets seeded (and what doesn't)
 

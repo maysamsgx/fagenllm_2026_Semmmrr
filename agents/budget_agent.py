@@ -11,7 +11,7 @@ from agents.state import FinancialState, add_reasoning
 from db.supabase_client import db
 from utils.llm import qwen_explain
 
-ALERT_THRESHOLD  = 90.0
+ALERT_THRESHOLD  = 95.0
 HARD_STOP_THRESHOLD = 100.0
 
 def budget_node(state: FinancialState) -> FinancialState:

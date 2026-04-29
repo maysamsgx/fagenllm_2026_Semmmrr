@@ -3,6 +3,7 @@ import { RefreshCw } from 'lucide-react'
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts'
 import { reconApi, ReconStats } from '../lib/api'
 import { Card, Empty, pct } from './Shared'
+import { useRealtime } from '../lib/useRealtime'
 
 export default function ReconciliationView() {
   const [stats, setStats]     = useState<ReconStats | null>(null)
@@ -12,10 +13,13 @@ export default function ReconciliationView() {
   const load = () => {
     reconApi.stats().then(setStats)
     reconApi.report().then(r => {
-      if ('match_rate' in r) setReport(r as any)
+      if (r && 'match_rate' in r) setReport(r as any)
     })
   }
-  useEffect(() => { load(); const t = setInterval(load, 8000); return () => clearInterval(t) }, [])
+  useEffect(() => { load() }, [])
+
+  useRealtime('transactions', load)
+  useRealtime('reconciliation_reports', load)
 
   async function runRecon() {
     setRunning(true)

@@ -1,11 +1,31 @@
 """routers/budget.py — Budget Management Agent endpoints (V2)."""
 
 from datetime import date
-from fastapi import APIRouter, Query, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Query, HTTPException
 from db.supabase_client import db
 from config import get_supabase
 
 router = APIRouter()
+
+
+@router.post("/run")
+def run_budget_review(background_tasks: BackgroundTasks,
+                     department_id: str | None = Query(None),
+                     period: str | None = Query(None)):
+    """Trigger a budget review through the supervisor."""
+    from agents.graph import graph
+    from agents.state import initial_state
+
+    run_period = period or current_period()
+    entity = department_id or "all"
+
+    def _run():
+        state = initial_state("budget_review", entity)
+        state["budget"] = {"department_id": department_id or "", "period": run_period}
+        graph.invoke(state)
+
+    background_tasks.add_task(_run)
+    return {"message": "Budget review started", "department_id": department_id, "period": run_period}
 
 
 def current_period() -> str:

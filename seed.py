@@ -264,6 +264,34 @@ def gen_budgets(departments):
     return budgets
 
 
+def gen_vendor_risk_scores(vendors):
+    """Generate V3 risk scores for every vendor."""
+    scores = []
+    for v in vendors:
+        # Risk distribution: 60% low, 30% medium, 10% high
+        r = random.random()
+        if r < 0.60:
+            risk, score = "low", random.uniform(85, 100)
+        elif r < 0.90:
+            risk, score = "medium", random.uniform(50, 84)
+        else:
+            risk, score = "high", random.uniform(10, 49)
+
+        scores.append({
+            "id": gen_uuid(),
+            "vendor_id": v["id"],
+            "risk_score": round(score, 2),
+            "risk_level": risk,
+            "last_assessed": TODAY.isoformat(),
+            "factors": {
+                "payment_reliability": "high" if risk == "low" else "low",
+                "years_active": random.randint(1, 15),
+                "data_quality": "excellent" if r < 0.8 else "marginal"
+            },
+        })
+    return scores
+
+
 def period_for_date(d: date) -> str:
     q = (d.month - 1) // 3 + 1
     return f"{d.year}-Q{q}"
@@ -515,7 +543,29 @@ def gen_receivables(ar_invoices, customers):
     return receivables
 
 
-def gen_transactions(ap_invoices, ar_invoices, cash_accounts):
+def gen_payments(ap_invoices):
+    """Generate V3 payments bridge records for paid invoices."""
+    payments = []
+    for inv in ap_invoices:
+        if inv["status"] == "paid":
+            inv_date = date.fromisoformat(inv["invoice_date"])
+            pay_date = inv_date + timedelta(days=random.randint(5, 25))
+            if pay_date > TODAY:
+                continue
+
+            payments.append({
+                "id": gen_uuid(),
+                "invoice_id": inv["id"],
+                "amount": inv["total_amount"],
+                "payment_date": pay_date.isoformat(),
+                "method": "wire",
+                "status": "completed",
+                "reference": f"PAY-{inv['invoice_number']}",
+            })
+    return payments
+
+
+def gen_transactions(ap_invoices, ar_invoices, cash_accounts, payments):
     """
     Generate internal + bank transactions for paid invoices.
     Plant reconciliation discrepancies (S5):
@@ -527,6 +577,9 @@ def gen_transactions(ap_invoices, ar_invoices, cash_accounts):
     transactions = []
     operating = next(a for a in cash_accounts if a["account_name"] == "Operating Account")
     payroll   = next(a for a in cash_accounts if a["account_name"] == "Payroll Account")
+
+    # Map payments by invoice_id
+    pay_map = {p["invoice_id"]: p["id"] for p in payments}
 
     # AP outflows
     for inv in ap_invoices:
@@ -549,6 +602,7 @@ def gen_transactions(ap_invoices, ar_invoices, cash_accounts):
             "description": f"Payment for {inv['invoice_number']}",
             "counterparty": "Vendor",
             "invoice_id": inv["id"],
+            "payment_id": pay_map.get(inv["id"]),
             "cash_account_id": operating["id"],
             "matched": False,
             "matched_to": None,
@@ -811,9 +865,15 @@ def generate_all():
     line_items = gen_line_items(ap_invoices + ar_invoices)
     print(f"  * {len(line_items)} line items")
 
+    print("\nGenerating V3 layers (Risk + Payments)...")
+    vendor_risk_scores = gen_vendor_risk_scores(vendors)
+    payments = gen_payments(ap_invoices)
+    print(f"  * {len(vendor_risk_scores)} vendor risk scores")
+    print(f"  * {len(payments)} payments (bridging invoices and transactions)")
+
     print("\nGenerating receivables, transactions, forecasts...")
     receivables = gen_receivables(ar_invoices, customers)
-    transactions = gen_transactions(ap_invoices, ar_invoices, cash_accounts)
+    transactions = gen_transactions(ap_invoices, ar_invoices, cash_accounts, payments)
     forecasts = gen_cash_flow_forecasts(cash_accounts, ap_invoices, ar_invoices)
     print(f"  * {len(receivables)} receivables")
     print(f"  * {len(transactions)} transactions (internal + bank)")
@@ -828,11 +888,13 @@ def generate_all():
     return {
         "departments": departments,
         "vendors": vendors,
+        "vendor_risk_scores": vendor_risk_scores,
         "customers": customers,
         "cash_accounts": cash_accounts,
         "budgets": budgets,
         "invoices": ap_invoices + ar_invoices,
         "invoice_line_items": line_items,
+        "payments": payments,
         "receivables": receivables,
         "transactions": transactions,
         "cash_flow_forecasts": forecasts,
@@ -884,11 +946,13 @@ def print_summary(data):
 INSERT_ORDER = [
     "departments",
     "vendors",
+    "vendor_risk_scores",
     "customers",
     "cash_accounts",
     "budgets",
     "invoices",
     "invoice_line_items",
+    "payments",
     "receivables",
     "transactions",
     "cash_flow_forecasts",
@@ -928,7 +992,7 @@ def insert_to_supabase(data):
         for start in range(0, total, batch_size):
             batch = rows[start:start + batch_size]
             try:
-                client.table(table).insert(batch).execute()
+                client.table(table).upsert(batch).execute()
                 inserted += len(batch)
                 print(f"  {table:25s} {inserted:>6d} / {total} rows", end="\r")
             except Exception as e:

@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react'
-import { AlertTriangle } from 'lucide-react'
+import { AlertTriangle, RefreshCw } from 'lucide-react'
 import { budgetApi, Budget, BudgetAlert } from '../lib/api'
 import { Card, Badge, fmt, pct } from './Shared'
+import { useRealtime } from '../lib/useRealtime'
 
 export default function BudgetView() {
   const [budgets, setBudgets] = useState<Budget[]>([])
   const [alerts, setAlerts]   = useState<BudgetAlert[]>([])
   const [periods, setPeriods] = useState<string[]>([])
   const [period, setPeriod]   = useState<string>('')
+  const [running, setRunning] = useState(false)
 
   useEffect(() => {
     budgetApi.periods().then(({ periods, current }) => {
@@ -25,9 +27,10 @@ export default function BudgetView() {
   useEffect(() => {
     if (!period) return
     load()
-    const t = setInterval(load, 8000)
-    return () => clearInterval(t)
   }, [period])
+
+  useRealtime('budgets', load)
+  useRealtime('budget_alerts', load)
 
   return (
     <div className="view">
@@ -36,18 +39,32 @@ export default function BudgetView() {
           <h2>Budget Management</h2>
           <p className="view-sub">Spend tracking · variance alerts · moving-average forecast</p>
         </div>
-        {periods.length > 0 && (
-          <select
-            value={period}
-            onChange={(e) => setPeriod(e.target.value)}
-            className="period-select"
-            aria-label="Budget period"
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          {periods.length > 0 && (
+            <select
+              value={period}
+              onChange={(e) => setPeriod(e.target.value)}
+              className="period-select"
+              aria-label="Budget period"
+            >
+              {periods.map((p) => (
+                <option key={p} value={p}>{p}</option>
+              ))}
+            </select>
+          )}
+          <button
+            className="btn-primary"
+            disabled={running}
+            onClick={async () => {
+              setRunning(true)
+              try { await budgetApi.run(period) } catch (e) { alert(`Run failed: ${e}`) }
+              setTimeout(() => { load(); setRunning(false) }, 5000)
+            }}
           >
-            {periods.map((p) => (
-              <option key={p} value={p}>{p}</option>
-            ))}
-          </select>
-        )}
+            <RefreshCw size={14} className={running ? 'spin' : ''} />
+            {running ? 'Reviewing…' : 'Run Budget Review'}
+          </button>
+        </div>
       </div>
 
       {alerts.length > 0 && (

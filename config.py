@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     # Get key: https://openrouter.ai -> API Keys
     openrouter_api_key: str
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
-    ocr_model: str = "baidu/qianfan-ocr-fast"
+    ocr_model: str = "baidu/qianfan-ocr-fast:free"
 
     # App
     app_env: str = "development"

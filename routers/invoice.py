@@ -97,29 +97,58 @@ def approve_invoice(invoice_id: str, body: ApproveRequest):
 
 @router.get("/{invoice_id}/causal-trace")
 def get_causal_trace(invoice_id: str):
-    # This is where we pull the whole causal trail — decisions, links, and snapshots.
-    # It's basically the "How did we get here?" logic for the UI.
+    """
+    Full causal trail for an invoice: every decision row, every causal link,
+    and the latest financial-state snapshot at the time of the last decision.
+    The UI's TracePanel reads `trace`, which is the same decisions reshaped
+    into the TraceEvent shape it renders.
+    """
+    supabase = get_supabase()
+
+    # Pull every decision the invoice agent (or downstream agents) wrote
+    # against this invoice OR against payments that came from it.
     decisions = db.select("agent_decisions", {"entity_id": invoice_id})
+    payments = supabase.table("payments").select("id").eq("invoice_id", invoice_id).execute().data or []
+    for p in payments:
+        decisions.extend(db.select("agent_decisions", {"entity_id": p["id"]}))
+
+    decisions = sorted(decisions, key=lambda d: d["created_at"])
     dec_ids = [d["id"] for d in decisions]
-    
+
     links = []
     if dec_ids:
-        supabase = get_supabase()
-        # Find all links where cause or effect is in our decision list
-        links = supabase.table("causal_links") \
-            .select("*").or_(f"cause_decision_id.in.({','.join(dec_ids)}),effect_decision_id.in.({','.join(dec_ids)})") \
-            .execute().data
+        in_list = ",".join(dec_ids)
+        links = (supabase.table("causal_links")
+                 .select("*")
+                 .or_(f"cause_decision_id.in.({in_list}),effect_decision_id.in.({in_list})")
+                 .execute().data) or []
 
-    # Get the latest snapshot at the time of the last decision
     snapshot = None
     if decisions:
-        latest_dec = max(decisions, key=lambda d: d["created_at"])
+        latest_dec = decisions[-1]
         if latest_dec.get("snapshot_id"):
-            snapshot = supabase.table("financial_state_snapshots") \
-                .select("*").eq("id", latest_dec["snapshot_id"]).execute().data[0]
+            res = (supabase.table("financial_state_snapshots")
+                   .select("*").eq("id", latest_dec["snapshot_id"]).execute().data)
+            snapshot = res[0] if res else None
+
+    trace = [
+        {
+            "agent": d.get("agent"),
+            "event_type": d.get("decision_type"),
+            "timestamp": d.get("created_at"),
+            "reasoning": d.get("reasoning") or "",
+            "details": {
+                "input": d.get("input_state") or {},
+                "output": d.get("output_action") or {},
+                "confidence": d.get("confidence"),
+            },
+        }
+        for d in decisions
+    ]
 
     return {
-        "decisions": sorted(decisions, key=lambda d: d["created_at"]),
+        "decisions": decisions,
         "links": links,
-        "snapshot": snapshot
+        "snapshot": snapshot,
+        "trace": trace,
     }

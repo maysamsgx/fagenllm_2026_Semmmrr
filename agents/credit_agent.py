@@ -24,10 +24,7 @@ def _assess_customer(state: FinancialState) -> FinancialState:
     customer_id = credit_ctx.get("customer_id", "")
 
     if not customer_id:
-        # Default to first customer for demo if none specified
-        customers = db.select("customers")
-        if not customers: return {**state, "next_agent": END}
-        customer_id = customers[0]["id"]
+        return _error(state, "No customer_id specified for credit assessment")
 
     customer = db.get_customer(customer_id)
     if not customer: return {**state, "next_agent": END, "error": "Customer not found"}
@@ -65,12 +62,16 @@ def _assess_customer(state: FinancialState) -> FinancialState:
     return {
         **state,
         "current_agent": "credit",
-        "next_agent":    END,
         "credit": {
             "customer_id": customer_id,
             "credit_score": score,
             "risk_level": risk_level,
             "risk_explanation": reasoning,
             "decision_id": decision_id
-        }
+        },
+        "next_agent": "cash" if risk_level == "high" else END,
+        "trigger": "cash_position_refresh" if risk_level == "high" else "done"
     }
+
+def _error(state: FinancialState, msg: str) -> FinancialState:
+    return {**state, "next_agent": END, "error": msg, "current_agent": "credit"}

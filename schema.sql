@@ -322,4 +322,83 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Publication and remaining indices omitted for brevity in this SQL overview.
+-- =============================================================
+-- Bind fn_snapshot_financial_state() to the tables that should snapshot
+-- =============================================================
+DROP TRIGGER IF EXISTS trg_snap_invoices      ON invoices;
+DROP TRIGGER IF EXISTS trg_snap_budgets       ON budgets;
+DROP TRIGGER IF EXISTS trg_snap_transactions  ON transactions;
+DROP TRIGGER IF EXISTS trg_snap_receivables   ON receivables;
+DROP TRIGGER IF EXISTS trg_snap_cash_accounts ON cash_accounts;
+DROP TRIGGER IF EXISTS trg_snap_payments      ON payments;
+
+CREATE TRIGGER trg_snap_invoices
+  AFTER INSERT OR UPDATE OF status, total_amount ON invoices
+  FOR EACH ROW EXECUTE FUNCTION fn_snapshot_financial_state();
+
+CREATE TRIGGER trg_snap_budgets
+  AFTER INSERT OR UPDATE OF spent, committed, allocated ON budgets
+  FOR EACH ROW EXECUTE FUNCTION fn_snapshot_financial_state();
+
+CREATE TRIGGER trg_snap_transactions
+  AFTER INSERT OR UPDATE OF matched, amount ON transactions
+  FOR EACH ROW EXECUTE FUNCTION fn_snapshot_financial_state();
+
+CREATE TRIGGER trg_snap_receivables
+  AFTER INSERT OR UPDATE OF status, amount, days_overdue ON receivables
+  FOR EACH ROW EXECUTE FUNCTION fn_snapshot_financial_state();
+
+CREATE TRIGGER trg_snap_cash_accounts
+  AFTER INSERT OR UPDATE OF current_balance ON cash_accounts
+  FOR EACH ROW EXECUTE FUNCTION fn_snapshot_financial_state();
+
+CREATE TRIGGER trg_snap_payments
+  AFTER INSERT OR UPDATE OF amount, status ON payments
+  FOR EACH ROW EXECUTE FUNCTION fn_snapshot_financial_state();
+
+-- =============================================================
+-- Realtime: full row replication and publication membership
+-- =============================================================
+ALTER TABLE invoices                  REPLICA IDENTITY FULL;
+ALTER TABLE budgets                   REPLICA IDENTITY FULL;
+ALTER TABLE budget_alerts             REPLICA IDENTITY FULL;
+ALTER TABLE transactions              REPLICA IDENTITY FULL;
+ALTER TABLE receivables               REPLICA IDENTITY FULL;
+ALTER TABLE cash_accounts             REPLICA IDENTITY FULL;
+ALTER TABLE cash_flow_forecasts       REPLICA IDENTITY FULL;
+ALTER TABLE customers                 REPLICA IDENTITY FULL;
+ALTER TABLE payments                  REPLICA IDENTITY FULL;
+ALTER TABLE reconciliation_reports    REPLICA IDENTITY FULL;
+ALTER TABLE financial_state_snapshots REPLICA IDENTITY FULL;
+ALTER TABLE agent_decisions           REPLICA IDENTITY FULL;
+ALTER TABLE causal_links              REPLICA IDENTITY FULL;
+ALTER TABLE vendor_risk_scores        REPLICA IDENTITY FULL;
+
+DO $pub$
+DECLARE
+  t TEXT;
+  tables TEXT[] := ARRAY[
+    'invoices','budgets','budget_alerts','transactions','receivables',
+    'cash_accounts','cash_flow_forecasts','customers','payments',
+    'reconciliation_reports','financial_state_snapshots','agent_decisions',
+    'causal_links','vendor_risk_scores'
+  ];
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+    CREATE PUBLICATION supabase_realtime FOR TABLE
+      invoices, budgets, budget_alerts, transactions, receivables,
+      cash_accounts, cash_flow_forecasts, customers, payments,
+      reconciliation_reports, financial_state_snapshots, agent_decisions,
+      causal_links, vendor_risk_scores;
+  ELSE
+    FOREACH t IN ARRAY tables LOOP
+      BEGIN
+        EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE %I', t);
+      EXCEPTION WHEN duplicate_object THEN
+        -- table already in publication, skip
+        NULL;
+      END;
+    END LOOP;
+  END IF;
+END
+$pub$;
