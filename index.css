@@ -5,6 +5,22 @@
 
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=DM+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
+@font-face {
+  font-family: 'Chokokutai';
+  src: url('/fonts/Chokokutai-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'InterVar';
+  src: url('/fonts/Inter-VariableFont_opsz,wght.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
@@ -71,10 +87,8 @@ body::before {
   content: '';
   position: fixed; inset: 0;
   background:
-    radial-gradient(1100px 600px at 12% -5%, rgba(99, 102, 241, .22), transparent 55%),
-    radial-gradient(900px 500px at 95% 10%, rgba(34, 211, 238, .18), transparent 60%),
-    radial-gradient(800px 450px at 85% 95%, rgba(167, 139, 250, .14), transparent 60%),
-    linear-gradient(180deg, #04060d 0%, #080b18 50%, #04060d 100%);
+    linear-gradient(180deg, rgba(4, 6, 13, 0.5) 0%, rgba(4, 6, 13, 0.85) 100%),
+    url('/assets/mountain_bg.jpg') center/cover no-repeat fixed;
   z-index: -2;
   pointer-events: none;
 }
@@ -111,8 +125,11 @@ body::after {
    ══════════════════════════════════════════════════════════════════════════ */
 .layout {
   display: grid;
-  grid-template-columns: 256px 1fr;
+  grid-template-columns: 260px 1fr;
   height: 100vh;
+  padding: 24px;
+  gap: 24px;
+  background: transparent;
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -123,19 +140,14 @@ body::after {
   display: flex;
   flex-direction: column;
   padding: 0;
-  background: linear-gradient(180deg, rgba(8, 11, 24, .92) 0%, rgba(4, 6, 13, .96) 100%);
-  border-right: 1px solid var(--border);
-  backdrop-filter: blur(40px) saturate(140%);
-  -webkit-backdrop-filter: blur(40px) saturate(140%);
-  height: 100vh;
+  background: linear-gradient(180deg, rgba(8, 11, 24, .65) 0%, rgba(4, 6, 13, .85) 100%);
+  border: 1px solid var(--border-2);
+  border-radius: 24px;
+  backdrop-filter: blur(24px) saturate(140%);
+  -webkit-backdrop-filter: blur(24px) saturate(140%);
+  height: 100%;
   overflow: hidden;
-}
-
-.sidebar::before {
-  content: '';
-  position: absolute;
-  top: 0; right: 0; width: 1px; height: 100%;
-  background: linear-gradient(180deg, transparent 0%, rgba(34, 211, 238, .35) 50%, transparent 100%);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
 }
 
 .sidebar-brand {
@@ -156,21 +168,22 @@ body::after {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  filter: drop-shadow(0 0 8px rgba(34, 211, 238, .6));
+  filter: drop-shadow(0 0 12px rgba(255, 255, 255, 0.45));
 }
 
 .brand-name {
-  font-family: 'Cormorant Garamond', serif;
-  font-size: 22px;
-  font-weight: 600;
+  font-family: 'Chokokutai', sans-serif;
+  font-size: 20px;
+  font-weight: 400;
   color: var(--text);
-  letter-spacing: -0.02em;
-  line-height: 1.1;
+  letter-spacing: 0.01em;
+  line-height: 1.4;
+  text-shadow: 0 0 20px rgba(34, 211, 238, 0.3);
 }
 .brand-sub {
-  font-family: 'Inter', sans-serif;
+  font-family: 'InterVar', sans-serif;
   font-size: 9px;
-  color: var(--cyan);
+  color: var(--text-2);
   margin-top: 4px;
   text-transform: uppercase;
   letter-spacing: 0.15em;
@@ -180,18 +193,18 @@ body::after {
 
 .sidebar-nav {
   flex: 1;
-  padding: 16px 12px;
+  padding: 16px 16px;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 8px;
 }
 
 .nav-item {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 11px 12px;
-  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  border-radius: 999px;
   border: 1px solid transparent;
   background: transparent;
   color: var(--text-3);
@@ -203,24 +216,17 @@ body::after {
   transition: all .25s cubic-bezier(.4, 0, .2, 1);
 }
 .nav-item:hover {
-  background: var(--surface);
+  background: rgba(255, 255, 255, 0.04);
   color: var(--text-2);
-  border-color: var(--border);
 }
 .nav-item.active {
-  background: linear-gradient(135deg, rgba(34, 211, 238, .12) 0%, rgba(139, 92, 246, .12) 100%);
+  background: linear-gradient(135deg, rgba(34, 211, 238, .12) 0%, rgba(34, 211, 238, .03) 100%);
   border-color: rgba(34, 211, 238, .25);
   color: var(--text);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.06), var(--glow-cyan);
+  box-shadow: 0 0 24px rgba(34, 211, 238, 0.15), inset 0 1px 0 rgba(255,255,255,.05);
 }
 .nav-item.active::before {
-  content: '';
-  position: absolute;
-  left: -12px; top: 50%; transform: translateY(-50%);
-  width: 3px; height: 22px;
-  background: linear-gradient(180deg, var(--cyan), var(--violet));
-  border-radius: 0 3px 3px 0;
-  box-shadow: 0 0 12px var(--cyan);
+  display: none;
 }
 .nav-icon {
   flex-shrink: 0;
@@ -282,8 +288,14 @@ body::after {
    ══════════════════════════════════════════════════════════════════════════ */
 .main {
   overflow-y: auto;
-  height: 100vh;
+  height: 100%;
   position: relative;
+  background: linear-gradient(180deg, rgba(8, 11, 24, .65) 0%, rgba(4, 6, 13, .85) 100%);
+  border-radius: 24px;
+  border: 1px solid var(--border-2);
+  backdrop-filter: blur(24px) saturate(140%);
+  -webkit-backdrop-filter: blur(24px) saturate(140%);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
 }
 
 .view {
