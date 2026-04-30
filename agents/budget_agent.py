@@ -51,28 +51,47 @@ def _check_budget(state: FinancialState) -> FinancialState:
     committed  = float(budget.get("committed", 0) or 0)
 
     total_committed = spent + committed + amount
+    prior_pct = (spent + committed) / allocated * 100 if allocated > 0 else 0.0
     utilisation_pct = (total_committed / allocated * 100) if allocated > 0 else 0.0
     breach = utilisation_pct >= ALERT_THRESHOLD
+    hard_stop = utilisation_pct >= HARD_STOP_THRESHOLD
+    remaining = max(0.0, allocated - total_committed)
 
-    technical_explanation = f"Utilisation for {dept_id} is {utilisation_pct:.1f}% (${total_committed:,.2f} of ${allocated:,.2f})."
-    business_explanation = f"Department has spent {utilisation_pct:.1f}% of its allocated budget."
-    causal_explanation = "Determines whether invoice requires high-level approval or rejection due to lack of funds."
-    if breach:
-        technical_explanation += " Threshold breached."
-        business_explanation += " Warning: Spending exceeds safe thresholds."
-        causal_explanation = "Flags invoice for strict approval routing due to budget constraints."
+    technical_explanation = (
+        f"Department '{dept_id}' utilisation rises from {prior_pct:.1f}% to {utilisation_pct:.1f}% "
+        f"if approved (${total_committed:,.2f} of ${allocated:,.2f}; remaining ${remaining:,.2f})."
+    )
+    business_explanation = (
+        f"This invoice would consume the department's remaining headroom and {'breach' if hard_stop else 'approach'} "
+        f"the {ALERT_THRESHOLD:.0f}% alert threshold."
+        if breach else
+        f"This invoice keeps the department comfortably below the {ALERT_THRESHOLD:.0f}% alert threshold."
+    )
+    causal_explanation = (
+        "A hard-stop breach (>=100%) forces rejection; an alert breach (>=95%) escalates to senior-manager review; "
+        "otherwise the invoice continues toward auto-approval."
+    )
 
-    # Logging the decision so the audit trail stays clean.
+    # Logging the decision so the audit trail stays clean. Scope to the invoice
+    # entity when triggered by an invoice flow, so it appears in the trace panel.
+    entity_table, entity_id = ("invoices", invoice_id) if invoice_id != "system" else ("budgets", budget["id"])
     decision_id = db.log_agent_decision(
         agent="budget",
         decision_type="budget_checked",
-        entity_table="budgets",
-        entity_id=budget["id"],
+        entity_table=entity_table,
+        entity_id=entity_id,
         technical_explanation=technical_explanation,
         business_explanation=business_explanation,
         causal_explanation=causal_explanation,
-        input_state={"allocated": allocated, "spent": spent, "committed": committed, "new_invoice": amount},
-        output_action={"utilisation_pct": utilisation_pct, "breach": breach}
+        input_state={
+            "allocated": allocated, "spent": spent, "committed": committed,
+            "new_invoice": amount, "budget_id": budget["id"], "department_id": dept_id, "period": period,
+        },
+        output_action={
+            "utilisation_pct": round(utilisation_pct, 2),
+            "remaining": round(remaining, 2),
+            "breach": breach, "hard_stop": hard_stop,
+        }
     )
 
     # Creating a causal link so we know *why* this budget check happened.

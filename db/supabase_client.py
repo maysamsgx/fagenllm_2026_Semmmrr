@@ -35,7 +35,20 @@ class SupabaseDB:
         v = self.get_vendor_by_name(name)
         if v: return v["id"]
         res = self._ensure_client().table("vendors").insert({"name": name}).execute()
-        return res.data[0]["id"]
+        vendor_id = res.data[0]["id"]
+        # Bootstrap a baseline risk record so downstream checks never see a null score.
+        # New vendors have no payment history, so we apply a neutral medium baseline
+        # (50/100) until the first reassessment runs.
+        try:
+            self._ensure_client().table("vendor_risk_scores").insert({
+                "vendor_id": vendor_id,
+                "risk_score": 50.0,
+                "risk_level": "medium",
+                "factors": {"reason": "new_vendor_no_history"},
+            }).execute()
+        except Exception:
+            pass
+        return vendor_id
 
     def get_vendor_risk(self, vendor_id: str) -> Optional[Dict[str, Any]]:
         res = self._ensure_client().table("vendor_risk_scores") \

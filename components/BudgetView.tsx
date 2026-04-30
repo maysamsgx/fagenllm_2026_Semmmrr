@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { AlertTriangle, RefreshCw } from 'lucide-react'
 import { budgetApi, Budget, BudgetAlert } from '../lib/api'
-import { Card, Badge, fmt, pct } from './Shared'
+import { Card, Badge, fmt, pct, AgentAvatar } from './Shared'
 import { useRealtime } from '../lib/useRealtime'
 
 export default function BudgetView() {
@@ -35,9 +35,12 @@ export default function BudgetView() {
   return (
     <div className="view">
       <div className="view-header">
-        <div>
-          <h2>Budget Management</h2>
-          <p className="view-sub">Spend tracking · variance alerts · moving-average forecast</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+          <AgentAvatar agent="budget" active={running} />
+          <div>
+            <h2>Budget Management</h2>
+            <p className="view-sub">Spend tracking · variance alerts · moving-average forecast</p>
+          </div>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           {periods.length > 0 && (

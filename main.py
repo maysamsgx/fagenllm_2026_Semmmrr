@@ -20,6 +20,20 @@ app = FastAPI(
     version="0.3.0",
 )
 
+
+@app.on_event("startup")
+def _bootstrap_data() -> None:
+    """Make sure every dashboard has data the first time the user opens it."""
+    if os.getenv("FAGENTLLM_SKIP_BOOTSTRAP", "").lower() in ("1", "true", "yes"):
+        logger.info("FAGENTLLM_SKIP_BOOTSTRAP set; skipping data bootstrap.")
+        return
+    try:
+        from utils.bootstrap import seed_if_empty, ensure_initial_match_state
+        seed_if_empty()
+        ensure_initial_match_state()
+    except Exception as e:
+        logger.error(f"Bootstrap failed: {e}")
+
 @app.post("/token")
 async def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
     admin_user = os.getenv("ADMIN_USER", "admin")

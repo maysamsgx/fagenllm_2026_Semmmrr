@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { RefreshCw } from 'lucide-react'
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts'
 import { reconApi, ReconStats } from '../lib/api'
-import { Card, Empty, pct } from './Shared'
+import { Card, Empty, pct, AgentAvatar } from './Shared'
 import { useRealtime } from '../lib/useRealtime'
 
 export default function ReconciliationView() {
@@ -35,9 +35,12 @@ export default function ReconciliationView() {
   return (
     <div className="view">
       <div className="view-header">
-        <div>
-          <h2>Reconciliation</h2>
-          <p className="view-sub">TF-IDF cosine similarity · threshold ≥ 0.85 · Qwen3 anomaly analysis</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+          <AgentAvatar agent="reconciliation" active={running} />
+          <div>
+            <h2>Reconciliation</h2>
+            <p className="view-sub">TF-IDF cosine similarity · threshold ≥ 0.85 · Qwen3 anomaly analysis</p>
+          </div>
         </div>
         <button className="btn-primary" onClick={runRecon} disabled={running}>
           <RefreshCw size={14} className={running ? 'spin' : ''} strokeWidth={2.5} />

@@ -104,33 +104,51 @@ def invoice_approval_routing_prompt(invoice: dict, cash_ok: bool, budget_ok: boo
                                      budget_utilisation: float) -> tuple[str, str]:
     """
     Determine approval routing: auto-approve, manager, or senior manager.
-    This is the XAI reasoning trace the jury will see.
+    Thresholds are aligned with budget_agent.py ALERT_THRESHOLD (95%) and
+    HARD_STOP_THRESHOLD (100%). Rejection only triggers at 100%+ utilisation.
     """
     system = """You are a financial controller determining invoice approval routing.
-Apply approval thresholds and contextual constraints. Return ONLY valid JSON."""
+Apply the exact approval thresholds listed below. Do NOT reject an invoice solely
+because the amount is zero or unknown — escalate to manager instead.
+Return ONLY valid JSON with these keys:
+{
+  "decision": "auto" | "manager" | "senior_manager" | "rejected",
+  "technical_explanation": "string",
+  "business_explanation": "string",
+  "causal_explanation": "string",
+  "confidence": 0-100
+}"""
+
+    amount = float(invoice.get('amount') or 0)
+    amount_known = amount > 0
+    amount_display = f"${amount:,.2f}" if amount_known else "not resolved during extraction"
+    currency = invoice.get('currency', 'USD')
 
     user = f"""Determine the correct approval routing for this invoice.
 
 Invoice details:
-- Amount: {invoice.get('total_amount')} {invoice.get('currency', 'USD')}
-- Vendor: {invoice.get('vendor_name')}
-- Department: {invoice.get('department', 'unknown')}
+- Amount: {amount_display} {currency}
+- Vendor: {invoice.get('vendor_name', 'unknown')}
+- Department: {invoice.get('department_id', 'unknown')}
 
-System constraints:
-- Cash liquidity check: {'PASSED' if cash_ok else 'FAILED - projected shortfall'}
-- Budget check: {'PASSED' if budget_ok else f'FAILED - department at {budget_utilisation:.1f}% utilisation'}
+System constraint results:
+- Cash liquidity check: {'PASSED' if cash_ok else 'FAILED — projected shortfall after payment'}
+- Budget utilisation: {budget_utilisation:.1f}% ({'WITHIN LIMIT' if budget_ok else 'OVER ALERT THRESHOLD'})
 
-Approval thresholds:
-- Auto-approve: amount < 5,000 AND cash_ok AND budget_ok
-- Manager approval: amount 5,000-50,000 OR cash warning OR budget > 90%
-- Senior manager: amount > 50,000 OR cash FAILED OR budget > 95%
-- Reject: budget FAILED AND amount > 10,000
+Approval decision rules (apply in order, first match wins):
+1. REJECT         → budget utilisation >= 100% (hard stop — truly over budget)
+2. SENIOR MANAGER → amount > 50,000 OR cash FAILED OR budget utilisation >= 95%
+3. MANAGER        → amount 5,000–50,000 OR budget utilisation >= 90% OR amount missing
+4. AUTO-APPROVE   → amount < 5,000 AND cash PASSED AND budget utilisation < 90%
 
-Your response must provide:
-1. Technical Explanation: Logic behind the routing decision.
-2. Business Explanation: Financial implications of this routing.
-3. Causal Explanation: Downstream impacts on cash and budget.
-4. Decision: One of "auto", "manager", "senior_manager", "rejected".
+Important constraints (do not violate):
+- Budget at 95–99% triggers senior_manager, NEVER rejection.
+- Rejection is reserved exclusively for utilisation >= 100%.
+- If the amount above shows a dollar value, treat it as KNOWN — quote that exact figure
+  in your explanations and never describe the amount as "unknown" or "missing".
+- The amount on this invoice is {'KNOWN: $' + format(amount, ',.2f') + ' ' + currency if amount_known else 'NOT RESOLVED — apply rule 3'}.
+
+Provide technical, business, and causal explanations citing the actual numbers above (utilisation %, amount, vendor) verbatim.
 """
 
     return system, user

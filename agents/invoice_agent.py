@@ -55,15 +55,27 @@ def _handle_new_invoice(state: FinancialState, invoice_id: str) -> FinancialStat
         )
         return _error(state, f"OCR failed: {e}")
 
+    ocr_pipeline = "local-tesseract fallback" if ocr_text.startswith("[LOCAL OCR") else "Baidu Qianfan OCR-Fast"
+    ocr_confidence = 80.0 if ocr_text.startswith("[LOCAL OCR") else 99.0
+    file_label = (invoice.get("file_path") or "").split("/")[-1] or "uploaded file"
     ocr_id = db.log_agent_decision(
         agent="invoice", decision_type="ocr_completed",
         entity_table="invoices", entity_id=invoice_id,
-        technical_explanation=f"Processed {len(ocr_text)} characters using {'local fallback' if ocr_text.startswith('[LOCAL OCR') else 'Baidu Qianfan-OCR-Fast'} pipeline.",
-        business_explanation="Digitizing the physical invoice into structured text to allow automated processing.",
-        causal_explanation="Enables downstream field extraction and validation.",
-        input_state={"file_path": invoice.get("file_path")},
-        output_action={"ocr_text_excerpt": ocr_text[:1200]},
-        confidence=99.0 if not ocr_text.startswith("[LOCAL OCR") else 80.0,
+        technical_explanation=(
+            f"OCR pipeline '{ocr_pipeline}' decoded {len(ocr_text):,} characters from "
+            f"'{file_label}' at {ocr_confidence:.0f}% engine confidence."
+        ),
+        business_explanation=(
+            f"Converted the uploaded document into machine-readable text so the system can "
+            f"automatically capture vendor, amount, and line-item details without manual data entry."
+        ),
+        causal_explanation=(
+            "Unblocks structured field extraction and downstream vendor-risk and budget checks; "
+            "any failure here halts the workflow before financial commitments are recorded."
+        ),
+        input_state={"file_path": invoice.get("file_path"), "pipeline": ocr_pipeline},
+        output_action={"characters": len(ocr_text), "ocr_text_excerpt": ocr_text[:1200]},
+        confidence=ocr_confidence,
     )
 
     # Persist OCR text on the invoice row so it shows up in the UI/audit
@@ -116,29 +128,46 @@ def _handle_new_invoice(state: FinancialState, invoice_id: str) -> FinancialStat
         update_data["currency"] = extracted["currency"]
     db.update("invoices", {"id": invoice_id}, update_data)
 
+    parsed_amount = float(update_data.get("total_amount") or 0)
+    parsed_currency = update_data.get("currency", "USD")
+    amount_label = f"{parsed_amount:,.2f} {parsed_currency}" if parsed_amount else "amount unresolved"
     extract_id = db.log_agent_decision(
         agent="invoice", decision_type="extraction_completed",
         entity_table="invoices", entity_id=invoice_id,
-        technical_explanation=f"LLM extraction mapped OCR to schema with {confidence:.0f}% confidence.",
-        business_explanation=f"Identified vendor '{vendor_name}' for {extracted.get('total_amount','?')} {extracted.get('currency','USD')}.",
-        causal_explanation="Allows vendor risk check and department budget verification.",
-        input_state={"ocr_excerpt": ocr_text[:600]},
+        technical_explanation=f"Qwen3 mapped OCR to schema at {confidence:.0f}% confidence ({len(REQUIRED_FIELDS) - len(missing)}/{len(REQUIRED_FIELDS)} required fields captured).",
+        business_explanation=f"Identified vendor '{vendor_name}' with total {amount_label} for downstream financial review.",
+        causal_explanation="Provides the structured payload required for vendor-risk validation and department budget verification.",
+        input_state={"ocr_excerpt": ocr_text[:600], "missing_fields": missing},
         output_action=extracted,
         confidence=confidence,
     )
-    db.log_causal_link(ocr_id, extract_id, "enables_validation",
+    db.log_causal_link(ocr_id, extract_id, "enables_extraction",
                        "OCR output enabled the structured field extraction.")
 
     # ── 3. Validation summary (vendor risk gate) ─────────────────────────
-    val_reason = f"Vendor risk score {vendor_risk.get('risk_score','—')}/100."
+    risk_score_raw = vendor_risk.get("risk_score")
+    try:
+        risk_score = float(risk_score_raw) if risk_score_raw is not None else 50.0
+    except (TypeError, ValueError):
+        risk_score = 50.0
+    risk_level = vendor_risk.get("risk_level") or ("high" if risk_score >= 70 else "medium" if risk_score >= 40 else "low")
+    is_new_vendor = not vendor_risk or (vendor_risk.get("factors") or {}).get("reason") == "new_vendor_no_history"
+    risk_descriptor = "baseline (new vendor, no payment history)" if is_new_vendor else f"{risk_level} risk tier"
+    val_reason = f"Vendor risk score {risk_score:.0f}/100 — {risk_descriptor}."
+    needs_human = risk_level == "high"
+    business_msg = (
+        "High-risk vendor detected — invoice flagged for manual review."
+        if needs_human else
+        f"Vendor profile within tolerance ({risk_level}); cleared for liquidity and budget checks."
+    )
     valid_id = db.log_agent_decision(
         agent="invoice", decision_type="validation_completed",
         entity_table="invoices", entity_id=invoice_id,
         technical_explanation=val_reason,
-        business_explanation=f"{'Will require manual review.' if vendor_risk.get('risk_level') == 'high' else 'Cleared for downstream checks.'}",
-        causal_explanation="Determines if invoice triggers manual routing or proceeds to auto-approval rules.",
-        input_state={"vendor_id": vendor_id, **{k: v for k, v in vendor_risk.items() if k != "factors"}},
-        output_action={"validation": "passed", "needs_human": vendor_risk.get("risk_level") == "high"},
+        business_explanation=business_msg,
+        causal_explanation="Determines whether the invoice routes to auto-approval logic or escalates to human review based on counterparty risk.",
+        input_state={"vendor_id": vendor_id, "is_new_vendor": is_new_vendor, **{k: v for k, v in vendor_risk.items() if k != "factors"}},
+        output_action={"validation": "passed", "risk_score": risk_score, "risk_level": risk_level, "needs_human": needs_human},
         confidence=confidence,
     )
     db.log_causal_link(extract_id, valid_id, "enables_validation",
@@ -175,6 +204,23 @@ def _handle_approval_routing(state: FinancialState, invoice_id: str, invoice_ctx
     budget_ctx = state.get("budget", {})
     cash_ok = cash_ctx.get("can_approve_payment", True)
     budget_ok = not budget_ctx.get("budget_breach", False)
+
+    # Defensive refetch: if the amount was dropped from in-memory state
+    # (e.g. an extraction edge-case left it null), pull it back from the
+    # persisted invoice row before handing the prompt to the LLM.
+    if not invoice_ctx.get("amount"):
+        persisted = db.get_invoice(invoice_id) or {}
+        if persisted.get("total_amount") is not None:
+            try:
+                invoice_ctx = {
+                    **invoice_ctx,
+                    "amount": float(persisted["total_amount"]),
+                    "currency": persisted.get("currency") or invoice_ctx.get("currency", "USD"),
+                    "vendor_name": invoice_ctx.get("vendor_name") or (persisted.get("vendors") or {}).get("name"),
+                    "department_id": invoice_ctx.get("department_id") or persisted.get("department_id"),
+                }
+            except (TypeError, ValueError):
+                pass
 
     from utils.contracts import DecisionOutput
     from utils.llm import qwen_structured

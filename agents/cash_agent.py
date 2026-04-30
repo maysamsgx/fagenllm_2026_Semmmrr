@@ -34,24 +34,45 @@ def _liquidity_check(state: FinancialState) -> FinancialState:
     inflows  = _projected_inflows(days=7)
     outflows = _projected_outflows(days=7, exclude_id=invoice_id)
     projected_next = total_balance + inflows - outflows
+    balance_after = projected_next - invoice_amount
 
     # Assessment logic
-    can_approve = (projected_next - invoice_amount) > min_balance
-    technical_explanation = f"Current balance: ${total_balance:,.0f}. Projected next 7d: +${inflows:,.0f} -${outflows:,.0f} = ${projected_next:,.0f}."
-    business_explanation = f"Evaluating liquidity for invoice {invoice_id}. Projected balance after payment: ${projected_next - invoice_amount:,.0f}."
-    causal_explanation = "Determines if invoice can be approved without breaching minimum balance requirements."
+    can_approve = balance_after > min_balance
+    headroom = balance_after - min_balance
+    verdict = "headroom of" if can_approve else "shortfall of"
+    technical_explanation = (
+        f"C_t=${total_balance:,.0f}; I_t=${inflows:,.0f}; O_t=${outflows:,.0f}; "
+        f"projected C_(t+1)=${projected_next:,.0f}; post-payment balance ${balance_after:,.0f} "
+        f"vs minimum ${min_balance:,.0f} ({verdict} ${abs(headroom):,.0f})."
+    )
+    business_explanation = (
+        f"Liquidity is {'sufficient' if can_approve else 'insufficient'} to settle this "
+        f"${invoice_amount:,.2f} invoice without dipping below the operating reserve."
+    )
+    causal_explanation = (
+        "Feeds the approval-routing rule: a liquidity pass keeps auto-approval on the table; "
+        "a fail forces senior-manager review regardless of amount."
+    )
 
-    # Record this decision in our decision log.
+    # Record this decision in our decision log. Scope it to the invoice so it
+    # appears in the invoice's XAI trace alongside extraction & validation.
+    entity_table, entity_id = ("invoices", invoice_id) if invoice_id != "unknown" else (
+        "cash_accounts", accounts[0]["id"] if accounts else str(uuid.uuid4())
+    )
     decision_id = db.log_agent_decision(
         agent="cash",
         decision_type="liquidity_check",
-        entity_table="cash_accounts",
-        entity_id=accounts[0]["id"] if accounts else str(uuid.uuid4()),
+        entity_table=entity_table,
+        entity_id=entity_id,
         technical_explanation=technical_explanation,
         business_explanation=business_explanation,
         causal_explanation=causal_explanation,
-        input_state={"balance": total_balance, "inflows": inflows, "outflows": outflows, "invoice": invoice_amount},
-        output_action={"can_approve": can_approve}
+        input_state={
+            "balance": total_balance, "inflows": inflows, "outflows": outflows,
+            "invoice_amount": invoice_amount, "minimum_balance": min_balance,
+            "cash_account_id": accounts[0]["id"] if accounts else None,
+        },
+        output_action={"can_approve": can_approve, "balance_after": round(balance_after, 2)}
     )
 
     trace = state.get("reasoning_trace", []) + [{

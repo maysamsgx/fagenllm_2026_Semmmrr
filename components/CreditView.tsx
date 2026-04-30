@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Shield } from 'lucide-react'
 import { ResponsiveContainer, BarChart, Bar, Cell, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts'
 import { creditApi, Customer } from '../lib/api'
-import { Card, Badge, Empty, RISK_COLOR, RISK_BG, fmt } from './Shared'
+import { Card, Badge, Empty, RISK_COLOR, RISK_BG, fmt, AgentAvatar } from './Shared'
 import { useRealtime } from '../lib/useRealtime'
 
 export default function CreditView() {
@@ -26,9 +26,12 @@ export default function CreditView() {
   return (
     <div className="view">
       <div className="view-header">
-        <div>
-          <h2>Credit & Collection</h2>
-          <p className="view-sub">R = Σ(wᵢ × fᵢ) · automated collection stage escalation</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+          <AgentAvatar agent="credit" />
+          <div>
+            <h2>Credit & Collection</h2>
+            <p className="view-sub">R = Σ(wᵢ × fᵢ) · automated collection stage escalation</p>
+          </div>
         </div>
       </div>
 

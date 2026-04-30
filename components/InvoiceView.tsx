@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Upload, CheckCircle, XCircle, Brain, Clock, FileText, ShieldCheck, AlertTriangle } from 'lucide-react'
 import { invoiceApi, Invoice } from '../lib/api'
-import { Card, Badge, Spinner, Empty, STATUS_COLOR, STATUS_BG, fmt } from './Shared'
+import { Card, Badge, Spinner, Empty, STATUS_COLOR, STATUS_BG, fmt, AgentAvatar } from './Shared'
 import TracePanel from './TracePanel'
 
 import { useRealtime } from '../lib/useRealtime'
@@ -44,9 +44,12 @@ export default function InvoiceView() {
       {traceId && <TracePanel invoiceId={traceId} onClose={() => setTraceId(null)} />}
 
       <div className="view-header">
-        <div>
-          <h2>Invoice Management</h2>
-          <p className="view-sub">OCR extraction → Qwen3 analysis → cross-agent approval</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+          <AgentAvatar agent="invoice" active={uploading} />
+          <div>
+            <h2>Invoice Management</h2>
+            <p className="view-sub">OCR extraction → Qwen3 analysis → cross-agent approval</p>
+          </div>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <select value={dept} onChange={e => setDept(e.target.value)} className="select">

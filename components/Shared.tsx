@@ -4,6 +4,15 @@ export function Card({ children, className = '', ...props }: { children: React.R
   return <div className={`card ${className}`} {...props}>{children}</div>
 }
 
+export function AgentAvatar({ agent, active }: { agent: string; active?: boolean }) {
+  const src = getAgentAvatar(agent)
+  return (
+    <div className={`agent-avatar-wrapper ${active ? 'active' : ''}`}>
+      <img src={src} className="agent-avatar-img" alt={`${agent} agent`} />
+    </div>
+  )
+}
+
 export function Badge({ label, color, bg }: { label: string; color: string; bg: string }) {
   return (
     <span
@@ -109,6 +118,10 @@ export function getLegacyAgentAvatar(agent: string) {
 
 export function fmt(n: number | null, currency = 'USD') {
   if (n == null) return '—'
+  if (Math.abs(n) >= 1_000_000) {
+    const formatted = new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 1 }).format(n / 1_000_000)
+    return `${formatted}M`
+  }
   return new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 0 }).format(n)
 }
 

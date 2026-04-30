@@ -67,11 +67,16 @@ def list_budgets(department_id: str = None, period: str = None):
 @router.get("/alerts/active")
 def get_active_alerts():
     supabase = get_supabase()
-    data = (supabase.table("budget_alerts").select("*")
+    data = (supabase.table("budget_alerts")
+            .select("*, budgets(department_id, period, allocated)")
             .eq("acknowledged", False)
             .order("created_at", desc=True).execute().data)
     for item in data:
-        item["department"] = item.get("department_id")
+        b = item.get("budgets") or {}
+        item["department_id"] = b.get("department_id")
+        item["department"] = b.get("department_id")
+        item["period"] = b.get("period")
+        item["allocated"] = b.get("allocated")
     return data
 
 @router.post("/alerts/{alert_id}/acknowledge")

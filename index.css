@@ -3,7 +3,7 @@
    Dark glassmorphic theme · neon cyan accents · holographic XAI panel
    ══════════════════════════════════════════════════════════════════════════ */
 
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=DM+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -147,47 +147,35 @@ body::after {
 }
 
 .brand-icon {
-  width: 38px; height: 38px;
-  border-radius: 11px;
+  width: 48px; height: 48px;
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
-  color: #fff;
-  background: linear-gradient(135deg, var(--cyan) 0%, var(--violet-2) 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.25),
-    0 8px 24px -6px rgba(34, 211, 238, .55),
-    0 4px 12px -2px rgba(139, 92, 246, .45);
   position: relative;
 }
 .brand-logo-img {
-  width: 24px;
-  height: 24px;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
-  filter: drop-shadow(0 0 8px rgba(255, 255, 255, .25));
-}
-.brand-icon::after {
-  content: '';
-  position: absolute; inset: -3px;
-  border-radius: 14px;
-  background: linear-gradient(135deg, var(--cyan), var(--violet-2));
-  opacity: .25;
-  filter: blur(10px);
-  z-index: -1;
+  filter: drop-shadow(0 0 8px rgba(34, 211, 238, .6));
 }
 
 .brand-name {
-  font-size: 16px;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 22px;
   font-weight: 600;
   color: var(--text);
-  letter-spacing: -0.025em;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
 }
 .brand-sub {
-  font-size: 10.5px;
-  color: var(--text-3);
-  margin-top: 2px;
+  font-family: 'Inter', sans-serif;
+  font-size: 9px;
+  color: var(--cyan);
+  margin-top: 4px;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
-  font-weight: 500;
+  letter-spacing: 0.15em;
+  font-weight: 600;
+  opacity: 0.9;
 }
 
 .sidebar-nav {
@@ -968,3 +956,44 @@ input[type="file"].sr-only { position: absolute; width: 1px; height: 1px; opacit
 }
 .customer-row:last-child { border-bottom: none; }
 .customer-row:hover { background: rgba(34, 211, 238, .03); }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Dynamic Status Avatar (Holographic)
+   ══════════════════════════════════════════════════════════════════════════ */
+.agent-avatar-wrapper {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.65;
+  filter: grayscale(80%) drop-shadow(0 0 12px var(--cyan));
+  transition: all 0.5s ease;
+}
+
+.agent-avatar-wrapper.active {
+  opacity: 1;
+  filter: grayscale(0%) drop-shadow(0 0 24px var(--cyan)) brightness(1.2);
+  animation: pulse-avatar 2s infinite ease-in-out;
+}
+
+.agent-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  z-index: 2;
+}
+
+@keyframes pulse-avatar {
+  0%, 100% {
+    transform: scale(1);
+    filter: grayscale(0%) drop-shadow(0 0 20px var(--cyan)) brightness(1.1);
+  }
+  50% {
+    transform: scale(1.05);
+    filter: grayscale(0%) drop-shadow(0 0 35px var(--cyan)) brightness(1.3);
+  }
+}
+

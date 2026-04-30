@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { RefreshCw, TrendingUp, TrendingDown } from 'lucide-react'
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts'
 import { cashApi, CashAccount, ForecastDay } from '../lib/api'
-import { Card, Badge, Empty, fmt } from './Shared'
+import { Card, Badge, Empty, fmt, AgentAvatar } from './Shared'
 import { useRealtime } from '../lib/useRealtime'
 
 export default function CashView() {
@@ -26,9 +26,12 @@ export default function CashView() {
   return (
     <div className="view">
       <div className="view-header">
-        <div>
-          <h2>Cash Management</h2>
-          <p className="view-sub">C<sub>t+1</sub> = C<sub>t</sub> + I<sub>t</sub> − O<sub>t</sub> &nbsp;·&nbsp; 7-day liquidity forecast</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+          <AgentAvatar agent="cash" active={running} />
+          <div>
+            <h2>Cash Management</h2>
+            <p className="view-sub">C<sub>t+1</sub> = C<sub>t</sub> + I<sub>t</sub> − O<sub>t</sub> &nbsp;·&nbsp; 7-day liquidity forecast</p>
+          </div>
         </div>
         <button
           className="btn-primary"
