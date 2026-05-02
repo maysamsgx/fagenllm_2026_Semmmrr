@@ -79,6 +79,7 @@ export default function App() {
       </aside>
 
       <main className="main">
+
         {tab === 'invoice'        && <InvoiceView />}
         {tab === 'cash'           && <CashView />}
         {tab === 'budget'         && <BudgetView />}
