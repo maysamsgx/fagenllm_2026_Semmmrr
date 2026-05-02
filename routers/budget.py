@@ -82,3 +82,65 @@ def get_active_alerts():
 @router.post("/alerts/{alert_id}/acknowledge")
 def acknowledge_alert(alert_id: str):
     return db.update("budget_alerts", {"id": alert_id}, {"acknowledged": True})
+
+
+@router.post("/reset-committed")
+def reset_committed(period: str = Query(...)):
+    """Zero out committed column for a period (admin/testing use only)."""
+    supabase = get_supabase()
+    supabase.table("budgets").update({"committed": 0.0}).eq("period", period).execute()
+    return {"reset": True, "period": period}
+
+
+@router.post("/whatif")
+def budget_whatif(department_id: str = Query(...), amount: float = Query(...), period: str = Query(None)):
+    """Hypothetical budget impact: what happens if we approve $amount for department?"""
+    from directives.policies import BUDGET
+    from utils.directives import load_directive
+    from utils.llm import qwen_json
+
+    resolved_period = period or current_period()
+    budget = db.get_budget(department_id, resolved_period)
+    if not budget:
+        raise HTTPException(404, f"No budget found for {department_id} / {resolved_period}")
+
+    allocated  = float(budget.get("allocated") or 0)
+    spent      = float(budget.get("spent") or 0)
+    committed  = float(budget.get("committed") or 0)
+
+    if allocated == 0:
+        raise HTTPException(400, "Budget has zero allocation")
+
+    current_util  = (spent + committed) / allocated * 100
+    hypo_util     = (spent + committed + amount) / allocated * 100
+    remaining_after = max(0.0, allocated - spent - committed - amount)
+
+    risk_level = (
+        "critical" if hypo_util >= BUDGET.hard_stop_threshold else
+        "high"     if hypo_util >= BUDGET.alert_threshold     else
+        "medium"   if hypo_util >= BUDGET.auto_approve_below  else
+        "low"
+    )
+
+    directive = load_directive("budget")
+    analysis = qwen_json(
+        f"## Policy\n{directive}\nYou are a financial analyst. Respond with valid JSON only.",
+        f"Department '{department_id}' currently at {current_util:.1f}% utilisation "
+        f"({spent + committed:,.0f} of {allocated:,.0f} allocated). "
+        f"If we approve ${amount:,.2f}, utilisation rises to {hypo_util:.1f}%. "
+        f"Remaining budget after approval: ${remaining_after:,.2f}. "
+        f"Policy hard-stop: {BUDGET.hard_stop_threshold:.0f}%, alert: {BUDGET.alert_threshold:.0f}%. "
+        f"Provide JSON with keys: recommendation (string), narrative (1 paragraph), "
+        f"alternatives (list of 2-3 strings), risk_level (low/medium/high/critical)."
+    )
+
+    return {
+        "department_id":            department_id,
+        "period":                   resolved_period,
+        "current_utilisation_pct":  round(current_util, 1),
+        "hypothetical_utilisation_pct": round(hypo_util, 1),
+        "remaining_after":          round(remaining_after, 2),
+        "risk_level":               risk_level,
+        "will_hard_stop":           hypo_util >= BUDGET.hard_stop_threshold,
+        "analysis":                 analysis,
+    }

@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     groq_api_key: str
     groq_base_url: str = "https://api.groq.com/openai/v1"
     qwen_model: str = "qwen/qwen3-32b"
+    groq_fallback_model: str = "llama-3.3-70b-versatile"  # activated when qwen fails
 
     # Baidu Qianfan-OCR-Fast via OpenRouter (free)
     # Get key: https://openrouter.ai -> API Keys

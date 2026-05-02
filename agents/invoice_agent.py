@@ -10,6 +10,8 @@ from langgraph.graph import END
 
 from agents.state import FinancialState
 from db.supabase_client import db
+from directives.policies import BUDGET
+from utils.directives import inject_directive
 from utils.llm import qwen_json, ocr_invoice
 from utils.prompts import (
     invoice_extract_prompt,
@@ -136,7 +138,12 @@ def _handle_new_invoice(state: FinancialState, invoice_id: str) -> FinancialStat
         entity_table="invoices", entity_id=invoice_id,
         technical_explanation=f"Qwen3 mapped OCR to schema at {confidence:.0f}% confidence ({len(REQUIRED_FIELDS) - len(missing)}/{len(REQUIRED_FIELDS)} required fields captured).",
         business_explanation=f"Identified vendor '{vendor_name}' with total {amount_label} for downstream financial review.",
-        causal_explanation="Provides the structured payload required for vendor-risk validation and department budget verification.",
+        causal_explanation=(
+            f"If extraction fails here, no financial commitment can be recorded — "
+            f"vendor payment would require manual data entry. "
+            f"The {len(REQUIRED_FIELDS) - len(missing)}/{len(REQUIRED_FIELDS)} captured fields "
+            f"determine whether cash and budget checks can run at all."
+        ),
         input_state={"ocr_excerpt": ocr_text[:600], "missing_fields": missing},
         output_action=extracted,
         confidence=confidence,
@@ -165,7 +172,11 @@ def _handle_new_invoice(state: FinancialState, invoice_id: str) -> FinancialStat
         entity_table="invoices", entity_id=invoice_id,
         technical_explanation=val_reason,
         business_explanation=business_msg,
-        causal_explanation="Determines whether the invoice routes to auto-approval logic or escalates to human review based on counterparty risk.",
+        causal_explanation=(
+            "A high vendor risk score blocks auto-approval regardless of amount, adding manual "
+            "review latency. This check gates all downstream financial decisions — if skipped, "
+            "a fraudulent vendor could receive an auto-approved payment."
+        ),
         input_state={"vendor_id": vendor_id, "is_new_vendor": is_new_vendor, **{k: v for k, v in vendor_risk.items() if k != "factors"}},
         output_action={"validation": "passed", "risk_score": risk_score, "risk_level": risk_level, "needs_human": needs_human},
         confidence=confidence,
@@ -204,6 +215,7 @@ def _handle_approval_routing(state: FinancialState, invoice_id: str, invoice_ctx
     budget_ctx = state.get("budget", {})
     cash_ok = cash_ctx.get("can_approve_payment", True)
     budget_ok = not budget_ctx.get("budget_breach", False)
+    utilisation_pct = float(budget_ctx.get("utilisation_pct", 0.0))
 
     # Defensive refetch: if the amount was dropped from in-memory state
     # (e.g. an extraction edge-case left it null), pull it back from the
@@ -222,12 +234,38 @@ def _handle_approval_routing(state: FinancialState, invoice_id: str, invoice_ctx
             except (TypeError, ValueError):
                 pass
 
+    # ── Deterministic hard gates ──────────────────────────────────────────────
+    # These decisions are non-negotiable financial controls. Delegating them to
+    # an LLM risks hallucination on the exact threshold that matters most.
+    if utilisation_pct >= BUDGET.hard_stop_threshold:
+        overage = utilisation_pct - 100.0
+        tech = (
+            f"Hard-stop: budget utilisation at {utilisation_pct:.1f}% exceeds the "
+            f"{BUDGET.hard_stop_threshold:.0f}% ceiling by {overage:.1f}pp. Rejection is mandatory."
+        )
+        biz = (
+            f"The department is already {overage:.1f}% over its allocated budget. "
+            f"This invoice cannot be approved regardless of amount or cash position."
+        )
+        causal = (
+            "Hard-stop breach forces rejection without manager override. The department "
+            "budget must be revised or a budget exception raised before this vendor can be paid."
+        )
+        return _apply_routing_decision(
+            state, invoice_id, invoice_ctx, budget_ctx, cash_ok,
+            level="rejected", new_status="rejected",
+            technical_explanation=tech, business_explanation=biz, causal_explanation=causal,
+            confidence=100.0,
+        )
+
+    # ── LLM routing for non-hard-stop cases ──────────────────────────────────
     from utils.contracts import DecisionOutput
     from utils.llm import qwen_structured
 
     ap_system, ap_user = invoice_approval_routing_prompt(
-        invoice_ctx, cash_ok, budget_ok, budget_ctx.get("utilisation_pct", 0.0)
+        invoice_ctx, cash_ok, budget_ok, utilisation_pct
     )
+    ap_system = inject_directive(ap_system, "invoice")
     routing = qwen_structured(ap_system, ap_user, DecisionOutput)
     level = routing.decision.lower()
 
@@ -238,6 +276,31 @@ def _handle_approval_routing(state: FinancialState, invoice_id: str, invoice_ctx
     else:
         new_status = "awaiting_approval"
 
+    return _apply_routing_decision(
+        state, invoice_id, invoice_ctx, budget_ctx, cash_ok,
+        level=level, new_status=new_status,
+        technical_explanation=routing.technical_explanation,
+        business_explanation=routing.business_explanation,
+        causal_explanation=routing.causal_explanation,
+        confidence=routing.confidence,
+    )
+
+
+def _apply_routing_decision(
+    state: FinancialState,
+    invoice_id: str,
+    invoice_ctx: dict,
+    budget_ctx: dict,
+    cash_ok: bool,
+    level: str,
+    new_status: str,
+    technical_explanation: str,
+    business_explanation: str,
+    causal_explanation: str,
+    confidence: float,
+) -> FinancialState:
+    budget_ok = not budget_ctx.get("budget_breach", False)
+
     db.update("invoices", {"id": invoice_id}, {
         "status": new_status,
         "cash_check_passed": bool(cash_ok),
@@ -247,24 +310,24 @@ def _handle_approval_routing(state: FinancialState, invoice_id: str, invoice_ctx
     route_id = db.log_agent_decision(
         agent="invoice", decision_type=f"approval_{level}",
         entity_table="invoices", entity_id=invoice_id,
-        technical_explanation=routing.technical_explanation,
-        business_explanation=routing.business_explanation,
-        causal_explanation=routing.causal_explanation,
+        technical_explanation=technical_explanation,
+        business_explanation=business_explanation,
+        causal_explanation=causal_explanation,
         input_state={
             "cash_ok": cash_ok, "budget_ok": budget_ok,
             "amount": invoice_ctx.get("amount"),
             "utilisation_pct": budget_ctx.get("utilisation_pct"),
         },
         output_action={"approval_level": level, "new_status": new_status},
-        confidence=routing.confidence,
+        confidence=confidence,
     )
 
     trace = state.get("reasoning_trace", []) + [{
         "agent": "invoice",
         "step": "Approval Routing",
-        "technical_explanation": routing.technical_explanation,
-        "business_explanation": routing.business_explanation,
-        "causal_explanation": routing.causal_explanation
+        "technical_explanation": technical_explanation,
+        "business_explanation": business_explanation,
+        "causal_explanation": causal_explanation,
     }]
 
     if invoice_ctx.get("decision_id"):

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Upload, CheckCircle, XCircle, Brain, Clock, FileText, ShieldCheck, AlertTriangle } from 'lucide-react'
-import { invoiceApi, Invoice } from '../lib/api'
+import { invoiceApi, Invoice, departmentsApi, Department } from '../lib/api'
 import { Card, Badge, Spinner, Empty, STATUS_COLOR, STATUS_BG, fmt, AgentAvatar } from './Shared'
 import TracePanel from './TracePanel'
 
@@ -14,18 +14,25 @@ const STAT_DEFS: { key: 'pending' | 'awaiting_approval' | 'approved' | 'rejected
 ]
 
 export default function InvoiceView() {
-  const [invoices, setInvoices] = useState<Invoice[]>([])
-  const [loading, setLoading]   = useState(true)
-  const [traceId, setTraceId]   = useState<string | null>(null)
-  const [uploading, setUploading] = useState(false)
-  const [dept, setDept]         = useState('engineering')
-  const fileRef                 = useRef<HTMLInputElement>(null)
+  const [invoices, setInvoices]     = useState<Invoice[]>([])
+  const [loading, setLoading]       = useState(true)
+  const [traceId, setTraceId]       = useState<string | null>(null)
+  const [uploading, setUploading]   = useState(false)
+  const [dept, setDept]             = useState('engineering')
+  const [departments, setDepartments] = useState<Department[]>([])
+  const fileRef                     = useRef<HTMLInputElement>(null)
 
   const load = useCallback(() => {
     invoiceApi.list().then(setInvoices).finally(() => setLoading(false))
   }, [])
 
   useEffect(() => { load() }, [load])
+  useEffect(() => {
+    departmentsApi.list().then(rows => {
+      setDepartments(rows)
+      if (rows.length > 0 && !rows.find(d => d.id === dept)) setDept(rows[0].id)
+    }).catch(() => {})
+  }, [])
   useRealtime('invoices', load)
 
   async function upload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -53,8 +60,8 @@ export default function InvoiceView() {
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <select value={dept} onChange={e => setDept(e.target.value)} className="select">
-            {['engineering', 'marketing', 'operations', 'hr'].map((d: string) =>
-              <option key={d} value={d}>{d}</option>)}
+            {departments.map((d: Department) =>
+              <option key={d.id} value={d.id}>{d.name}</option>)}
           </select>
           <label className="btn-primary" style={{ cursor: uploading ? 'wait' : 'pointer' }}>
             <Upload size={14} strokeWidth={2.5} /> {uploading ? 'Processing…' : 'Upload Invoice'}

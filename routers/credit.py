@@ -11,7 +11,14 @@ def list_customers(risk_level: str = Query(None)):
     supabase = get_supabase()
     query = supabase.table("customers").select("*")
     if risk_level: query = query.eq("risk_level", risk_level)
-    return query.execute().data
+    rows = query.execute().data
+    seen = set()
+    deduped = []
+    for r in rows:
+        if r["id"] not in seen:
+            seen.add(r["id"])
+            deduped.append(r)
+    return deduped
 
 @router.get("/aging")
 def get_aging_buckets():

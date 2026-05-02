@@ -1,6 +1,7 @@
 """
 utils/prompts.py
 All Qwen3 prompt templates for FAgentLLM.
+Numeric thresholds are sourced from directives/policies.py — never hardcoded here.
 
 Each prompt is a function that takes runtime values and returns
 (system_prompt, user_prompt) ready to pass to qwen_json() or qwen_explain().
@@ -107,6 +108,8 @@ def invoice_approval_routing_prompt(invoice: dict, cash_ok: bool, budget_ok: boo
     Thresholds are aligned with budget_agent.py ALERT_THRESHOLD (95%) and
     HARD_STOP_THRESHOLD (100%). Rejection only triggers at 100%+ utilisation.
     """
+    from directives.policies import INVOICE, BUDGET  # lazy import — avoids IDE path issues
+
     system = """You are a financial controller determining invoice approval routing.
 Apply the exact approval thresholds listed below. Do NOT reject an invoice solely
 because the amount is zero or unknown — escalate to manager instead.
@@ -136,14 +139,14 @@ System constraint results:
 - Budget utilisation: {budget_utilisation:.1f}% ({'WITHIN LIMIT' if budget_ok else 'OVER ALERT THRESHOLD'})
 
 Approval decision rules (apply in order, first match wins):
-1. REJECT         → budget utilisation >= 100% (hard stop — truly over budget)
-2. SENIOR MANAGER → amount > 50,000 OR cash FAILED OR budget utilisation >= 95%
-3. MANAGER        → amount 5,000–50,000 OR budget utilisation >= 90% OR amount missing
-4. AUTO-APPROVE   → amount < 5,000 AND cash PASSED AND budget utilisation < 90%
+1. REJECT         → budget utilisation >= {BUDGET.hard_stop_threshold:.0f}% (hard stop — truly over budget)
+2. SENIOR MANAGER → amount > {INVOICE.manager_max:,.0f} OR cash FAILED OR budget utilisation >= {BUDGET.alert_threshold:.0f}%
+3. MANAGER        → amount {INVOICE.auto_approve_max:,.0f}–{INVOICE.manager_max:,.0f} OR budget utilisation >= {BUDGET.auto_approve_below:.0f}% OR amount missing
+4. AUTO-APPROVE   → amount < {INVOICE.auto_approve_max:,.0f} AND cash PASSED AND budget utilisation < {BUDGET.auto_approve_below:.0f}%
 
 Important constraints (do not violate):
-- Budget at 95–99% triggers senior_manager, NEVER rejection.
-- Rejection is reserved exclusively for utilisation >= 100%.
+- Budget at {BUDGET.alert_threshold:.0f}–{BUDGET.hard_stop_threshold - 1:.0f}% triggers senior_manager, NEVER rejection.
+- Rejection is reserved exclusively for utilisation >= {BUDGET.hard_stop_threshold:.0f}%.
 - If the amount above shows a dollar value, treat it as KNOWN — quote that exact figure
   in your explanations and never describe the amount as "unknown" or "missing".
 - The amount on this invoice is {'KNOWN: $' + format(amount, ',.2f') + ' ' + currency if amount_known else 'NOT RESOLVED — apply rule 3'}.

@@ -7,7 +7,8 @@ import CashView from './components/CashView'
 import BudgetView from './components/BudgetView'
 import ReconciliationView from './components/ReconciliationView'
 import CreditView from './components/CreditView'
-import { BRAND_LOGO, LEGACY_BRAND_LOGO, getAgentAvatar, getLegacyAgentAvatar } from './components/Shared'
+import VideoBackground from './components/VideoBackground'
+import { getAgentAvatar, getLegacyAgentAvatar } from './components/Shared'
 import './index.css'
 
 type Tab = 'invoice' | 'cash' | 'budget' | 'reconciliation' | 'credit'
@@ -24,15 +25,21 @@ export default function App() {
   const [tab, setTab] = useState<Tab>('invoice')
 
   return (
-    <div className="layout">
+    <>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 0 }}>
+      <VideoBackground />
+    </div>
+    <div className="layout" style={{ position: 'relative', zIndex: 1 }}>
       <aside className="sidebar">
         <div className="sidebar-brand">
           <div className="brand-icon">
-            <img
+            <video
               className="brand-logo-img"
-              src={BRAND_LOGO}
-              alt="FAgentLLM logo"
-              onError={(e) => { e.currentTarget.src = LEGACY_BRAND_LOGO }}
+              src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260424_090051_64ea5059-da6b-492b-a171-aa7ecc767dc3.mp4"
+              autoPlay
+              loop
+              muted
+              playsInline
             />
           </div>
           <div>
@@ -79,5 +86,6 @@ export default function App() {
         {tab === 'credit'         && <CreditView />}
       </main>
     </div>
+    </>
   )
 }

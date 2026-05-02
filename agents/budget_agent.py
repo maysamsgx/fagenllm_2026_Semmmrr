@@ -1,6 +1,10 @@
 """
 agents/budget_agent.py
 Budget Agent — keeps an eye on department spending so we don't go over budget.
+
+DOE Layer: Orchestration (deterministic — no LLM).
+All numeric thresholds come from directives/policies.py (BUDGET).
+Human-readable rules live in directives/budget_policy.md.
 """
 
 from __future__ import annotations
@@ -9,16 +13,15 @@ from langgraph.graph import END
 
 from agents.state import FinancialState, add_reasoning
 from db.supabase_client import db
-from utils.llm import qwen_explain
+from directives.policies import BUDGET
 
-ALERT_THRESHOLD  = 95.0
-HARD_STOP_THRESHOLD = 100.0
 
 def budget_node(state: FinancialState) -> FinancialState:
     trigger = state.get("trigger", "budget_review")
     if trigger in ("invoice_post_checks", "budget_review"):
         return _check_budget(state)
     return {**state, "next_agent": END, "current_agent": "budget"}
+
 
 def _check_budget(state: FinancialState) -> FinancialState:
     budget_ctx  = state.get("budget", {})
@@ -43,7 +46,7 @@ def _check_budget(state: FinancialState) -> FinancialState:
             **state,
             "current_agent": "budget",
             "next_agent":    "invoice",
-            "budget": { **budget_ctx, "budget_breach": False, "decision_id": decision_id }
+            "budget": { **budget_ctx, "budget_breach": False, "hard_stop": False, "decision_id": decision_id }
         }
 
     allocated  = float(budget.get("allocated", 0) or 0)
@@ -51,29 +54,32 @@ def _check_budget(state: FinancialState) -> FinancialState:
     committed  = float(budget.get("committed", 0) or 0)
 
     total_committed = spent + committed + amount
-    prior_pct = (spent + committed) / allocated * 100 if allocated > 0 else 0.0
+    prior_pct       = (spent + committed) / allocated * 100 if allocated > 0 else 0.0
     utilisation_pct = (total_committed / allocated * 100) if allocated > 0 else 0.0
-    breach = utilisation_pct >= ALERT_THRESHOLD
-    hard_stop = utilisation_pct >= HARD_STOP_THRESHOLD
-    remaining = max(0.0, allocated - total_committed)
+    breach          = utilisation_pct >= BUDGET.alert_threshold
+    hard_stop       = utilisation_pct >= BUDGET.hard_stop_threshold
+    remaining       = max(0.0, allocated - total_committed)
 
     technical_explanation = (
         f"Department '{dept_id}' utilisation rises from {prior_pct:.1f}% to {utilisation_pct:.1f}% "
         f"if approved (${total_committed:,.2f} of ${allocated:,.2f}; remaining ${remaining:,.2f})."
     )
     business_explanation = (
-        f"This invoice would consume the department's remaining headroom and {'breach' if hard_stop else 'approach'} "
-        f"the {ALERT_THRESHOLD:.0f}% alert threshold."
+        f"This invoice would consume the department's remaining headroom and "
+        f"{'exceed' if hard_stop else 'breach'} the "
+        f"{BUDGET.hard_stop_threshold:.0f}% hard-stop threshold."
+        if hard_stop else
+        f"This invoice would consume the department's remaining headroom and breach "
+        f"the {BUDGET.alert_threshold:.0f}% alert threshold."
         if breach else
-        f"This invoice keeps the department comfortably below the {ALERT_THRESHOLD:.0f}% alert threshold."
+        f"This invoice keeps the department comfortably below the {BUDGET.alert_threshold:.0f}% alert threshold."
     )
     causal_explanation = (
-        "A hard-stop breach (>=100%) forces rejection; an alert breach (>=95%) escalates to senior-manager review; "
-        "otherwise the invoice continues toward auto-approval."
+        f"A hard-stop breach (≥{BUDGET.hard_stop_threshold:.0f}%) forces rejection; "
+        f"an alert breach (≥{BUDGET.alert_threshold:.0f}%) escalates to senior-manager review; "
+        f"otherwise the invoice continues toward auto-approval."
     )
 
-    # Logging the decision so the audit trail stays clean. Scope to the invoice
-    # entity when triggered by an invoice flow, so it appears in the trace panel.
     entity_table, entity_id = ("invoices", invoice_id) if invoice_id != "system" else ("budgets", budget["id"])
     decision_id = db.log_agent_decision(
         agent="budget",
@@ -85,7 +91,8 @@ def _check_budget(state: FinancialState) -> FinancialState:
         causal_explanation=causal_explanation,
         input_state={
             "allocated": allocated, "spent": spent, "committed": committed,
-            "new_invoice": amount, "budget_id": budget["id"], "department_id": dept_id, "period": period,
+            "new_invoice": amount, "budget_id": budget["id"],
+            "department_id": dept_id, "period": period,
         },
         output_action={
             "utilisation_pct": round(utilisation_pct, 2),
@@ -94,12 +101,13 @@ def _check_budget(state: FinancialState) -> FinancialState:
         }
     )
 
-    # Creating a causal link so we know *why* this budget check happened.
     if invoice_ctx.get("decision_id"):
-        db.log_causal_link(invoice_ctx["decision_id"], decision_id, "breaches_budget" if breach else "enables_approval", 
-                          "Invoice amount increases department budget utilisation.")
+        db.log_causal_link(
+            invoice_ctx["decision_id"], decision_id,
+            "breaches_budget" if breach else "enables_approval",
+            "Invoice amount increases department budget utilisation."
+        )
 
-    # Write alert if breached
     if breach:
         db.insert("budget_alerts", {
             "budget_id": budget["id"],
@@ -109,7 +117,6 @@ def _check_budget(state: FinancialState) -> FinancialState:
             "triggered_by_invoice_id": invoice_id if invoice_id != "system" else None
         })
 
-    # Update committed amount
     db.update("budgets", {"id": budget["id"]}, {"committed": round(committed + amount, 2)})
 
     trace = state.get("reasoning_trace", []) + [{
@@ -127,12 +134,14 @@ def _check_budget(state: FinancialState) -> FinancialState:
         "reasoning_trace": trace,
         "budget": {
             **budget_ctx,
-            "department_id": dept_id,
+            "department_id":   dept_id,
             "utilisation_pct": round(utilisation_pct, 2),
-            "budget_breach": breach,
-            "decision_id": decision_id
+            "budget_breach":   breach,
+            "hard_stop":       hard_stop,
+            "decision_id":     decision_id,
         }
     }
+
 
 def _current_period() -> str:
     t = date.today()

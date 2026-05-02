@@ -82,25 +82,28 @@ def _groq_client():
     return _groq_client._c
 
 
-def _qwen_chat_json(messages: list[dict], temperature: float = 0.0,
-                    force_json: bool = True, max_tokens: int = 4096) -> str:
+def _groq_raw_call(
+    messages: list[dict],
+    model: str,
+    temperature: float = 0.0,
+    force_json: bool = True,
+    max_tokens: int = 4096,
+    use_reasoning_effort: bool = True,
+) -> str:
     """
-    Single Groq call with reasoning disabled and (optionally) JSON mode forced.
-    Returns the raw assistant content. We try JSON mode first; if Groq rejects
-    it for this model we retry without that flag — `reasoning_effort=none` plus
-    our parser is enough.
-    """
-    from config import get_settings
-    s = get_settings()
-    client = _groq_client()
+    Model-agnostic Groq API call.
 
-    base = dict(
-        model=s.qwen_model,
-        messages=messages,
-        temperature=temperature,
-        max_tokens=max_tokens,
-        extra_body={"reasoning_effort": "none"},
-    )
+    Parameters
+    ----------
+    use_reasoning_effort : bool
+        Must be False for models that do not support the reasoning_effort
+        parameter (e.g. llama-3.3-70b-versatile).
+    """
+    client = _groq_client()
+    base: dict = dict(model=model, messages=messages,
+                      temperature=temperature, max_tokens=max_tokens)
+    if use_reasoning_effort:
+        base["extra_body"] = {"reasoning_effort": "none"}
     try:
         if force_json:
             r = client.chat.completions.create(**base, response_format={"type": "json_object"})
@@ -108,12 +111,74 @@ def _qwen_chat_json(messages: list[dict], temperature: float = 0.0,
             r = client.chat.completions.create(**base)
     except Exception as e:
         msg = str(e)
-        if force_json and ("response_format" in msg or "json_object" in msg or "unsupported" in msg.lower()):
-            logger.warning(f"Groq rejected response_format for {s.qwen_model}; retrying without JSON mode.")
+        if force_json and any(k in msg.lower() for k in ("response_format", "json_object", "unsupported")):
+            logger.warning(f"Groq rejected response_format for {model}; retrying without JSON mode.")
             r = client.chat.completions.create(**base)
         else:
             raise
     return (r.choices[0].message.content or "").strip()
+
+
+def _qwen_chat_json(messages: list[dict], temperature: float = 0.0,
+                    force_json: bool = True, max_tokens: int = 4096) -> str:
+    """Primary model call. Use _call_groq_with_fallback for resilient callers."""
+    from config import get_settings
+    s = get_settings()
+    return _groq_raw_call(messages, model=s.qwen_model, temperature=temperature,
+                          force_json=force_json, max_tokens=max_tokens,
+                          use_reasoning_effort=True)
+
+
+def _call_groq_with_fallback(
+    messages: list[dict],
+    temperature: float = 0.0,
+    force_json: bool = True,
+    max_tokens: int = 4096,
+) -> tuple[str, str]:
+    """
+    Call primary model (Qwen3); on failure retry with fallback (llama-3.3-70b).
+
+    Returns
+    -------
+    (raw_content, model_used)
+        model_used is "primary" or "fallback" — logged for thesis metrics.
+
+    Raises
+    ------
+    RuntimeError
+        If both models fail.
+    """
+    from config import get_settings
+    s = get_settings()
+
+    # Primary attempt
+    try:
+        raw = _qwen_chat_json(messages, temperature=temperature,
+                              force_json=force_json, max_tokens=max_tokens)
+        if not force_json or _coerce_json(_strip_reasoning(raw)) is not None:
+            return raw, "primary"
+        logger.warning(
+            "Primary model (%s) returned non-JSON output; activating fallback (%s).",
+            s.qwen_model, s.groq_fallback_model,
+        )
+    except Exception as exc:
+        logger.warning(
+            "Primary model (%s) raised %s: %s — activating fallback (%s).",
+            s.qwen_model, type(exc).__name__, exc, s.groq_fallback_model,
+        )
+
+    # Fallback attempt (llama-3.3-70b does not support reasoning_effort)
+    try:
+        raw = _groq_raw_call(messages, model=s.groq_fallback_model,
+                             temperature=temperature, force_json=force_json,
+                             max_tokens=max_tokens, use_reasoning_effort=False)
+        logger.info("Fallback model (%s) succeeded.", s.groq_fallback_model)
+        return raw, "fallback"
+    except Exception as exc2:
+        raise RuntimeError(
+            f"Both models failed. "
+            f"Fallback ({s.groq_fallback_model}): {exc2}"
+        ) from exc2
 
 
 _JSON_SYSTEM_SUFFIX = (
@@ -138,7 +203,8 @@ def qwen_json(system_prompt: str, user_prompt: str) -> dict:
         {"role": "system", "content": system},
         {"role": "user",   "content": user_prompt},
     ]
-    raw = _qwen_chat_json(messages, temperature=0.0, force_json=True)
+    raw, model_used = _call_groq_with_fallback(messages, temperature=0.0, force_json=True)
+    logger.info("qwen_json attempt 1: model_used=%s", model_used)
     cleaned = _strip_reasoning(raw)
     parsed = _coerce_json(cleaned)
     if parsed is not None:
@@ -155,7 +221,8 @@ def qwen_json(system_prompt: str, user_prompt: str) -> dict:
     )
     messages.append({"role": "assistant", "content": cleaned[:1500]})
     messages.append({"role": "user", "content": correction})
-    raw2 = _qwen_chat_json(messages, temperature=0.0, force_json=True)
+    raw2, model_used2 = _call_groq_with_fallback(messages, temperature=0.0, force_json=True)
+    logger.info("qwen_json attempt 2: model_used=%s", model_used2)
     cleaned2 = _strip_reasoning(raw2)
     parsed = _coerce_json(cleaned2)
     if parsed is not None:
@@ -188,7 +255,9 @@ def qwen_structured(system_prompt: str, user_prompt: str, schema: Type[T]) -> T:
     ]
     last_raw = ""
     for attempt in range(2):
-        raw = _qwen_chat_json(messages, temperature=0.0, force_json=True)
+        raw, model_used = _call_groq_with_fallback(messages, temperature=0.0, force_json=True)
+        logger.info("qwen_structured attempt %d: model_used=%s", attempt + 1, model_used)
+        raw = raw  # keep variable name consistent below
         last_raw = raw
         cleaned = _strip_reasoning(raw)
         parsed = _coerce_json(cleaned)

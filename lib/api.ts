@@ -152,7 +152,7 @@ export interface ForecastDay {
 
 export const cashApi = {
   position: () => req<{ total_balance: number; accounts: CashAccount[] }>('/cash/position'),
-  forecast: () => req<{ forecast: ForecastDay[] }>('/cash/forecast?days=7'),
+  forecast: (days = 7) => req<{ forecast: ForecastDay[] }>(`/cash/forecast?days=${days}`),
   run: () => req<{ message: string }>('/cash/run', { method: 'POST' }),
 }
 
@@ -175,6 +175,17 @@ export interface BudgetAlert {
   message?: string | null
 }
 
+export interface WhatIfResult {
+  department_id: string
+  period: string
+  current_utilisation_pct: number
+  hypothetical_utilisation_pct: number
+  remaining_after: number
+  risk_level: 'low' | 'medium' | 'high' | 'critical'
+  will_hard_stop: boolean
+  analysis: Record<string, any>
+}
+
 export const budgetApi = {
   list: (period?: string) => req<Budget[]>(`/budget/${period ? `?period=${encodeURIComponent(period)}` : ''}`),
   periods: () => req<{ periods: string[]; current: string }>('/budget/periods'),
@@ -187,6 +198,13 @@ export const budgetApi = {
     const tail = qs.toString() ? `?${qs.toString()}` : ''
     return req<{ message: string }>(`/budget/run${tail}`, { method: 'POST' })
   },
+  whatif: (departmentId: string, amount: number, period?: string) => {
+    const qs = new URLSearchParams({ department_id: departmentId, amount: String(amount) })
+    if (period) qs.set('period', period)
+    return req<WhatIfResult>(`/budget/whatif?${qs.toString()}`, { method: 'POST' })
+  },
+  resetCommitted: (period: string) =>
+    req<{ reset: boolean; period: string }>(`/budget/reset-committed?period=${encodeURIComponent(period)}`, { method: 'POST' }),
 }
 
 // ── Reconciliation ────────────────────────────────────────────────────────
@@ -248,6 +266,13 @@ export interface Payment {
 export const paymentApi = {
   list: (status?: string) => req<Payment[]>(`/payment/${status ? `?status=${status}` : ''}`),
   get: (id: string) => req<Payment>(`/payment/${id}`),
+}
+
+// ── Departments ──────────────────────────────────────────────────────────
+export interface Department { id: string; name: string }
+
+export const departmentsApi = {
+  list: () => req<Department[]>('/departments'),
 }
 
 // ── System Intelligence ──────────────────────────────────────────────────
