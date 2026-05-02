@@ -142,7 +142,8 @@ export default function InvoiceView() {
                     <td>
                       <Badge label={inv.status.replace('_', ' ')}
                         color={STATUS_COLOR[statusKey]}
-                        bg={STATUS_BG[statusKey] ?? STATUS_COLOR[statusKey] + '22'} />
+                        bg={STATUS_BG[statusKey] ?? STATUS_COLOR[statusKey] + '22'}
+                        className="badge-status" />
                     </td>
                     <td style={{ textAlign: 'center' }}>
                       {inv.cash_check_passed == null ? <span style={{ color: 'var(--text-4)' }}>—</span>

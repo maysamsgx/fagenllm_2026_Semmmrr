@@ -5,6 +5,26 @@ import { creditApi, Customer } from '../lib/api'
 import { Card, Badge, Empty, Spinner, RISK_COLOR, RISK_BG, fmt, AgentAvatar } from './Shared'
 import { useRealtime } from '../lib/useRealtime'
 
+const AGING_COLORS = ['#22d3ee', '#6366f1', '#a78bfa', '#e879f9', '#fb7185']
+
+function AgingTooltip({ active, payload, label }: { active?: boolean; payload?: { value: number; dataIndex?: number }[]; label?: string }) {
+  if (!active || !payload?.length) return null
+  const color = AGING_COLORS[payload[0].dataIndex ?? 0] ?? '#22d3ee'
+  return (
+    <div style={{
+      background: 'rgba(13,18,38,.97)',
+      border: `1px solid ${color}38`,
+      borderRadius: 10,
+      padding: '10px 14px',
+      backdropFilter: 'blur(24px)',
+      boxShadow: `0 16px 48px rgba(0,0,0,.65), 0 0 0 1px ${color}12`,
+    }}>
+      <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.1em', color: 'var(--text-4)', marginBottom: 6 }}>{label}</div>
+      <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 600, color }}>{fmt(payload[0].value)}</div>
+    </div>
+  )
+}
+
 const RISK_OPTIONS = [
   { value: '',       label: 'All risk',  dot: null },
   { value: 'low',    label: 'Low',       dot: '#34d399' },
@@ -210,14 +230,36 @@ export default function CreditView() {
           <h3 style={{ marginBottom: 14 }}>AR Aging</h3>
           {agingData.length > 0 ? (
             <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={agingData} layout="vertical">
-                <CartesianGrid strokeDasharray="2 4" stroke="rgba(255,255,255,.05)" horizontal={false} />
-                <XAxis type="number" tick={{ fontSize: 11, fill: 'var(--text-3)' }} stroke="rgba(255,255,255,.08)" tickFormatter={(v: number) => `$${(v/1000).toFixed(0)}k`} />
-                <YAxis dataKey="bucket" type="category" tick={{ fontSize: 11, fill: 'var(--text-3)' }} stroke="rgba(255,255,255,.08)" width={64} />
-                <Tooltip formatter={(v: number) => fmt(v)} cursor={{ fill: 'rgba(34, 211, 238, .08)' }} />
-                <Bar dataKey="amount" radius={[0, 6, 6, 0]}>
+              <BarChart data={agingData} layout="vertical" barCategoryGap="28%">
+                <CartesianGrid strokeDasharray="2 4" stroke="rgba(255,255,255,.04)" horizontal={false} />
+                <XAxis
+                  type="number"
+                  tick={{ fontSize: 10.5, fill: '#5b6486', fontFamily: "'Space Grotesk', sans-serif", fontWeight: 500 }}
+                  stroke="rgba(255,255,255,.06)"
+                  tickFormatter={(v: number) => `$${(v / 1000).toFixed(0)}k`}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  dataKey="bucket"
+                  type="category"
+                  tick={{ fontSize: 10.5, fill: '#8891b3', fontFamily: "'Space Grotesk', sans-serif", fontWeight: 500 }}
+                  stroke="rgba(255,255,255,.06)"
+                  width={64}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <Tooltip content={<AgingTooltip />} cursor={{ fill: 'rgba(255,255,255,.03)', rx: 6 }} />
+                <Bar dataKey="amount" radius={[0, 5, 5, 0]} maxBarSize={18}>
                   {agingData.map((_, i: number) => (
-                    <Cell key={i} fill={['#34d399','#84cc16','#fbbf24','#f97316','#fb7185'][i] ?? '#67e8f9'} />
+                    <Cell
+                      key={i}
+                      fill={AGING_COLORS[i] ?? '#22d3ee'}
+                      fillOpacity={0.9}
+                      stroke={AGING_COLORS[i] ?? '#22d3ee'}
+                      strokeOpacity={0.25}
+                      strokeWidth={1}
+                    />
                   ))}
                 </Bar>
               </BarChart>

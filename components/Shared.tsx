@@ -13,10 +13,10 @@ export function AgentAvatar({ agent, active }: { agent: string; active?: boolean
   )
 }
 
-export function Badge({ label, color, bg }: { label: string; color: string; bg: string }) {
+export function Badge({ label, color, bg, className = '' }: { label: string; color: string; bg: string; className?: string }) {
   return (
     <span
-      className="badge"
+      className={`badge ${className}`.trim()}
       style={{
         background: bg,
         color,
