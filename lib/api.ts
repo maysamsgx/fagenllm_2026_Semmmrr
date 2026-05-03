@@ -150,10 +150,27 @@ export interface ForecastDay {
   net_position: number
 }
 
+export interface CashScenarioResult {
+  label: string
+  amount: number
+  current_balance: number
+  projected_next: number
+  balance_after: number
+  minimum_balance: number
+  headroom: number
+  can_approve: boolean
+  risk_level: 'low' | 'medium' | 'high' | 'critical'
+  analysis: Record<string, any>
+}
+
 export const cashApi = {
   position: () => req<{ total_balance: number; accounts: CashAccount[] }>('/cash/position'),
   forecast: (days = 7) => req<{ forecast: ForecastDay[] }>(`/cash/forecast?days=${days}`),
   run: () => req<{ message: string }>('/cash/run', { method: 'POST' }),
+  scenario: (amount: number, label = 'Proposed payment') => {
+    const qs = new URLSearchParams({ amount: String(amount), label })
+    return req<CashScenarioResult>(`/cash/scenario?${qs.toString()}`, { method: 'POST' })
+  },
 }
 
 // ── Budget ────────────────────────────────────────────────────────────────

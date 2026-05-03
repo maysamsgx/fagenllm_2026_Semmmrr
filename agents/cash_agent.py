@@ -153,13 +153,48 @@ def _explain(state: FinancialState, percept: dict, verdict: dict) -> str:
 
 # ── Module 5: Execution ───────────────────────────────────────────────────────
 
-def _execute(_state: FinancialState, _percept: dict, _verdict: dict) -> None:
+def _execute(_state: FinancialState, percept: dict, _verdict: dict) -> None:
     """
-    No additional DB writes needed for a liquidity check — all writes happen
-    in Explanation. This module documents that the execution slot exists even
-    when it is a deliberate no-op.
+    Writes a 7-day cash flow forecast into cash_flow_forecasts so the
+    CashView chart always reflects the latest agent run.
     """
-    pass
+    _write_forecast(percept["accounts"], percept["inflows"], percept["outflows"])
+
+
+def _write_forecast(accounts: list, inflows: float, outflows: float) -> None:
+    """Upsert 7 daily forecast rows into cash_flow_forecasts."""
+    from config import get_supabase
+    today = date.today()
+    supabase = get_supabase()
+    account_id = accounts[0]["id"] if accounts else None
+
+    rows = []
+    for i in range(CASH.forecast_days):
+        fdate = (today + timedelta(days=i)).isoformat()
+        # Weight inflows/outflows: day 0 is certain, further days discounted
+        weight = 1.0 - (i * 0.05)
+        rows.append({
+            "forecast_date":    fdate,
+            "cash_account_id":  account_id,
+            "projected_inflow":  round(inflows * weight, 2),
+            "projected_outflow": round(outflows * weight, 2),
+            "notes": f"Agent-generated forecast (run {today.isoformat()})",
+        })
+
+    for row in rows:
+        # Delete existing row for date+account then insert fresh
+        try:
+            supabase.table("cash_flow_forecasts") \
+                .delete() \
+                .eq("forecast_date", row["forecast_date"]) \
+                .eq("cash_account_id", row["cash_account_id"]) \
+                .execute()
+        except Exception:
+            pass
+        try:
+            supabase.table("cash_flow_forecasts").insert(row).execute()
+        except Exception:
+            pass
 
 
 # ── Module 6: Communication ───────────────────────────────────────────────────
@@ -238,6 +273,12 @@ def _refresh_forecast(state: FinancialState) -> FinancialState:
         causal_explanation=causal,
         input_state={"credit_risk": risk_level, "customer_id": customer_id}
     )
+
+    # Persist fresh forecast rows so the dashboard chart updates
+    inflows  = _projected_inflows(days=CASH.near_window_days)
+    outflows = _projected_outflows(days=CASH.near_window_days)
+    _write_forecast(accounts, inflows, outflows)
+
     return {**state, "current_agent": "cash", "next_agent": END}
 
 
