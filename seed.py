@@ -245,6 +245,7 @@ def gen_customers():
             "credit_score": round(score, 2),
             "risk_level": risk,
             "payment_terms": terms,
+            "payment_delay_avg": round(random.uniform(0, 4) if risk == "low" else random.uniform(5, 12) if risk == "medium" else random.uniform(15, 35), 1),
             "total_outstanding": 0,  # will be computed after receivables
         })
     return customers

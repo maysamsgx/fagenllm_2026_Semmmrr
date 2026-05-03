@@ -35,27 +35,27 @@ export const AgingMetricsRow: React.FC<{ metrics: any, loading: boolean }> = ({ 
     if (loading) return <div className="stats-row animate-pulse"><Card className="h-24"></Card><Card></Card><Card></Card><Card></Card></div>;
     return (
         <div className="stats-row">
-            <MetricCard 
-                title="DSO (Days)" 
-                value={metrics?.dso} 
+            <MetricCard
+                title="DSO (Days)"
+                value={metrics?.dso}
                 icon={<Clock size={20} className="text-cyan-400" />}
                 desc="Days Sales Outstanding"
             />
-            <MetricCard 
-                title="Recovery Rate" 
-                value={`${metrics?.recovery_rate}%`} 
+            <MetricCard
+                title="Recovery Rate"
+                value={`${metrics?.recovery_rate}%`}
                 icon={<TrendingUp size={20} className="text-emerald-400" />}
                 desc="Collection Efficiency"
             />
-            <MetricCard 
-                title="Total Collected" 
-                value={`$${(metrics?.collected_amount / 1000).toFixed(1)}k`} 
+            <MetricCard
+                title="Total Collected"
+                value={`$${(metrics?.collected_amount / 1000).toFixed(1)}k`}
                 icon={<DollarSign size={20} className="text-indigo-400" />}
                 desc="Total Cash Inflow"
             />
-            <MetricCard 
-                title="Total AR" 
-                value={`$${(metrics?.total_receivables / 1000).toFixed(1)}k`} 
+            <MetricCard
+                title="Total AR"
+                value={`$${(metrics?.total_receivables / 1000).toFixed(1)}k`}
                 icon={<AlertCircle size={20} className="text-amber-400" />}
                 desc="Gross Receivables"
             />
@@ -65,7 +65,7 @@ export const AgingMetricsRow: React.FC<{ metrics: any, loading: boolean }> = ({ 
 
 export const AgingChartCard: React.FC<{ agingData: any, loading: boolean }> = ({ agingData, loading }) => {
     if (loading) return <Card className="h-64 animate-pulse"></Card>;
-    
+
     return (
         <Card className="flex flex-col h-full">
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
@@ -77,23 +77,23 @@ export const AgingChartCard: React.FC<{ agingData: any, loading: boolean }> = ({
                 <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={agingData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="2 4" stroke="rgba(255,255,255,.03)" vertical={false} />
-                        <XAxis 
-                            dataKey="name" 
-                            axisLine={false} 
-                            tickLine={false} 
-                            tick={{ fill: '#8891b3', fontSize: 10, fontFamily: "'Space Grotesk', sans-serif" }} 
+                        <XAxis
+                            dataKey="name"
+                            axisLine={false}
+                            tickLine={false}
+                            tick={{ fill: '#8891b3', fontSize: 10, fontFamily: "'Space Grotesk', sans-serif" }}
                         />
-                        <YAxis 
-                            axisLine={false} 
-                            tickLine={false} 
-                            tick={{ fill: '#5b6486', fontSize: 10, fontFamily: "'Space Grotesk', sans-serif" }} 
-                            tickFormatter={(value) => `$${(value/1000).toFixed(0)}k`}
+                        <YAxis
+                            axisLine={false}
+                            tickLine={false}
+                            tick={{ fill: '#5b6486', fontSize: 10, fontFamily: "'Space Grotesk', sans-serif" }}
+                            tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
                         />
-                        <Tooltip 
+                        <Tooltip
                             cursor={{ fill: 'rgba(255,255,255,.02)', rx: 4 }}
                             contentStyle={{
-                                backgroundColor: 'rgba(10,14,30,.97)', 
-                                border: '1px solid rgba(34,211,238,.15)', 
+                                backgroundColor: 'rgba(10,14,30,.97)',
+                                border: '1px solid rgba(34,211,238,.15)',
                                 borderRadius: '8px',
                                 backdropFilter: 'blur(16px)',
                                 boxShadow: '0 8px 32px rgba(0,0,0,0.6)'
@@ -125,10 +125,10 @@ const MetricCard = ({ title, value, icon, desc }: any) => (
             <span style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--cyan)', opacity: 0.5 }}></span>
             {desc}
         </div>
-        
+
         {/* Decorative background glow */}
-        <div style={{ 
-            position: 'absolute', right: -20, bottom: -20, width: 100, height: 100, 
+        <div style={{
+            position: 'absolute', right: -20, bottom: -20, width: 100, height: 100,
             background: 'radial-gradient(circle, rgba(34,211,238,0.1) 0%, transparent 70%)',
             pointerEvents: 'none'
         }} className="opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>

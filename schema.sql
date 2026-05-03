@@ -48,6 +48,7 @@ CREATE TABLE IF NOT EXISTS customers (
     credit_score      NUMERIC(5, 2)  DEFAULT 50.0,
     risk_level        TEXT DEFAULT 'medium' CHECK (risk_level IN ('low','medium','high')),
     payment_terms     INT DEFAULT 30,
+    payment_delay_avg NUMERIC(5, 2)  DEFAULT 0.0,
     total_outstanding NUMERIC(14, 2) DEFAULT 0,
     created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
