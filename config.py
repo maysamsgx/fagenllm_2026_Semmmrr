@@ -49,9 +49,13 @@ def get_settings() -> Settings:
 def get_supabase() -> Client:
     """
     Server-side Supabase client (service role key - bypasses RLS).
-    Never expose this key to the frontend.
     """
     s = get_settings()
+    if not s.supabase_url or not s.supabase_service_key:
+        raise ValueError(
+            "CRITICAL: SUPABASE_URL or SUPABASE_SERVICE_KEY is missing from environment. "
+            "Check your GitHub Secrets or .env file."
+        )
     return create_client(s.supabase_url, s.supabase_service_key)
 
 

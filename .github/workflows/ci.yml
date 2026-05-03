@@ -17,6 +17,13 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      - name: Verify Environment Secrets
+        run: |
+          if [ -z "${{ secrets.SUPABASE_URL }}" ]; then echo "❌ SUPABASE_URL secret is MISSING"; exit 1; fi
+          if [ -z "${{ secrets.SUPABASE_SERVICE_KEY }}" ]; then echo "❌ SUPABASE_SERVICE_KEY secret is MISSING"; exit 1; fi
+          if [ -z "${{ secrets.GROQ_API_KEY }}" ]; then echo "❌ GROQ_API_KEY secret is MISSING"; exit 1; fi
+          echo "✅ All required secrets are present."
+
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
@@ -35,6 +42,14 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+      QWEN_MODEL: qwen/qwen3-32b
+      GROQ_FALLBACK_MODEL: llama-3.3-70b-versatile
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -52,14 +67,6 @@ jobs:
 
       - name: Run Unit Tests
         run: python -m pytest tests/test_utils.py tests/test_agents.py -v
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-          QWEN_MODEL: qwen/qwen3-32b
-          GROQ_FALLBACK_MODEL: llama-3.3-70b-versatile
 
   # 3️⃣ LINT: Code Quality (Commit Stage)
   lint:
@@ -95,6 +102,14 @@ jobs:
     needs: [unit-test, lint]
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+      QWEN_MODEL: qwen/qwen3-32b
+      GROQ_FALLBACK_MODEL: llama-3.3-70b-versatile
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -112,11 +127,3 @@ jobs:
 
       - name: Run System Acceptance Tests
         run: python -m pytest tests/system_acceptance_test.py -s
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-          QWEN_MODEL: qwen/qwen3-32b
-          GROQ_FALLBACK_MODEL: llama-3.3-70b-versatile
