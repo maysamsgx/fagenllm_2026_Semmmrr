@@ -56,8 +56,8 @@ def _run_reconciliation(state: FinancialState) -> FinancialState:
         def tx_to_string(tx: dict) -> str:
             parts = [
                 str(tx.get("amount", "")),
-                str(tx.get("date", "")),
-                str(tx.get("counterparty_id", tx.get("counterparty", ""))),
+                str(tx.get("transaction_date", "")),
+                str(tx.get("counterparty", "")),
                 str(tx.get("description", ""))
             ]
             return " ".join(parts).lower()
@@ -152,8 +152,13 @@ def _run_reconciliation(state: FinancialState) -> FinancialState:
     db.add_reconciliation_items(report_id, items)
 
     # ── Communication: route to credit if systematic issue found ─────────────
-    customer_id = _find_customer(anomalies) if systematic else None
-    next_agent  = "credit" if customer_id else END
+    # We find ALL customers involved in systematic anomalies
+    affected_customer_ids = _find_customers(anomalies) if systematic else []
+    
+    # If multiple customers are affected, the graph currently only processes one at a time.
+    # We'll pick the one with the most anomalies for this run.
+    target_customer_id = affected_customer_ids[0] if affected_customer_ids else None
+    next_agent  = "credit" if target_customer_id else END
 
     return {
         **state,
@@ -165,20 +170,26 @@ def _run_reconciliation(state: FinancialState) -> FinancialState:
             "report_id":     report_id,
             "decision_id":   decision_id,
             "anomaly_summary": analysis.business_explanation,
+            "anomalous_customer_ids": affected_customer_ids,
         },
         "reasoning_trace": trace,
-        "credit": {**state.get("credit", {}), "customer_id": customer_id or ""},
+        "credit": {**state.get("credit", {}), "customer_id": target_customer_id or ""},
     }
 
 
-def _find_customer(anomalies: list) -> str | None:
+def _find_customers(anomalies: list) -> list[str]:
+    """Find all unique customer IDs related to the anomalies based on description matching."""
     customers = db.select("customers")
+    found_ids = []
     for a in anomalies:
         desc = (a.get("description") or "").lower()
+        counterparty = (a.get("counterparty") or "").lower()
         for c in customers:
-            if c["name"].lower() in desc:
-                return c["id"]
-    return customers[0]["id"] if customers else None
+            name = c["name"].lower()
+            if name in desc or name in counterparty:
+                if c["id"] not in found_ids:
+                    found_ids.append(c["id"])
+    return found_ids
 
 
 def _current_period() -> str:

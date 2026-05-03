@@ -12,11 +12,16 @@ def list_customers(risk_level: str = Query(None)):
     query = supabase.table("customers").select("*")
     if risk_level: query = query.eq("risk_level", risk_level)
     rows = query.execute().data
-    seen = set()
+    
+    # Deduplicate by name (V2 fix for seeder duplicates)
+    seen_names = set()
     deduped = []
-    for r in rows:
-        if r["id"] not in seen:
-            seen.add(r["id"])
+    # Sort by created_at desc so we get the most recent record for a name
+    sorted_rows = sorted(rows, key=lambda x: x.get("created_at", ""), reverse=True)
+    for r in sorted_rows:
+        name = r["name"].strip()
+        if name not in seen_names:
+            seen_names.add(name)
             deduped.append(r)
     return deduped
 

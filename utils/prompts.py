@@ -242,7 +242,7 @@ Your response must provide:
 # ══════════════════════════════════════════════════════════════════════════════
 
 def credit_risk_prompt(customer: dict, payment_history: list[dict],
-                        risk_score: float) -> tuple[str, str]:
+                        risk_score: float, recon_anomalies: str | None = None) -> tuple[str, str]:
     """
     Generate XAI explanation for credit risk assessment.
     Implements weighted R = Σ(w_i × f_i) from thesis Section 2.7.2.
@@ -259,6 +259,10 @@ Your explanation must be clear enough for a non-technical finance manager. Retur
         for p in recent_payments
     ]) or "No payment history available"
 
+    recon_ctx = ""
+    if recon_anomalies:
+        recon_ctx = f"\nReconciliation Intelligence:\n- Systematic issues detected: {recon_anomalies}\n"
+
     user = f"""Explain this credit risk assessment for a finance manager.
 
 Customer: {customer.get('name')}
@@ -266,14 +270,14 @@ Credit limit: ${customer.get('credit_limit', 0):,.2f}
 Outstanding balance: ${customer.get('total_outstanding', 0):,.2f}
 Computed risk score R: {risk_score:.1f} / 100
 (Higher = higher risk. Formula: R = Σ(w_i × f_i) over payment delay, outstanding ratio, dispute frequency)
-
+{recon_ctx}
 Recent payment history (last 5):
 {payment_text}
 
 Your response must provide:
-1. Technical Explanation: Interpretation of the risk score R.
-2. Business Explanation: What this means for the company's credit exposure.
-3. Causal Explanation: How this affects payment terms or future transactions.
+1. Technical Explanation: Interpretation of the risk score R and how different factors (including reconciliation issues if present) contributed.
+2. Business Explanation: What this means for the company's credit exposure and the impact of the detected systematic issues.
+3. Causal Explanation: How this affects payment terms or future transactions. Explain the causal link between reconciliation findings and credit risk.
 4. Decision: One of "reminder", "formal_notice", "escalate", "legal_referral", "monitor".
 """
 

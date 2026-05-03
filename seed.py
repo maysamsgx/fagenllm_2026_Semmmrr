@@ -186,6 +186,23 @@ def gen_vendors():
     return vendors
 
 
+def normalize_name_to_email(name, existing_emails):
+    import re
+    import unicodedata
+    # Normalize: AHMET TAHA UĞUR -> ahmet taha ugur
+    normalized = unicodedata.normalize('NFKD', name).encode('ascii', 'ignore').decode('utf-8').lower()
+    base = re.sub(r'[^a-z0-9]+', '.', normalized).strip('.')
+    domain = "example.com"
+    email = f"{base}@{domain}"
+    if email not in existing_emails:
+        return email
+    counter = 1
+    while True:
+        email = f"{base}.{counter}@{domain}"
+        if email not in existing_emails:
+            return email
+        counter += 1
+
 def gen_customers():
     """Use real client names from clients.csv. Assign realistic credit profiles."""
     customers = []
@@ -196,8 +213,10 @@ def gen_customers():
         with open(CLIENTS_CSV, encoding="utf-8") as f:
             reader = csv.reader(f)
             next(reader)  # skip header
-            names = [row[0].strip() for row in reader if row and row[0].strip()]
+            # Deduplicate names right at the source
+            names = list(set([row[0].strip() for row in reader if row and row[0].strip()]))
 
+    existing_emails = set()
     for name in names:
         # Risk distribution: 60% low, 30% medium, 10% high
         r = random.random()
@@ -214,10 +233,13 @@ def gen_customers():
             credit_limit = random.choice([2_000, 5_000])
             terms = random.choice([15, 30])
 
+        email = normalize_name_to_email(name, existing_emails)
+        existing_emails.add(email)
+
         customers.append({
             "id": gen_uuid(),
             "name": name[:120],
-            "email": fake.email(),
+            "email": email,
             "phone": fake.phone_number()[:30],
             "credit_limit": credit_limit,
             "credit_score": round(score, 2),

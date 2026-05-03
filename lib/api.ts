@@ -301,3 +301,10 @@ export const intelApi = {
   causalGraph: () => req<{ nodes: AgentDecision[], edges: CausalLink[] }>('/intel/causal-graph'),
 }
 
+// ── Analytics (New) ───────────────────────────────────────────────────────
+export const analyticsApi = {
+  aging: () => req<any[]>('/analytics/aging'),
+  performance: () => req<any>('/analytics/performance'),
+  disputes: () => req<any[]>('/analytics/disputes'),
+}
+

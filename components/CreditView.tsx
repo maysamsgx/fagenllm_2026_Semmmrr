@@ -4,8 +4,11 @@ import { ResponsiveContainer, BarChart, Bar, Cell, XAxis, YAxis, Tooltip, Cartes
 import { creditApi, Customer } from '../lib/api'
 import { Card, Badge, Empty, Spinner, RISK_COLOR, RISK_BG, fmt, AgentAvatar } from './Shared'
 import { useRealtime } from '../lib/useRealtime'
+import { AgingMetricsRow, AgingChartCard, useAnalytics } from './AgingDashboard'
+import DisputePortal from './DisputePortal'
 
 const AGING_COLORS = ['#22d3ee', '#6366f1', '#a78bfa', '#e879f9', '#fb7185']
+
 
 function AgingTooltip({ active, payload, label }: { active?: boolean; payload?: { value: number; dataIndex?: number }[]; label?: string }) {
   if (!active || !payload?.length) return null
@@ -98,30 +101,24 @@ function RiskDropdown({ value, onChange }: { value: string; onChange: (v: string
     </div>
   )
 }
-
 export default function CreditView() {
   const [customers, setCustomers]     = useState<Customer[]>([])
-  const [aging, setAging]             = useState<Record<string, number>>({})
-  const [totalOpen, setTotalOpen]     = useState(0)
   const [searchQuery, setSearchQuery] = useState('')
   const [riskFilter, setRiskFilter]   = useState('')
   const [assessingId, setAssessingId] = useState<string | null>(null)
+  
+  const { agingData, metrics, loading: analyticsLoading } = useAnalytics()
 
   const load = () => {
     creditApi.customers(riskFilter || undefined).then(rows => {
       const seen = new Set<string>()
       setCustomers(rows.filter(c => { if (seen.has(c.id)) return false; seen.add(c.id); return true }))
     }).catch(() => {})
-    creditApi.aging().then(r => { setAging(r.buckets); setTotalOpen(r.total_open) }).catch(() => {})
   }
   useEffect(() => { load() }, [riskFilter])
 
   useRealtime('customers', load)
   useRealtime('receivables', load)
-
-  const agingData = Object.entries(aging).map(([k, v]) => ({
-    bucket: k.replace('_', '–'), amount: v,
-  }))
 
   const visibleCustomers = customers.filter(c =>
     !searchQuery || c.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -149,25 +146,13 @@ export default function CreditView() {
         </div>
       </div>
 
-      <div className="stats-row">
-        <Card>
-          <div className="stat-label">Total AR open</div>
-          <div className="stat-value" style={{ color: '#67e8f9' }}>{fmt(totalOpen)}</div>
-        </Card>
-        {(['low','medium','high'] as const).map((r: 'low' | 'medium' | 'high') => (
-          <Card key={r}>
-            <div className="stat-label">{r} risk</div>
-            <div className="stat-value" style={{ color: RISK_COLOR[r] }}>
-              {customers.filter((c: Customer) => c.risk_level === r).length}
-            </div>
-          </Card>
-        ))}
-      </div>
+      <AgingMetricsRow metrics={metrics} loading={analyticsLoading} />
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 16 }}>
-        <Card>
+      <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 20, marginTop: 24, alignItems: 'start' }}>
+        <Card style={{ minHeight: 600 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-            <h3 style={{ margin: 0, flex: 1 }}>Customers</h3>
+            <h3 style={{ margin: 0, flex: 1, color: 'var(--cyan)' }}>Risk Monitoring</h3>
+
             <input
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
@@ -226,46 +211,10 @@ export default function CreditView() {
           </div>
         </Card>
 
-        <Card>
-          <h3 style={{ marginBottom: 14 }}>AR Aging</h3>
-          {agingData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={agingData} layout="vertical" barCategoryGap="28%">
-                <CartesianGrid strokeDasharray="2 4" stroke="rgba(255,255,255,.04)" horizontal={false} />
-                <XAxis
-                  type="number"
-                  tick={{ fontSize: 10.5, fill: '#5b6486', fontFamily: "'Space Grotesk', sans-serif", fontWeight: 500 }}
-                  stroke="rgba(255,255,255,.06)"
-                  tickFormatter={(v: number) => `$${(v / 1000).toFixed(0)}k`}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis
-                  dataKey="bucket"
-                  type="category"
-                  tick={{ fontSize: 10.5, fill: '#8891b3', fontFamily: "'Space Grotesk', sans-serif", fontWeight: 500 }}
-                  stroke="rgba(255,255,255,.06)"
-                  width={64}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <Tooltip content={<AgingTooltip />} cursor={{ fill: 'rgba(255,255,255,.03)', rx: 6 }} />
-                <Bar dataKey="amount" radius={[0, 5, 5, 0]} maxBarSize={18}>
-                  {agingData.map((_, i: number) => (
-                    <Cell
-                      key={i}
-                      fill={AGING_COLORS[i] ?? '#22d3ee'}
-                      fillOpacity={0.9}
-                      stroke={AGING_COLORS[i] ?? '#22d3ee'}
-                      strokeOpacity={0.25}
-                      strokeWidth={1}
-                    />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          ) : <Empty msg="No receivables data" />}
-        </Card>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <AgingChartCard agingData={agingData} loading={analyticsLoading} />
+          <DisputePortal />
+        </div>
       </div>
     </div>
   )

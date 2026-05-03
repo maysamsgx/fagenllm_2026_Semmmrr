@@ -28,6 +28,7 @@ def credit_node(state: FinancialState) -> FinancialState:
 
 def _assess_customer(state: FinancialState) -> FinancialState:
     credit_ctx  = state.get("credit", {})
+    recon_ctx   = state.get("reconciliation", {})
     customer_id = credit_ctx.get("customer_id", "")
 
     if not customer_id:
@@ -44,8 +45,16 @@ def _assess_customer(state: FinancialState) -> FinancialState:
     # ── Deterministic scoring (Decision module) ───────────────────────────────
     f1 = float(customer.get("payment_delay_avg", 5.0))
     f2 = float(customer.get("total_outstanding", 5000.0)) / 1000.0
+    
+    # V3: Add reconciliation penalty (f3) if systematic issues were found for this customer
+    f3 = 0.0
+    recon_summary = None
+    if recon_ctx.get("decision_id") and customer_id in recon_ctx.get("anomalous_customer_ids", []):
+        f3 = 20.0  # Flat 20pt penalty for systematic reconciliation issues
+        recon_summary = recon_ctx.get("anomaly_summary")
+
     score = max(0.0, min(100.0,
-        CREDIT.base_score + (-CREDIT.delay_weight * f1) + (-CREDIT.outstanding_weight * f2)
+        CREDIT.base_score + (-CREDIT.delay_weight * f1) + (-CREDIT.outstanding_weight * f2) - f3
     ))
     risk_level = (
         "high"   if score < CREDIT.high_risk_below   else
@@ -62,20 +71,21 @@ def _assess_customer(state: FinancialState) -> FinancialState:
     # ── LLM reasoning (Orchestration — explanation only) ─────────────────────
     # Inject the credit directive so the LLM explains within policy boundaries.
     from utils.prompts import credit_risk_prompt as _crp
-    base_system, user = _crp(customer, [], score)
+    base_system, user = _crp(customer, [], score, recon_summary)
     system = inject_directive(base_system, "credit")
     assessment = qwen_structured(system, user, DecisionOutput)
 
     input_state = {
         "current_score": score,
         "interpretable_model": {
-            "formula": "R = min(100, max(0, base - delay_weight×f1 - outstanding_weight×f2))",
+            "formula": "R = min(100, max(0, base - delay_weight×f1 - outstanding_weight×f2 - recon_penalty))",
             "base_score": CREDIT.base_score,
             "weights": {
                 "delay_weight":       CREDIT.delay_weight,
                 "outstanding_weight": CREDIT.outstanding_weight,
+                "recon_penalty_flat": 20.0 if f3 > 0 else 0.0,
             },
-            "factors": {"f1_delay_days": f1, "f2_outstanding_k": f2},
+            "factors": {"f1_delay_days": f1, "f2_outstanding_k": f2, "f3_recon_issue": f3 > 0},
         }
     }
 
@@ -92,11 +102,14 @@ def _assess_customer(state: FinancialState) -> FinancialState:
         confidence=assessment.confidence
     )
 
-    recon_ctx = state.get("reconciliation", {})
     if recon_ctx.get("decision_id"):
+        explanation = "Systematic payment delays detected in reconciliation trigger risk reassessment."
+        if f3 > 0:
+            explanation = f"Systematic reconciliation anomalies for {customer.get('name')} triggered a 20pt risk penalty and reassessment."
+        
         db.log_causal_link(
             recon_ctx["decision_id"], decision_id, "elevates_risk",
-            "Systematic payment delays detected in reconciliation trigger risk reassessment."
+            explanation
         )
 
     # ── Execution: advance collection stage for open receivables if high risk ─
