@@ -17,7 +17,7 @@ from langchain_openai import ChatOpenAI
 class Settings(BaseSettings):
     # Supabase
     supabase_url: str
-    supabase_anon_key: str
+    supabase_anon_key: str = ""
     supabase_service_key: str
 
     # Qwen3-32B via Groq (OpenAI-compatible, free tier)
@@ -29,7 +29,7 @@ class Settings(BaseSettings):
 
     # Baidu Qianfan-OCR-Fast via OpenRouter (free)
     # Get key: https://openrouter.ai -> API Keys
-    openrouter_api_key: str
+    openrouter_api_key: str = ""
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
     ocr_model: str = "baidu/qianfan-ocr-fast:free"
 
