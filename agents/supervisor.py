@@ -23,7 +23,14 @@ def router_node(state: FinancialState) -> Any:
         return {**state, "next_agent": "cash", "current_agent": "supervisor"}
 
     if trigger == "customer_payment_check":
-        return {**state, "next_agent": "credit", "current_agent": "supervisor"}
+        # Seed customer_id from trigger_entity_id so credit_node never gets an empty id.
+        customer_id = state.get("trigger_entity_id", "")
+        return {
+            **state,
+            "next_agent": "credit",
+            "current_agent": "supervisor",
+            "credit": {**state.get("credit", {}), "customer_id": customer_id},
+        }
 
     # Default to ending if unknown trigger
     return {**state, "next_agent": END, "current_agent": "supervisor"}

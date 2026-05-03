@@ -7,6 +7,7 @@ router = APIRouter()
 
 
 @router.get("")
+@router.get("/")
 def list_departments():
-    rows = db.select("departments", {})
+    rows = db.select("departments")  # no filter = all rows
     return [{"id": r["id"], "name": r.get("name") or r["id"]} for r in rows]

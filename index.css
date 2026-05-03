@@ -193,12 +193,32 @@ body::after {
   justify-content: center;
   flex-shrink: 0;
   position: relative;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.03);
+  box-shadow: inset 0 0 12px rgba(255, 255, 255, 0.05);
+}
+
+.brand-icon::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  background: radial-gradient(circle, rgba(34, 211, 238, 0.2) 0%, rgba(34, 211, 238, 0) 70%);
+  border-radius: 50%;
+  z-index: -1;
+  pointer-events: none;
+  animation: logoGlow 4s ease-in-out infinite;
+}
+
+@keyframes logoGlow {
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.1); }
 }
 
 .brand-logo-img {
-  width: 100%;
-  height: 100%;
+  width: 85%;
+  height: 85%;
   object-fit: contain;
+  filter: drop-shadow(0 0 8px rgba(34, 211, 238, 0.3));
 }
 
 .brand-name {
@@ -738,6 +758,31 @@ h3 {
   background: #0d1226;
   color: var(--text);
 }
+
+.input {
+  appearance: none;
+  font-family: inherit;
+  font-size: 13px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 9px 13px;
+  color: var(--text-2);
+  transition: all .15s;
+  backdrop-filter: blur(20px);
+  outline: none;
+}
+
+.input:hover {
+  border-color: var(--border-2);
+  background-color: var(--surface-2);
+}
+
+.input:focus {
+  border-color: var(--cyan);
+  box-shadow: 0 0 0 3px rgba(34, 211, 238, .15);
+}
+
 
 /* ══════════════════════════════════════════════════════════════════════════
    Badges & Status

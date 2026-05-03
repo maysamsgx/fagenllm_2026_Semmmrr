@@ -157,10 +157,8 @@ export default function BudgetView() {
                 <select
                   value={wiDept}
                   onChange={e => { setWiDept(e.target.value); setWiResult(null) }}
-                  style={{
-                    background: 'rgba(255,255,255,.06)', border: '1px solid rgba(255,255,255,.12)',
-                    borderRadius: 6, padding: '6px 10px', fontSize: 12, color: 'var(--text)', outline: 'none',
-                  }}
+                  className="select"
+                  style={{ fontSize: 12, padding: '6px 32px 6px 10px', width: '100%', minWidth: 160 }}
                 >
                   <option value="">Select…</option>
                   {budgets.map(b => <option key={b.id} value={b.department ?? b.id}>{b.department}</option>)}
@@ -173,11 +171,8 @@ export default function BudgetView() {
                   value={wiAmount}
                   onChange={e => { setWiAmount(e.target.value); setWiResult(null) }}
                   placeholder="e.g. 5000"
-                  style={{
-                    background: 'rgba(255,255,255,.06)', border: '1px solid rgba(255,255,255,.12)',
-                    borderRadius: 6, padding: '6px 10px', fontSize: 12, color: 'var(--text)',
-                    outline: 'none', width: 140,
-                  }}
+                  className="input"
+                  style={{ fontSize: 12, padding: '6px 10px', width: 140 }}
                 />
               </div>
               <button

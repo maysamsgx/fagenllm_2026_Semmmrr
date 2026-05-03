@@ -6,6 +6,22 @@ from config import get_supabase
 
 router = APIRouter()
 
+
+@router.get("")
+@router.get("/")
+def get_intel_summary():
+    """Root endpoint: latest snapshot + decision/causal-link counts."""
+    supabase = get_supabase()
+    snapshot = db.get_latest_snapshot()
+    decision_count = supabase.table("agent_decisions").select("id", count="exact").execute().count or 0
+    causal_count = supabase.table("causal_links").select("id", count="exact").execute().count or 0
+    return {
+        "latest_snapshot": snapshot,
+        "total_decisions": decision_count,
+        "total_causal_links": causal_count,
+    }
+
+
 @router.get("/snapshot/latest")
 def get_latest_snapshot():
     return db.get_latest_snapshot()

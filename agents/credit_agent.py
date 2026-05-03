@@ -10,6 +10,7 @@ DOE Layer: Orchestration.
 """
 
 from __future__ import annotations
+from datetime import date
 from langgraph.graph import END
 
 from agents.state import FinancialState
@@ -52,6 +53,12 @@ def _assess_customer(state: FinancialState) -> FinancialState:
         "low"
     )
 
+    # ── Adaptive feedback: write score back so future runs read real data ────
+    db.update("customers", {"id": customer_id}, {
+        "credit_score": round(score, 2),
+        "risk_level":   risk_level,
+    })
+
     # ── LLM reasoning (Orchestration — explanation only) ─────────────────────
     # Inject the credit directive so the LLM explains within policy boundaries.
     from utils.prompts import credit_risk_prompt as _crp
@@ -92,6 +99,10 @@ def _assess_customer(state: FinancialState) -> FinancialState:
             "Systematic payment delays detected in reconciliation trigger risk reassessment."
         )
 
+    # ── Execution: advance collection stage for open receivables if high risk ─
+    if risk_level == "high":
+        _advance_collection_stages(customer_id)
+
     trace = state.get("reasoning_trace", []) + [{
         "agent": "credit",
         "step": "Assessed risk",
@@ -113,6 +124,38 @@ def _assess_customer(state: FinancialState) -> FinancialState:
         "next_agent": "cash" if risk_level == "high" else END,
         "trigger":    "cash_position_refresh" if risk_level == "high" else "done",
     }
+
+
+def _advance_collection_stages(customer_id: str) -> None:
+    """
+    Advance the collection_stage on all open receivables for a high-risk customer.
+    Pipeline: none → reminder → notice → escalated → legal
+    Also stamps last_reminder_at so finance can track follow-up cadence.
+    """
+    import logging
+    _STAGE_NEXT = {
+        "none":      "reminder",
+        "reminder":  "notice",
+        "notice":    "escalated",
+        "escalated": "legal",
+        "legal":     "legal",   # terminal stage — no further escalation
+    }
+    try:
+        open_receivables = [
+            r for r in db.select("receivables", {"customer_id": customer_id})
+            if r.get("status") == "open"
+        ]
+        for r in open_receivables:
+            current_stage = r.get("collection_stage") or "none"
+            next_stage    = _STAGE_NEXT.get(current_stage, "reminder")
+            db.update("receivables", {"id": r["id"]}, {
+                "collection_stage":  next_stage,
+                "last_reminder_at":  date.today().isoformat(),
+            })
+    except Exception as exc:
+        logging.getLogger("fagentllm").warning(
+            "Collection stage advancement failed for customer %s: %s", customer_id, exc
+        )
 
 
 def _error(state: FinancialState, msg: str) -> FinancialState:

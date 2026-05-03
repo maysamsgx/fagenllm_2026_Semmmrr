@@ -33,13 +33,10 @@ export default function App() {
       <aside className="sidebar">
         <div className="sidebar-brand">
           <div className="brand-icon">
-            <video
+            <img
               className="brand-logo-img"
-              src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260424_090051_64ea5059-da6b-492b-a171-aa7ecc767dc3.mp4"
-              autoPlay
-              loop
-              muted
-              playsInline
+              src="/assets/brand-logo.png"
+              alt="FAgentLLM Logo"
             />
           </div>
           <div>
