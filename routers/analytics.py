@@ -1,7 +1,6 @@
 from fastapi import APIRouter
 from db.supabase_client import db
-from datetime import date, timedelta
-from typing import List, Dict, Any
+from datetime import date
 
 router = APIRouter()
 

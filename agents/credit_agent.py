@@ -40,7 +40,6 @@ def _assess_customer(state: FinancialState) -> FinancialState:
 
     from utils.contracts import DecisionOutput
     from utils.llm import qwen_structured
-    from utils.prompts import credit_risk_prompt
 
     # ── Deterministic scoring (Decision module) ───────────────────────────────
     f1 = float(customer.get("payment_delay_avg", 5.0))

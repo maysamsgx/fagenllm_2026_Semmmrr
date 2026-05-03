@@ -6,7 +6,6 @@ sys.path.append(os.getcwd())
 
 from agents.reconciliation_agent import reconciliation_node
 from agents.state import initial_state
-from db.supabase_client import db
 
 def test_recon():
     print("Starting manual reconciliation test...")

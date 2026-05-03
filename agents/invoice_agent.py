@@ -41,21 +41,23 @@ def _handle_new_invoice(state: FinancialState, invoice_id: str) -> FinancialStat
 
     db.update_invoice_status(invoice_id, "extracting")
 
-    # ── 1. OCR ────────────────────────────────────────────────────────────
-    try:
-        ocr_text = _run_ocr(invoice)
-    except Exception as e:
-        db.update_invoice_status(invoice_id, "rejected", {"rejection_reason": f"OCR failed: {e}"})
-        db.log_agent_decision(
-            agent="invoice", decision_type="ocr_failed",
-            entity_table="invoices", entity_id=invoice_id,
-            technical_explanation=f"OCR pipeline raised: {e}",
-            business_explanation="The invoice file could not be digitised, so no fields could be read.",
-            causal_explanation="Blocks all downstream agents (cash, budget, approval) for this invoice.",
-            input_state={"file_path": invoice.get("file_path")},
-            confidence=0.0,
-        )
-        return _error(state, f"OCR failed: {e}")
+    # ── 1. OCR (skip if already present) ──────────────────────────────────
+    ocr_text = invoice.get("ocr_raw_text")
+    if not ocr_text:
+        try:
+            ocr_text = _run_ocr(invoice)
+        except Exception as e:
+            db.update_invoice_status(invoice_id, "rejected", {"rejection_reason": f"OCR failed: {e}"})
+            db.log_agent_decision(
+                agent="invoice", decision_type="ocr_failed",
+                entity_table="invoices", entity_id=invoice_id,
+                technical_explanation=f"OCR pipeline raised: {e}",
+                business_explanation="The invoice file could not be digitised, so no fields could be read.",
+                causal_explanation="Blocks all downstream agents (cash, budget, approval) for this invoice.",
+                input_state={"file_path": invoice.get("file_path")},
+                confidence=0.0,
+            )
+            return _error(state, f"OCR failed: {e}")
 
     ocr_pipeline = "local-tesseract fallback" if ocr_text.startswith("[LOCAL OCR") else "Baidu Qianfan OCR-Fast"
     ocr_confidence = 80.0 if ocr_text.startswith("[LOCAL OCR") else 99.0
@@ -68,8 +70,8 @@ def _handle_new_invoice(state: FinancialState, invoice_id: str) -> FinancialStat
             f"'{file_label}' at {ocr_confidence:.0f}% engine confidence."
         ),
         business_explanation=(
-            f"Converted the uploaded document into machine-readable text so the system can "
-            f"automatically capture vendor, amount, and line-item details without manual data entry."
+            "Converted the uploaded document into machine-readable text so the system can "
+            "automatically capture vendor, amount, and line-item details without manual data entry."
         ),
         causal_explanation=(
             "Unblocks structured field extraction and downstream vendor-risk and budget checks; "

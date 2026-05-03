@@ -1,0 +1,19 @@
+
+[MASTER]
+ignore=venv,tests,scratch
+disable=
+    C0114, # missing-module-docstring
+    C0115, # missing-class-docstring
+    C0116, # missing-function-docstring
+    R0903, # too-few-public-methods
+    W0703, # broad-except
+    W0613, # unused-argument
+    C0103, # invalid-name
+    E0401  # import-error (we don't want it to fail on missing deps in lint step)
+
+[REPORTS]
+output-format=text
+reports=yes
+
+[MESSAGES CONTROL]
+max-line-length=120

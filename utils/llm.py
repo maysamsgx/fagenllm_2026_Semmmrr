@@ -11,6 +11,11 @@ import io
 import json
 import logging
 import re
+from typing import Type, TypeVar
+
+from pydantic import BaseModel
+
+T = TypeVar("T", bound=BaseModel)
 
 from tenacity import retry, stop_after_attempt, wait_exponential
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -167,11 +172,11 @@ def _call_groq_with_fallback(
             s.qwen_model, type(exc).__name__, exc, s.groq_fallback_model,
         )
 
-    # Fallback attempt (llama-3.3-70b does not support reasoning_effort)
+    # Fallback attempt (llama-3.3-70b-versatile)
     try:
         raw = _groq_raw_call(messages, model=s.groq_fallback_model,
-                             temperature=temperature, force_json=force_json,
-                             max_tokens=max_tokens, use_reasoning_effort=False)
+                             temperature=1.0, force_json=force_json,
+                             max_tokens=1024, use_reasoning_effort=False)
         logger.info("Fallback model (%s) succeeded.", s.groq_fallback_model)
         return raw, "fallback"
     except Exception as exc2:
@@ -232,9 +237,7 @@ def qwen_json(system_prompt: str, user_prompt: str) -> dict:
     return {"error": "parse_failed", "raw": cleaned2[:1200] or cleaned[:1200]}
 
 
-from pydantic import BaseModel
-from typing import Type, TypeVar
-T = TypeVar("T", bound=BaseModel)
+
 
 
 def qwen_structured(system_prompt: str, user_prompt: str, schema: Type[T]) -> T:
@@ -345,7 +348,8 @@ def fallback_ocr(image_bytes: bytes) -> str:
         boxes: list[list[int]] = []
         for i, w in enumerate(ocr_data["text"]):
             token = (w or "").strip()
-            if not token: continue
+            if not token:
+                continue
             x, y, w_, h_ = ocr_data["left"][i], ocr_data["top"][i], ocr_data["width"][i], ocr_data["height"][i]
             # LayoutLMv3 wants boxes scaled to [0, 1000]
             boxes.append([

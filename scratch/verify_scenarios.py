@@ -1,7 +1,5 @@
 import sys
 import os
-import json
-from datetime import date
 
 # Add the current directory to sys.path so we can import our modules
 sys.path.append(os.getcwd())

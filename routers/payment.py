@@ -1,7 +1,6 @@
 """routers/payment.py — Payments Layer endpoints (V3)."""
 
 from fastapi import APIRouter, Query
-from db.supabase_client import db
 from config import get_supabase
 
 router = APIRouter()

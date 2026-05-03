@@ -326,7 +326,6 @@ def _rev_explain(state: FinancialState, percept: dict, verdict: dict) -> str:
     period  = percept["period"]
     llm     = verdict.get("llm_summary") or {}
 
-    from config import get_supabase
     first_id = budgets[0]["id"] if budgets else "none"
 
     technical = (

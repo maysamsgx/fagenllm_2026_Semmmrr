@@ -1,6 +1,6 @@
 """routers/credit.py — Credit & Collection Agent endpoints (V2)."""
 
-from fastapi import APIRouter, Query, BackgroundTasks, HTTPException
+from fastapi import APIRouter, Query, BackgroundTasks
 from db.supabase_client import db
 from config import get_supabase
 
@@ -10,7 +10,8 @@ router = APIRouter()
 def list_customers(risk_level: str = Query(None)):
     supabase = get_supabase()
     query = supabase.table("customers").select("*")
-    if risk_level: query = query.eq("risk_level", risk_level)
+    if risk_level:
+        query = query.eq("risk_level", risk_level)
     rows = query.execute().data
     
     # Deduplicate by name (V2 fix for seeder duplicates)
@@ -38,12 +39,18 @@ def get_aging_buckets():
             due = date.fromisoformat(str(r["due_date"]))
             overdue = (today - due).days
             amount = float(r.get("amount", 0) or 0)
-            if overdue <= 0: buckets["current"] += amount
-            elif overdue <= 30: buckets["1_30"] += amount
-            elif overdue <= 60: buckets["31_60"] += amount
-            elif overdue <= 90: buckets["61_90"] += amount
-            else: buckets["over_90"] += amount
-        except: pass
+            if overdue <= 0:
+                buckets["current"] += amount
+            elif overdue <= 30:
+                buckets["1_30"] += amount
+            elif overdue <= 60:
+                buckets["31_60"] += amount
+            elif overdue <= 90:
+                buckets["61_90"] += amount
+            else:
+                buckets["over_90"] += amount
+        except Exception:
+            pass
 
     return {
         "buckets": {k: round(v, 2) for k, v in buckets.items()},

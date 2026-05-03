@@ -123,12 +123,11 @@ VENDOR_CATEGORIES = [
 ]
 
 CASH_ACCOUNTS_DATA = [
-    ("Operating Account",  "JPMorgan Chase",  "USD", 850_000),
-    ("Reserve Account",    "Bank of America", "USD", 1_200_000),
-    ("Payroll Account",    "Wells Fargo",     "USD", 450_000),
-    ("FX Account",         "HSBC",            "EUR", 200_000),
+    ("Operating Account",  "İş Bankası",      "TRY", 25_000_000),
+    ("Reserve Account",    "Garanti BBVA",    "USD", 1_200_000),
+    ("Payroll Account",    "Akbank",          "TRY", 15_000_000),
+    ("FX Account",         "Yapı Kredi",      "EUR", 200_000),
 ]
-
 
 # ---------------------------------------------------------------
 # Helpers
@@ -767,7 +766,7 @@ def gen_transactions(ap_invoices, ar_invoices, cash_accounts, payments):
             "amount": -amt,
             "currency": "USD",
             "transaction_date": pd.isoformat(),
-            "description": f"PAYROLL DISBURSEMENT",
+            "description": "PAYROLL DISBURSEMENT",
             "counterparty": "Employees",
             "invoice_id": None,
             "cash_account_id": payroll["id"],
@@ -953,7 +952,7 @@ def print_summary(data):
           f"(diff = {len(internal_txns) - len(bank_txns)} <- agent finds these)")
 
     # Budget utilisation per department
-    print(f"\nBudget utilisation (current quarter):")
+    print("\nBudget utilisation (current quarter):")
     for b in data["budgets"]:
         if b["period"] != "2026-Q1":
             continue

@@ -52,7 +52,7 @@ def test_causal_integration():
         # Check for causal link
         links = db.select("causal_links", {"effect_decision_id": decision_id})
         if links:
-            print(f"\nCAUSAL LINK FOUND!")
+            print("\nCAUSAL LINK FOUND!")
             print(f"Type: {links[0]['relationship_type']}")
             print(f"Explanation: {links[0]['explanation']}")
         else:

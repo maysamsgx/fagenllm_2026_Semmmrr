@@ -5,7 +5,6 @@ This router triggers the LangGraph agent whenever a new invoice is uploaded.
 """
 
 import uuid
-from typing import Literal
 from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks, Query
 from pydantic import BaseModel
 
