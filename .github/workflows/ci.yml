@@ -51,7 +51,7 @@ jobs:
           pip install pytest pytest-mock
 
       - name: Run Unit Tests
-        run: pytest tests/test_utils.py tests/test_agents.py -v
+        run: python -m pytest tests/test_utils.py tests/test_agents.py -v
 
   # 3️⃣ LINT: Code Quality (Commit Stage)
   lint:
@@ -75,11 +75,11 @@ jobs:
           pip install flake8 pylint
 
       - name: Run Flake8
-        run: flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+        run: python -m flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
       - name: Run Pylint
         # Enforce fail-under 8.0
-        run: pylint . --rcfile=.pylintrc --fail-under=8.0
+        run: python -m pylint . --rcfile=.pylintrc --fail-under=8.0
 
   # 4️⃣ ACCEPTANCE TEST: End-to-End Causal Reasoning
   acceptance-test:
@@ -103,7 +103,7 @@ jobs:
           pip install pytest
 
       - name: Run System Acceptance Tests
-        run: pytest tests/system_acceptance_test.py -s
+        run: python -m pytest tests/system_acceptance_test.py -s
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
