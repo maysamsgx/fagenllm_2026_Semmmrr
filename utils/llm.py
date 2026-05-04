@@ -384,6 +384,30 @@ def fallback_ocr(image_bytes: bytes) -> str:
 
 # ── PDF helpers ──────────────────────────────────────────────────────────────
 
+def extract_pdf_text_direct(pdf_bytes: bytes) -> str | None:
+    """
+    Attempt to extract text directly from a digital PDF.
+    If the PDF is essentially empty of text (e.g., scanned images), returns None.
+    """
+    try:
+        import fitz
+    except ImportError as e:
+        raise RuntimeError("PyMuPDF (pymupdf) is required. Install with: pip install pymupdf") from e
+
+    text_pages = []
+    with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
+        for page in doc:
+            page_text = page.get_text("text").strip()
+            if page_text:
+                text_pages.append(page_text)
+    
+    combined_text = "\n\n--- PAGE BREAK ---\n\n".join(text_pages)
+    
+    if len(combined_text) > 50:
+        return f"[DIGITAL PDF DIRECT EXTRACT]\n{combined_text}"
+    return None
+
+
 def pdf_to_images(pdf_bytes: bytes) -> list[bytes]:
     """
     Render every PDF page to JPEG. Uses PyMuPDF (fitz) — that handles
@@ -417,6 +441,12 @@ def ocr_invoice(file_bytes: bytes, filename: str) -> str:
     name = filename.lower()
 
     if name.endswith(".pdf"):
+        # 1. Try direct digital text extraction first
+        direct_text = extract_pdf_text_direct(file_bytes)
+        if direct_text:
+            return direct_text
+            
+        # 2. Fall back to OCR if it's a scanned PDF
         pages = pdf_to_images(file_bytes)
         if not pages:
             raise RuntimeError(f"PDF {filename} has no renderable pages")
