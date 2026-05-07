@@ -37,7 +37,16 @@ def get_forecast(days: int = Query(7, le=30)):
     rows  = (supabase.table("cash_flow_forecasts").select("*")
              .gte("forecast_date", start).lte("forecast_date", end)
              .order("forecast_date").execute().data)
-    return {"days": days, "forecast": rows}
+             
+    unique_forecasts = {}
+    for r in rows:
+        d = r["forecast_date"]
+        if d not in unique_forecasts or r.get("created_at", "") > unique_forecasts[d].get("created_at", ""):
+            unique_forecasts[d] = r
+            
+    deduped_forecast = [unique_forecasts[d] for d in sorted(unique_forecasts.keys())]
+    
+    return {"days": days, "forecast": deduped_forecast}
 
 
 @router.post("/scenario")

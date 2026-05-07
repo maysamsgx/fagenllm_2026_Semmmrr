@@ -24,6 +24,17 @@ def list_customers(risk_level: str = Query(None)):
         if name not in seen_names:
             seen_names.add(name)
             deduped.append(r)
+            
+    # Calculate real total_outstanding from receivables
+    receivables = supabase.table("receivables").select("customer_id, amount").eq("status", "open").execute().data
+    outstandings = {}
+    for rec in receivables:
+        cid = rec["customer_id"]
+        outstandings[cid] = outstandings.get(cid, 0.0) + float(rec.get("amount", 0) or 0)
+        
+    for d in deduped:
+        d["total_outstanding"] = outstandings.get(d["id"], 0.0)
+        
     return deduped
 
 @router.get("/aging")
