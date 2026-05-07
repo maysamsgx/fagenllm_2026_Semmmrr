@@ -7,13 +7,17 @@ import CashView from './components/CashView'
 import BudgetView from './components/BudgetView'
 import ReconciliationView from './components/ReconciliationView'
 import CreditView from './components/CreditView'
+import OverviewView from './components/OverviewView'
+import IntelView from './components/IntelView'
 import VideoBackground from './components/VideoBackground'
 import { getAgentAvatar, getLegacyAgentAvatar } from './components/Shared'
 import './index.css'
 
-type Tab = 'invoice' | 'cash' | 'budget' | 'reconciliation' | 'credit'
+type Tab = 'overview' | 'intelligence' | 'invoice' | 'cash' | 'budget' | 'reconciliation' | 'credit'
 
 const NAV: { id: Tab; label: string; desc: string }[] = [
+  { id: 'overview',       label: 'Overview',       desc: 'System status' },
+  { id: 'intelligence',   label: 'Intelligence',   desc: 'Causal Engine' },
   { id: 'invoice',        label: 'Invoice',        desc: 'OCR · approval' },
   { id: 'cash',           label: 'Cash',           desc: 'Liquidity gate' },
   { id: 'budget',         label: 'Budget',         desc: 'Spend control' },
@@ -22,7 +26,7 @@ const NAV: { id: Tab; label: string; desc: string }[] = [
 ]
 
 export default function App() {
-  const [tab, setTab] = useState<Tab>('invoice')
+  const [tab, setTab] = useState<Tab>('overview')
 
   return (
     <>
@@ -52,11 +56,12 @@ export default function App() {
               className={`nav-item ${tab === n.id ? 'active' : ''}`}
               onClick={() => setTab(n.id)}
             >
-              <span className="nav-icon">
+              <span className="nav-icon" style={{ minWidth: '40px', minHeight: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <img
                   className="nav-avatar"
                   src={getAgentAvatar(n.id)}
                   alt={`${n.label} avatar`}
+                  style={{ width: '40px', height: '40px', objectFit: 'contain' }}
                   onError={(e) => { e.currentTarget.src = getLegacyAgentAvatar(n.id) }}
                 />
               </span>
@@ -77,6 +82,8 @@ export default function App() {
 
       <main className="main">
 
+        {tab === 'overview'       && <OverviewView />}
+        {tab === 'intelligence'   && <IntelView />}
         {tab === 'invoice'        && <InvoiceView />}
         {tab === 'cash'           && <CashView />}
         {tab === 'budget'         && <BudgetView />}

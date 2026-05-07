@@ -62,6 +62,7 @@ export const AGENT_COLOR: Record<string, string> = {
   budget: '#a78bfa',
   reconciliation: '#fbbf24',
   credit: '#fb7185',
+  intelligence: '#67e8f9',
   supervisor: '#94a3b8',
 }
 
@@ -69,6 +70,7 @@ export const BRAND_LOGO = '/assets/image-removebg-preview (21).png'
 export const LEGACY_BRAND_LOGO = '/assets/logo_for_FAgentllm.png'
 
 export const AGENT_AVATAR: Record<string, string> = {
+  overview: '/assets/image-removebg-preview (22).png',
   invoice: '/assets/agents/invoice.png',
   invoice_agent: '/assets/agents/invoice.png',
   cash: '/assets/agents/cash.png',
@@ -79,9 +81,11 @@ export const AGENT_AVATAR: Record<string, string> = {
   reconciliation_agent: '/assets/agents/reconciliation.png',
   credit: '/assets/agents/credit.png',
   credit_agent: '/assets/agents/credit.png',
+  intelligence: '/assets/image-removebg-preview (22).png',
 }
 
 export const LEGACY_AGENT_AVATAR: Record<string, string> = {
+  overview: '/assets/image-removebg-preview (22).png',
   invoice: '/agents/invoice.png',
   invoice_agent: '/agents/invoice.png',
   cash: '/agents/cash.png',

@@ -78,3 +78,10 @@ def get_disputes():
         d["customer_name"] = customers.get(d["customer_id"], "Unknown")
         
     return filtered
+
+@router.get("/reconciliation")
+def get_reconciliation_analytics():
+    """Fetch all reconciliation reports for dashboard visualization."""
+    reports = db.select("reconciliation_reports")
+    sorted_reports = sorted(reports, key=lambda x: x.get("created_at", ""))
+    return sorted_reports

@@ -306,5 +306,6 @@ export const analyticsApi = {
   aging: () => req<any[]>('/analytics/aging'),
   performance: () => req<any>('/analytics/performance'),
   disputes: () => req<any[]>('/analytics/disputes'),
+  reconciliation: () => req<any[]>('/analytics/reconciliation'),
 }
 

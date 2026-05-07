@@ -20,6 +20,21 @@ from db.supabase_client import db
 from directives.policies import RECON
 from utils.directives import inject_directive
 
+_SENTENCE_MODEL = None
+
+def get_sentence_model():
+    """Lazy-load the free, open-source MiniLM model."""
+    global _SENTENCE_MODEL
+    if _SENTENCE_MODEL is None:
+        try:
+            from sentence_transformers import SentenceTransformer
+            # Using a very small but effective open-source model
+            _SENTENCE_MODEL = SentenceTransformer('all-MiniLM-L6-v2')
+        except ImportError:
+            # Fallback to None if not installed; matching will skip semantic stage
+            return None
+    return _SENTENCE_MODEL
+
 
 def reconciliation_node(state: FinancialState) -> FinancialState:
     trigger = state.get("trigger", "daily_reconciliation")
@@ -73,10 +88,30 @@ def _run_reconciliation(state: FinancialState) -> FinancialState:
         external_vectors = vectorizer.transform([tx_to_string(t) for t in bank_txs])
         sim_matrix       = cosine_similarity(internal_vectors, external_vectors)
 
+        # ── Stage 2: Semantic Matching (for low-confidence TF-IDF items) ─────
+        model = get_sentence_model()
+        if model:
+            internal_emb = model.encode([tx_to_string(t) for t in internal_txs], convert_to_tensor=True)
+            external_emb = model.encode([tx_to_string(t) for t in bank_txs], convert_to_tensor=True)
+            from sentence_transformers.util import cos_sim
+            semantic_sim = cos_sim(internal_emb, external_emb).cpu().numpy()
+        else:
+            semantic_sim = None
+
         for i, tx in enumerate(internal_txs):
-            max_sim        = float(np.max(sim_matrix[i])) if sim_matrix.shape[1] > 0 else 0.0
-            tx["sim_score"] = max_sim
-            if max_sim >= RECON.match_threshold:
+            tfidf_max = float(np.max(sim_matrix[i])) if sim_matrix.shape[1] > 0 else 0.0
+            
+            # Combine scores: pick the best of TF-IDF or Semantic
+            semantic_max = float(np.max(semantic_sim[i])) if semantic_sim is not None and semantic_sim.shape[1] > 0 else 0.0
+            best_sim = max(tfidf_max, semantic_max)
+            
+            tx["sim_score"] = best_sim
+            tx["match_type"] = "tfidf" if tfidf_max >= semantic_max else "semantic"
+            
+            # Use appropriate threshold based on match type
+            threshold = RECON.match_threshold if tx["match_type"] == "tfidf" else RECON.semantic_match_threshold
+            
+            if best_sim >= threshold:
                 matched.append(tx)
             else:
                 anomalies.append(tx)
@@ -130,6 +165,17 @@ def _run_reconciliation(state: FinancialState) -> FinancialState:
     }]
 
     # ── Execution: write reconciliation report and items ──────────────────────
+    discrepancy_summary = [
+        {
+            "id": tx["id"],
+            "description": tx.get("description"),
+            "amount": tx.get("amount"),
+            "match_score": round(tx.get("sim_score", 0), 4),
+            "counterparty": tx.get("counterparty")
+        }
+        for tx in anomalies
+    ]
+
     report_id = db.create_reconciliation_report({
         "period":          period,
         "total_internal":  len(internal_txs),
@@ -137,19 +183,26 @@ def _run_reconciliation(state: FinancialState) -> FinancialState:
         "matched_count":   len(matched),
         "unmatched_count": len(anomalies),
         "match_rate":      (len(matched) / max(1, len(internal_txs))) * 100.0,
+        "discrepancies":   discrepancy_summary,
         "generated_by_decision_id": decision_id,
     })
 
     items = [
         {"transaction_id": tx["id"], "item_type": "matched",
-         "notes": f"Cosine similarity: {tx.get('sim_score', 0):.2f}"}
+         "notes": f"Match ({tx.get('match_type')}): {tx.get('sim_score', 0):.2f}"}
         for tx in matched
     ] + [
         {"transaction_id": tx["id"], "item_type": "discrepancy",
-         "notes": f"Below match threshold ({RECON.match_threshold}). Score: {tx.get('sim_score', 0):.2f}"}
+         "notes": f"Below threshold. Score: {tx.get('sim_score', 0):.2f} ({tx.get('match_type')})"}
         for tx in anomalies
     ]
     db.add_reconciliation_items(report_id, items)
+    
+    # ── Execution: update transactions with match scores ──────────────────────
+    # We update the original transactions with their best similarity score
+    # so the UI can display them even before they are fully matched.
+    for tx in internal_txs:
+        db.update("transactions", {"id": tx["id"]}, {"match_score": round(tx.get("sim_score", 0), 4)})
 
     # ── Communication: route to credit if systematic issue found ─────────────
     # We find ALL customers involved in systematic anomalies

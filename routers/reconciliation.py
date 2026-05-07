@@ -31,6 +31,15 @@ def run_reconciliation(background_tasks: BackgroundTasks,
     return {"message": "Reconciliation started", "period": run_period}
 
 
+@router.get("/reports")
+def get_all_reports():
+    """Get all reconciliation reports ordered by date (newest first)."""
+    supabase = get_supabase()
+    rows = (supabase.table("reconciliation_reports")
+            .select("*").order("generated_at", desc=True).execute().data)
+    return rows or []
+
+
 @router.get("/report")
 def get_latest_report():
     """Get the most recent reconciliation report."""
@@ -56,8 +65,34 @@ def get_report_by_period(period: str):
 
 @router.get("/unmatched")
 def get_unmatched(limit: int = Query(50, le=200)):
-    """List unmatched transactions — the input to the next reconciliation run."""
-    return db.get_unmatched_transactions(limit=limit)
+    """List unmatched transactions enriched with match_type from the latest reconciliation run."""
+    import re
+    transactions = db.get_unmatched_transactions(limit=limit)
+    if not transactions:
+        return []
+
+    supabase = get_supabase()
+    tx_ids = [tx["id"] for tx in transactions]
+
+    latest = (supabase.table("reconciliation_reports")
+              .select("id").order("generated_at", desc=True).limit(1).execute().data)
+    _type_re = re.compile(r'\((tfidf|semantic)\)', re.IGNORECASE)
+    if latest:
+        report_id = latest[0]["id"]
+        items = (supabase.table("reconciliation_report_items")
+                 .select("transaction_id,notes")
+                 .eq("report_id", report_id)
+                 .in_("transaction_id", tx_ids)
+                 .execute().data or [])
+        item_map = {row["transaction_id"]: row.get("notes", "") for row in items}
+        for tx in transactions:
+            m = _type_re.search(item_map.get(tx["id"], ""))
+            tx["match_type"] = m.group(1) if m else None
+    else:
+        for tx in transactions:
+            tx["match_type"] = None
+
+    return transactions
 
 
 @router.get("/stats")

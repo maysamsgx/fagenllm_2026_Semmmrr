@@ -1323,3 +1323,6 @@ input[type="file"].sr-only {
     filter: grayscale(0%) drop-shadow(0 0 35px var(--cyan)) brightness(1.3);
   }
 }
+.perspective-dramatic { perspective: 800px; }
+.transform-3d { transform-style: preserve-3d; }
+.backface-hidden { backface-visibility: hidden; }
