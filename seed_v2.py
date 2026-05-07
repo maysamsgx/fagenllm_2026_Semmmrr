@@ -1,19 +1,14 @@
 """
-seed_v2.py — Research-Oriented Seed Script
-==========================================
-Engineered for comprehensive performance evaluation of FAgentLLM.
+seed_v2.py — populates the DB with research scenarios for the capstone evaluation.
 
-Key Research Scenarios:
-1. [Matched Pairs] 50 transactions with perfect bank/internal alignment.
-2. [Timing Anomalies] 10 delayed settlements for specific personas.
-3. [Systematic Risk] Engineered discrepancies for Ecem, Misem, and Anas 
-   to trigger Reconciliation -> Credit -> Cash causal chain.
-4. [Budget & Cash] Large invoices triggering threshold breaches.
+Seeds 4 named personas, 20 random customers, departments, budgets, and ~80 transactions
+designed to trigger specific agent behaviors:
+  - 50 perfect internal/bank pairs → reconciliation should match all of these
+  - 10 delayed settlements (ECEM & MISEM) → timing anomalies, TF-IDF near-miss test
+  - 10 systematic underpayments (ANAS & ABDUL) → Qwen3 should flag as a pattern, escalate to credit
+  - 1 large marketing invoice ($95k against a $100k budget) → budget breach + hard-stop test
 
-Metrics Supported:
-- MAPE/MAE (via actual vs projected cash)
-- Match Precision/Recall (via reconciliation items)
-- Decision Latency (via agent_decisions timestamps)
+Run this before any evaluation. Safe to re-run — it cleans up the personas first.
 """
 
 import os
@@ -52,10 +47,16 @@ PERIOD_END   = date(2026, 7, 31) # Extended to July for research validation
 # 1. PERSONAS & CUSTOMERS
 # ---------------------------------------------------------------
 RESEARCH_PERSONAS = [
-    {"name": "ECEM ODUNCU", "risk": "low",    "limit": 100000},
-    {"name": "MISEM SULEIMAN EMMHMED MOHAMED", "risk": "medium", "limit": 25000},
-    {"name": "ANAS BRKJI", "risk": "high",   "limit": 5000},
-    {"name": "ABDUL RAHMAN HACHEM", "risk": "medium", "limit": 15000},
+    # delay_avg / outstanding drive the credit scoring formula directly:
+    # score = 100 - (2.0 × delay) - (1.5 × outstanding/1000)
+    # ECEM  → 100 - 4 - 1.5  = 94.5  (low)
+    # MISEM → 100 - 30 - 15  = 55    (medium)
+    # ANAS  → 100 - 50 - 18  = 32    (high, drops further with recon penalty)
+    # ABDUL → 100 - 24 - 12  = 64    (medium)
+    {"name": "ECEM ODUNCU",                    "risk": "low",    "limit": 100000, "delay_avg": 2.0,  "outstanding": 1000.0},
+    {"name": "MISEM SULEIMAN EMMHMED MOHAMED", "risk": "medium", "limit": 25000,  "delay_avg": 15.0, "outstanding": 10000.0},
+    {"name": "ANAS BRKJI",                     "risk": "high",   "limit": 5000,   "delay_avg": 25.0, "outstanding": 12000.0},
+    {"name": "ABDUL RAHMAN HACHEM",            "risk": "medium", "limit": 15000,  "delay_avg": 12.0, "outstanding": 8000.0},
 ]
 
 def gen_research_customers():
@@ -69,6 +70,8 @@ def gen_research_customers():
             "risk_level": p["risk"],
             "payment_terms": 30 if p["risk"] != "high" else 15,
             "credit_score": 90 if p["risk"] == "low" else 60 if p["risk"] == "medium" else 30,
+            "payment_delay_avg": p["delay_avg"],
+            "total_outstanding": p["outstanding"],
         })
     # Add 20 random ones
     for _ in range(20):

@@ -292,14 +292,6 @@ export const departmentsApi = {
   list: () => req<Department[]>('/departments'),
 }
 
-// ── System Intelligence ──────────────────────────────────────────────────
-export const intelApi = {
-  latestSnap: () => req<FinancialStateSnapshot>('/intel/snapshot/latest'),
-  history: () => req<FinancialStateSnapshot[]>('/intel/snapshots?limit=50'),
-  decisions: (entityTable: string, entityId: string) => 
-    req<AgentDecision[]>(`/intel/decisions?entity_table=${entityTable}&entity_id=${entityId}`),
-  causalGraph: () => req<{ nodes: AgentDecision[], edges: CausalLink[] }>('/intel/causal-graph'),
-}
 
 // ── Analytics (New) ───────────────────────────────────────────────────────
 export const analyticsApi = {

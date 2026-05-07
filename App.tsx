@@ -8,16 +8,15 @@ import BudgetView from './components/BudgetView'
 import ReconciliationView from './components/ReconciliationView'
 import CreditView from './components/CreditView'
 import OverviewView from './components/OverviewView'
-import IntelView from './components/IntelView'
 import VideoBackground from './components/VideoBackground'
 import { getAgentAvatar, getLegacyAgentAvatar } from './components/Shared'
 import './index.css'
 
-type Tab = 'overview' | 'intelligence' | 'invoice' | 'cash' | 'budget' | 'reconciliation' | 'credit'
+type Tab = 'overview' | 'invoice' | 'cash' | 'budget' | 'reconciliation' | 'credit'
 
 const NAV: { id: Tab; label: string; desc: string }[] = [
   { id: 'overview',       label: 'Overview',       desc: 'System status' },
-  { id: 'intelligence',   label: 'Intelligence',   desc: 'Causal Engine' },
+
   { id: 'invoice',        label: 'Invoice',        desc: 'OCR · approval' },
   { id: 'cash',           label: 'Cash',           desc: 'Liquidity gate' },
   { id: 'budget',         label: 'Budget',         desc: 'Spend control' },
@@ -83,7 +82,7 @@ export default function App() {
       <main className="main">
 
         {tab === 'overview'       && <OverviewView />}
-        {tab === 'intelligence'   && <IntelView />}
+
         {tab === 'invoice'        && <InvoiceView />}
         {tab === 'cash'           && <CashView />}
         {tab === 'budget'         && <BudgetView />}

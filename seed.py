@@ -4,7 +4,7 @@ FAgentLLM - Synthetic Data Seeder
 Seeds the v2 schema with ~10K rows of realistic financial data for
 the period Nov 2025 -> Apr 2026 (6 months).
 
-What it does NOT seed (by design - your agents must generate these):
+What it does NOT seed (by design - our agents must generate these):
   - agent_decisions
   - causal_links
   - financial_state_snapshots (auto-populated by trigger)
@@ -123,10 +123,10 @@ VENDOR_CATEGORIES = [
 ]
 
 CASH_ACCOUNTS_DATA = [
-    ("Operating Account",  "İş Bankası",      "TRY", 25_000_000),
-    ("Reserve Account",    "Garanti BBVA",    "USD", 1_200_000),
-    ("Payroll Account",    "Akbank",          "TRY", 15_000_000),
-    ("FX Account",         "Yapı Kredi",      "EUR", 200_000),
+    ("Operating Account",  "İş Bankası",      "USD", 833_333.33),   # 25M TRY / 30
+    ("Reserve Account",    "Garanti BBVA",    "USD", 1_200_000.00), # 1.2M USD
+    ("Payroll Account",    "Akbank",          "USD", 500_000.00),   # 15M TRY / 30
+    ("FX Account",         "Yapı Kredi",      "USD", 220_000.00),   # 200K EUR * 1.1
 ]
 
 # ---------------------------------------------------------------

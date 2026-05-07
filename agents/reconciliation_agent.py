@@ -1,13 +1,13 @@
 """
 agents/reconciliation_agent.py
-Reconciliation Agent — matches internal records with bank data and tracks every
-decision in the causal graph.
+Reconciliation Agent — matches internal ledger entries against bank transactions,
+then asks Qwen3 to look for systematic patterns in whatever didn't match.
 
-DOE Layer: Orchestration.
-  - Matching threshold from directives/policies.py (RECON)
-  - LLM analyses anomaly patterns (Orchestration reasoning)
-  - All DB writes in Execution phase
-  - Directive injected into LLM prompt
+Two-stage matching (both run on every unmatched item):
+  1. TF-IDF cosine similarity — fast, catches exact/near-exact text matches
+  2. MiniLM sentence embeddings — semantic fallback for fuzzy descriptions
+If Qwen3 spots a recurring pattern in the anomalies it escalates to the Credit agent.
+Matching thresholds live in directives/policies.py (RECON).
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ from utils.directives import inject_directive
 _SENTENCE_MODEL = None
 
 def get_sentence_model():
-    """Lazy-load the free, open-source MiniLM model."""
+    """Load MiniLM on first use — avoids slowing down server startup."""
     global _SENTENCE_MODEL
     if _SENTENCE_MODEL is None:
         try:
@@ -121,18 +121,15 @@ def _run_reconciliation(state: FinancialState) -> FinancialState:
         anomalies = internal_txs
 
     # ── Orchestration: LLM anomaly analysis with directive context ────────────
-    from utils.contracts import DecisionOutput
+    from utils.contracts import ReconciliationOutput
     from utils.llm import qwen_structured
     from utils.prompts import reconciliation_anomaly_prompt
 
     base_system, user = reconciliation_anomaly_prompt(anomalies, period)
     system            = inject_directive(base_system, "reconciliation")
-    analysis          = qwen_structured(system, user, DecisionOutput)
+    analysis          = qwen_structured(system, user, ReconciliationOutput)
 
-    systematic = any(
-        kw in analysis.technical_explanation.lower()
-        for kw in RECON.systematic_keywords
-    )
+    systematic = analysis.is_systematic
 
     # ── Explanation: log decision ─────────────────────────────────────────────
     decision_id = db.log_agent_decision(

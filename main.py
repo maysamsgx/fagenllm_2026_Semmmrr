@@ -57,7 +57,7 @@ def health():
     return {"status": "ok", "system": "FAgentLLM v3 (10/10 Architecture)"}
 
 # -- Routers --
-from routers import invoice, budget, cash, reconciliation, credit, intel, payment, departments, analytics
+from routers import invoice, budget, cash, reconciliation, credit, payment, departments, analytics
 
 app.include_router(invoice.router,        prefix="/api/invoice",        tags=["Invoice"])
 app.include_router(budget.router,         prefix="/api/budget",         tags=["Budget"])
@@ -65,6 +65,6 @@ app.include_router(cash.router,           prefix="/api/cash",           tags=["C
 app.include_router(reconciliation.router, prefix="/api/reconciliation", tags=["Reconciliation"])
 app.include_router(credit.router,         prefix="/api/credit",         tags=["Credit"])
 app.include_router(payment.router,        prefix="/api/payment",        tags=["Payment"])
-app.include_router(intel.router,          prefix="/api/intel",          tags=["Intelligence"])
+
 app.include_router(departments.router,    prefix="/api/departments",    tags=["Departments"])
 app.include_router(analytics.router,      prefix="/api/analytics",      tags=["Analytics"])

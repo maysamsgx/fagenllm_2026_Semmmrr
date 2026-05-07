@@ -1,14 +1,14 @@
 """
 agents/cash_agent.py
-Cash Agent — checks if we actually have enough money to pay the bills.
+Cash Agent — gates invoice approval on whether we actually have the liquidity to cover it.
 
-Implements the DOE 6-Module Architecture via AgentPipeline:
-  Perception   → reads DB cash balances + invoice state
-  Reasoning    → None (fully deterministic — no LLM needed)
-  Decision     → applies C_{t+1} formula and minimum-balance gate
-  Explanation  → logs to agent_decisions + causal_links
-  Execution    → no-op (explanation already wrote the DB row)
-  Communication→ builds updated FinancialState for LangGraph
+Decision is pure math, no LLM involved. The six processing steps:
+  Perception:    pull balances, receivables, and pending outflows from DB
+  Reasoning:     skipped (fully deterministic)
+  Decision:      C_(t+1) = balance + inflows - outflows; pass only if balance_after > minimum
+  Explanation:   write decision + causal link to agent_decisions table
+  Execution:     persist fresh 7-day forecast rows for the dashboard chart
+  Communication: return updated FinancialState to LangGraph
 """
 
 from __future__ import annotations

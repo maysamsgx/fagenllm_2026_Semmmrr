@@ -77,7 +77,7 @@ export default function CashView() {
 
       <div className="stats-row">
         <Card className="stat-featured">
-          <div className="stat-label">Total balance</div>
+          <div className="stat-label">Total balance (USD)</div>
           <div className="stat-value-lg" style={{ color: '#67e8f9', textShadow: '0 0 24px rgba(34, 211, 238, .35)' }}>
             {pos ? fmt(pos.total_balance) : '—'}
           </div>

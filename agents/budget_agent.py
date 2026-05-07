@@ -1,13 +1,13 @@
 """
 agents/budget_agent.py
-Budget Agent — keeps an eye on department spending so we don't go over budget.
+Budget Agent — watches department spending and blocks invoices that would blow the budget.
 
-DOE Layer: Orchestration.
-  - invoice_post_checks trigger: fully deterministic (no LLM needed).
-  - budget_review trigger: LLM reasoning module generates narrative + recommendation.
+Two modes depending on the trigger:
+  - invoice_post_checks: pure math, no LLM — just compare committed vs. allocated.
+  - budget_review: Qwen3 scans all at-risk departments and writes a narrative summary.
 
-Numeric thresholds come from directives/policies.py (BUDGET).
-Human-readable rules live in directives/budget_policy.md.
+Thresholds (95% alert, 100% hard-stop) live in directives/policies.py (BUDGET).
+The companion budget_policy.md explains the business reasoning behind those numbers.
 """
 
 from __future__ import annotations

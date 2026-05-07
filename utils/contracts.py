@@ -13,3 +13,14 @@ class DecisionOutput(BaseModel):
     business_explanation: str = Field(description="Impact on KPIs: cash flow, budget variance, DSO/receivables.")
     causal_explanation: str = Field(description="Cross-domain impact: how this affects other agents and financial states.")
     cross_domain_signals: Dict[str, Any] = Field(default_factory=dict, description="Structured signals to pass to downstream agents.")
+
+
+class ReconciliationOutput(DecisionOutput):
+    is_systematic: bool = Field(
+        description=(
+            "True if the anomalies form a recurring or systematic pattern — "
+            "e.g. the same counterparty consistently underpaying, repeated timing delays "
+            "for the same entity, or identical amount gaps across multiple transactions. "
+            "False if the anomalies appear isolated or random."
+        )
+    )

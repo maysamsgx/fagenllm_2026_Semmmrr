@@ -192,14 +192,23 @@ class SupabaseDB:
         dec_count = client.table("agent_decisions").select("id", count="exact").execute().count or 0
         link_count = client.table("causal_links").select("id", count="exact").execute().count or 0
 
+        # DSO = (total open receivables / revenue collected in last 90 days) × 90
+        from datetime import date, timedelta
+        cutoff = (date.today() - timedelta(days=90)).isoformat()
+        ar_rows  = client.table("receivables").select("amount").eq("status", "open").execute().data
+        pay_rows = client.table("payments").select("amount").gte("payment_date", cutoff).eq("status", "completed").execute().data
+        total_ar    = sum(float(r.get("amount", 0)) for r in ar_rows)
+        revenue_90d = sum(float(p.get("amount", 0)) for p in pay_rows)
+        dso_days = round((total_ar / revenue_90d) * 90, 1) if revenue_90d > 0 else 0.0
+
         return {
             "liquidity_m": round(total_cash, 1),
-            "match_rate": round(match_rate * 100, 1),
+            "match_rate": round(float(match_rate), 1),
             "paid_invoices": paid,
             "total_invoices": total_inv,
             "total_decisions": dec_count,
             "total_causal_links": link_count,
-            "dso_days": 41.2 # Placeholder for complex DSO calc if needed, but 41.2 is realistic for this seed
+            "dso_days": dso_days,
         }
 
     def get_historical_liquidity(self, limit: int = 12) -> List[Dict[str, Any]]:

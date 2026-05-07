@@ -223,7 +223,7 @@ Unmatched transactions:
 {items_text}
 
 Identify:
-1. Any systematic patterns (same vendor, recurring amounts, consistent timing gaps)
+1. Any systematic patterns (same counterparty, recurring amount gaps, consistent timing delays)
 2. Likely root causes (timing differences, data entry errors, missing records)
 3. Recommended actions
 
@@ -232,6 +232,7 @@ Your response must provide:
 2. Business Explanation: Probable root causes and business impact.
 3. Causal Explanation: Recommended actions and downstream triggers.
 4. Decision: Status of the reconciliation.
+5. is_systematic: true if the anomalies show a recurring pattern (e.g. same counterparty underpaying repeatedly, identical timing delays for the same entity). false if anomalies appear isolated or random.
 """
 
     return system, user

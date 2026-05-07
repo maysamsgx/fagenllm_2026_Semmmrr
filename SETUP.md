@@ -125,12 +125,3 @@ The system is designed for autonomous operation triggered by state changes.
 
 ### DSR Quantitative Evaluation
 The system logs all agent decisions and causal links directly in Supabase. Use the Reconciliation Analytics dashboard in the UI to view real-time match rates, anomaly detection metrics, and performance trends.
-
----
-
-## 6. Architecture Reset Procedures
-
-To reset the AI-generated causal graph without destroying the seeded baseline entities (vendors, base invoices):
-```sql
-TRUNCATE TABLE causal_links, agent_decisions, reconciliation_reports, budget_alerts CASCADE;
-```
