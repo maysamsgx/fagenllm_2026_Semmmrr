@@ -31,13 +31,14 @@ def test_reconciliation_agent_with_matches(mock_db, mock_llm):
         {"id": "2", "source": "bank", "amount": 100, "transaction_date": "2026-01-01", "description": "test", "counterparty": "X"}
     ]
     
-    from utils.contracts import DecisionOutput
-    mock_llm.return_value = DecisionOutput(
+    from utils.contracts import ReconciliationOutput
+    mock_llm.return_value = ReconciliationOutput(
         technical_explanation="Match found",
         business_explanation="Matched",
         causal_explanation="None",
         confidence=1.0,
-        decision="complete"
+        decision="complete",
+        is_systematic=False
     )
     
     state = {"trigger": "daily_reconciliation", "reasoning_trace": []}
