@@ -1,6 +1,5 @@
-<div align="center">
+![FAgentLLM Banner](public/assets/image.png)
 
-<video src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260403_050628_c4e32401-fab4-4a27-b7a8-6e9291cd5959.mp4" controls="controls" muted="muted" style="max-width: 100%; border-radius: 8px;"></video>
 # 🌌 FAgentLLM
 **Five Agents, One Vision: Smarter Finance, Better Decisions.**
 
@@ -11,7 +10,6 @@
 
 *A unified multi-agent LLM architecture that overcomes fragmented enterprise finance operations through autonomous orchestration, causal reasoning, and explainable decision-making.*
 
-</div>
 
 ---
 
