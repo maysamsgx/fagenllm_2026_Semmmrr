@@ -81,7 +81,7 @@ export default function App() {
 
       <main className="main">
 
-        {tab === 'overview'       && <OverviewView />}
+        {tab === 'overview'       && <OverviewView onNavigate={setTab} />}
 
         {tab === 'invoice'        && <InvoiceView />}
         {tab === 'cash'           && <CashView />}
