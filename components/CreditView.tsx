@@ -6,6 +6,8 @@ import { Card, Badge, Empty, Spinner, RISK_COLOR, RISK_BG, fmt, AgentAvatar } fr
 import { useRealtime } from '../lib/useRealtime'
 import { AgingMetricsRow, AgingChartCard, useAnalytics } from './AgingDashboard'
 import DisputePortal from './DisputePortal'
+import { TraceEvent } from '../lib/api'
+import TracePanel from './TracePanel'
 
 const AGING_COLORS = ['#22d3ee', '#6366f1', '#a78bfa', '#e879f9', '#fb7185']
 
@@ -106,6 +108,7 @@ export default function CreditView() {
   const [searchQuery, setSearchQuery] = useState('')
   const [riskFilter, setRiskFilter]   = useState('')
   const [assessingId, setAssessingId] = useState<string | null>(null)
+  const [traceEntity, setTraceEntity] = useState<{ id: string; type: 'credit' } | null>(null)
   
   const { agingData, metrics, loading: analyticsLoading } = useAnalytics()
 
@@ -129,6 +132,11 @@ export default function CreditView() {
     try {
       await creditApi.assess(id)
       load()
+      // Open the trace panel immediately after assessment
+      setTraceEntity({ id, type: 'credit' })
+    } catch (err: any) {
+      console.error("Assessment failed:", err)
+      alert("Executive Forensic Assessment failed: " + (err.message || "Unknown error"))
     } finally {
       setAssessingId(null)
     }
@@ -136,6 +144,14 @@ export default function CreditView() {
 
   return (
     <div className="view">
+      {traceEntity && (
+        <TracePanel 
+          entityId={traceEntity.id} 
+          entityType="credit" 
+          onClose={() => setTraceEntity(null)} 
+        />
+      )}
+
       <div className="view-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
           <AgentAvatar agent="credit" />
@@ -174,7 +190,12 @@ export default function CreditView() {
                   const scColor = sc > 70 ? '#34d399' : sc > 45 ? '#fbbf24' : '#fb7185'
                   const isAssessing = assessingId === c.id
                   return (
-                    <div key={c.id} className="customer-row">
+                    <div 
+                      key={c.id} 
+                      className="customer-row"
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => setTraceEntity({ id: c.id, type: 'credit' })}
+                    >
                       <div style={{ flex: 1 }}>
                         <div style={{ fontWeight: 500, fontSize: 13, color: 'var(--text)' }}>{c.name}</div>
                         <div style={{ fontSize: 11, color: 'var(--text-4)' }}>
@@ -199,7 +220,10 @@ export default function CreditView() {
                       <button
                         className="btn-sm"
                         disabled={isAssessing}
-                        onClick={() => handleAssess(c.id)}
+                        onClick={(e) => {
+                          e.stopPropagation(); // Don't trigger the row click
+                          handleAssess(c.id);
+                        }}
                         style={{ minWidth: 72, opacity: isAssessing ? 0.7 : 1 }}
                       >
                         {isAssessing ? <Spinner /> : <Shield size={11} />}

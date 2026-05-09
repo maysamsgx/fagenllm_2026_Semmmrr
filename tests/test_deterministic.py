@@ -109,7 +109,7 @@ def test_credit_score_clamps_at_hundred():
 def _budget_decision(allocated, spent, committed, new_invoice):
     """Mirrors _inv_decide() in budget_agent.py."""
     total_committed = spent + committed + new_invoice
-    util_pct        = (total_committed / allocated * 100) if allocated > 0 else 0.0
+    util_pct        = (total_committed / allocated * 100) if allocated > 0 else (100.0 if total_committed > 0 else 0.0)
     breach          = util_pct >= BUDGET.alert_threshold
     hard_stop       = util_pct >= BUDGET.hard_stop_threshold
     remaining       = max(0.0, allocated - total_committed)

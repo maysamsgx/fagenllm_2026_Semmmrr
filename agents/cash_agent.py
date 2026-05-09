@@ -28,7 +28,121 @@ def cash_node(state: FinancialState) -> FinancialState:
         return run_agent_pipeline(_LIQUIDITY_PIPELINE, state)
     if trigger == "cash_position_refresh":
         return _refresh_forecast(state)
+    if trigger == "ar_forecast_update":
+        return _update_ar_forecast(state)
     return {**state, "next_agent": END, "current_agent": "cash"}
+
+
+def _update_ar_forecast(state: FinancialState) -> FinancialState:
+    """
+    Step 6 (thesis): Adjust AR receivables forecasts for a customer whose credit risk
+    was reassessed due to a reconciliation anomaly. Applies a risk-based discount to
+    projected inflows so that cash forecasting reflects the revised payment probability.
+    
+    Causal chain: Reconciliation → Credit → Cash (AR Forecast)
+    """
+    credit_ctx  = state.get("credit", {})
+    recon_ctx   = state.get("reconciliation", {})
+    customer_id = credit_ctx.get("customer_id", "")
+    risk_level  = credit_ctx.get("risk_level", "medium")
+    
+    if not customer_id:
+        return {**state, "next_agent": END, "current_agent": "cash"}
+    
+    # Probability of collection based on revised risk level
+    collection_prob = {"high": 0.40, "medium": 0.70, "low": 0.90}.get(risk_level, 0.70)
+    
+    # Find open receivables for this customer and update their forecast weight
+    try:
+        receivables = db.select("receivables", {"customer_id": customer_id})
+        open_receivables = [r for r in receivables if r.get("status") in ("open", "partial")]
+        total_at_risk = sum(float(r.get("amount", 0)) for r in open_receivables)
+        adjusted_inflow = round(total_at_risk * collection_prob, 2)
+        
+        if total_at_risk == 0:
+            # DO NOT propagate risk probabilities through zero-value states.
+            # Silently exit without creating trace events or causal links.
+            return {
+                **state,
+                "current_agent": "cash",
+                "next_agent": END,
+                "reasoning_trace": state.get("reasoning_trace", []),
+            }
+
+        tech_exp = (
+            f"AR forecast adjusted for {customer_id}: {len(open_receivables)} open receivables "
+            f"totalling ${total_at_risk:,.2f}. Collection probability set to {collection_prob:.0%} "
+            f"based on revised risk level '{risk_level}'. Adjusted projected inflow: ${adjusted_inflow:,.2f}."
+        )
+        biz_exp = (
+            f"Due to credit risk reassessment triggered by reconciliation anomaly, "
+            f"AR inflow forecast for this customer is downgraded to ${adjusted_inflow:,.2f} "
+            f"(from ${total_at_risk:,.2f}). Delta of ${total_at_risk - adjusted_inflow:,.2f} "
+            f"represents elevated collection risk not reflected in prior forecasts."
+        )
+        causal_exp = (
+            f"Reconciliation anomaly → Credit risk elevation → AR forecast discount. "
+            f"Risk level '{risk_level}' maps to {collection_prob:.0%} collection probability. "
+            f"Cash management should exclude ${total_at_risk - adjusted_inflow:,.2f} from "
+            f"near-term inflow projections to maintain accurate liquidity positioning."
+        )
+
+        # Log the Cash agent's AR adjustment decision
+        decision_id = db.log_agent_decision(
+            agent="cash",
+            decision_type="ar_forecast_adjusted",
+            entity_table="customers",
+            entity_id=customer_id,
+            technical_explanation=tech_exp,
+            business_explanation=biz_exp,
+            causal_explanation=causal_exp,
+            input_state={
+                "customer_id": customer_id,
+                "risk_level": risk_level,
+                "open_receivables_count": len(open_receivables),
+                "total_outstanding": total_at_risk,
+            },
+            output_action={
+                "collection_probability": collection_prob,
+                "adjusted_inflow": adjusted_inflow,
+                "risk_discount": round(total_at_risk - adjusted_inflow, 2),
+                "liquidity_exposure": round(total_at_risk, 2)
+            },
+            confidence=85,
+        )
+        
+        # Create causal link: Credit decision → Cash AR adjustment
+        if credit_ctx.get("decision_id") and decision_id:
+            db.log_causal_link(
+                credit_ctx["decision_id"],
+                decision_id,
+                "adjusts_ar_forecast",
+                f"Credit reassessment of {customer_id} (risk={risk_level}) triggers Cash Agent AR review."
+            )
+        
+        trace = state.get("reasoning_trace", []) + [{
+            "agent": "cash",
+            "step": "AR Forecast Update",
+            "event_type": "ar_forecast_adjusted",
+            "technical_explanation": tech_exp,
+            "business_explanation": biz_exp,
+            "causal_explanation": causal_exp,
+            "details": {
+                "liquidity_exposure": total_at_risk
+            },
+            "confidence": 85,
+        }]
+        
+    except Exception as e:
+        trace = state.get("reasoning_trace", [])
+    
+    return {
+        **state,
+        "current_agent": "cash",
+        "next_agent": END,
+        "reasoning_trace": trace,
+    }
+
 
 
 # ── Module 1: Perception ──────────────────────────────────────────────────────

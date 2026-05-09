@@ -112,8 +112,10 @@ def _run_reconciliation(state: FinancialState) -> FinancialState:
             threshold = RECON.match_threshold if tx["match_type"] == "tfidf" else RECON.semantic_match_threshold
             
             if best_sim >= threshold:
+                tx["matched"] = True
                 matched.append(tx)
             else:
+                tx["matched"] = False
                 anomalies.append(tx)
     else:
         for tx in internal_txs:
@@ -155,10 +157,10 @@ def _run_reconciliation(state: FinancialState) -> FinancialState:
 
     trace = state.get("reasoning_trace", []) + [{
         "agent": "reconciliation",
-        "step": "Analyse Anomalies",
+        "step":  "Reconciliation Analysis",
         "technical_explanation": analysis.technical_explanation,
-        "business_explanation": analysis.business_explanation,
-        "causal_explanation": analysis.causal_explanation,
+        "business_explanation":  analysis.business_explanation,
+        "causal_explanation":    analysis.causal_explanation,
     }]
 
     # ── Execution: write reconciliation report and items ──────────────────────
@@ -196,10 +198,30 @@ def _run_reconciliation(state: FinancialState) -> FinancialState:
     db.add_reconciliation_items(report_id, items)
     
     # ── Execution: update transactions with match scores ──────────────────────
-    # We update the original transactions with their best similarity score
-    # so the UI can display them even before they are fully matched.
+    # V3 Latency Fix: Use bulk upsert instead of individual row updates
+    updates = []
     for tx in internal_txs:
-        db.update("transactions", {"id": tx["id"]}, {"match_score": round(tx.get("sim_score", 0), 4)})
+        # We must include all NOT NULL columns in the upsert for it to be valid in Postgres
+        updates.append({
+            "id": tx["id"],
+            "amount": tx["amount"],
+            "transaction_date": tx["transaction_date"],
+            "counterparty": tx["counterparty"],
+            "description": tx.get("description"),
+            "source": tx["source"],
+            "cash_account_id": tx.get("cash_account_id"),
+            "invoice_id": tx.get("invoice_id"),
+            "payment_id": tx.get("payment_id"),
+            "match_score": round(tx.get("sim_score", 0), 4),
+            "matched": tx.get("matched", False)
+        })
+    
+    if updates:
+        try:
+            db.upsert("transactions", updates)
+        except Exception as e:
+            import logging
+            logging.getLogger("fagentllm").error(f"Bulk transaction match update failed: {e}")
 
     # ── Communication: route to credit if systematic issue found ─────────────
     # We find ALL customers involved in systematic anomalies

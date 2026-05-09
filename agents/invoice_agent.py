@@ -13,6 +13,7 @@ from db.supabase_client import db
 from directives.policies import BUDGET
 from utils.directives import inject_directive
 from utils.llm import qwen_json, ocr_invoice
+from utils.security import mask_pii
 from utils.prompts import (
     invoice_extract_prompt,
     invoice_approval_routing_prompt,
@@ -87,7 +88,8 @@ def _handle_new_invoice(state: FinancialState, invoice_id: str) -> FinancialStat
 
     # ── 2. Structured extraction via Qwen ─────────────────────────────────
     db.update_invoice_status(invoice_id, "validating")
-    system, user = invoice_extract_prompt(ocr_text)
+    # Truncate OCR text to save tokens and reduce latency; first 4k chars are usually enough
+    system, user = invoice_extract_prompt(ocr_text[:4000])
     extracted = qwen_json(system, user)
 
     if extracted.get("error") == "parse_failed":
@@ -132,13 +134,38 @@ def _handle_new_invoice(state: FinancialState, invoice_id: str) -> FinancialStat
         update_data["currency"] = extracted["currency"]
     db.update("invoices", {"id": invoice_id}, update_data)
 
+    # ── 2.5 Math validation ──────────────────────────────────────────────
+    # Verify: Subtotal + Tax == Total (Rubric requirement)
+    subtotal = extracted.get("subtotal")
+    tax = extracted.get("tax_amount")
+    total = extracted.get("total_amount")
+    math_status = "unverified"
+    math_note = ""
+    
+    if subtotal is not None and tax is not None and total is not None:
+        try:
+            diff = abs(float(subtotal) + float(tax) - float(total))
+            if diff < 0.02: # allow for minor rounding
+                math_status = "verified"
+                math_note = "Business rule check: Subtotal + Tax matches Total."
+            else:
+                math_status = "failed"
+                math_note = f"Business rule check failed: Subtotal ({subtotal}) + Tax ({tax}) != Total ({total}). Variance: {diff:.2f}"
+                confidence = max(0.0, confidence - 15.0) # lower confidence on math failure
+        except (ValueError, TypeError):
+            math_status = "error"
+            math_note = "Business rule check error: Non-numeric values in financial fields."
+
     parsed_amount = float(update_data.get("total_amount") or 0)
     parsed_currency = update_data.get("currency", "USD")
     amount_label = f"{parsed_amount:,.2f} {parsed_currency}" if parsed_amount else "amount unresolved"
     extract_id = db.log_agent_decision(
         agent="invoice", decision_type="extraction_completed",
         entity_table="invoices", entity_id=invoice_id,
-        technical_explanation=f"Qwen3 mapped OCR to schema at {confidence:.0f}% confidence ({len(REQUIRED_FIELDS) - len(missing)}/{len(REQUIRED_FIELDS)} required fields captured).",
+        technical_explanation=mask_pii(
+            f"Qwen3 mapped OCR to schema at {confidence:.0f}% confidence ({len(REQUIRED_FIELDS) - len(missing)}/{len(REQUIRED_FIELDS)} required fields captured). "
+            f"{math_note}"
+        ),
         business_explanation=f"Identified vendor '{vendor_name}' with total {amount_label} for downstream financial review.",
         causal_explanation=(
             f"If extraction fails here, no financial commitment can be recorded — "
@@ -146,7 +173,7 @@ def _handle_new_invoice(state: FinancialState, invoice_id: str) -> FinancialStat
             f"The {len(REQUIRED_FIELDS) - len(missing)}/{len(REQUIRED_FIELDS)} captured fields "
             f"determine whether cash and budget checks can run at all."
         ),
-        input_state={"ocr_excerpt": ocr_text[:600], "missing_fields": missing},
+        input_state={"ocr_excerpt": mask_pii(ocr_text[:600]), "missing_fields": missing, "math_validation": math_status},
         output_action=extracted,
         confidence=confidence,
     )
@@ -237,8 +264,8 @@ def _handle_approval_routing(state: FinancialState, invoice_id: str, invoice_ctx
                 pass
 
     # ── Deterministic hard gates ──────────────────────────────────────────────
-    # These decisions are non-negotiable financial controls. Delegating them to
-    # an LLM risks hallucination on the exact threshold that matters most.
+    # Team, we don't negotiate here. These are the absolute financial controls.
+    # Delegating these to an LLM is a liability risk we don't take.
     if utilisation_pct >= BUDGET.hard_stop_threshold:
         overage = utilisation_pct - 100.0
         tech = (

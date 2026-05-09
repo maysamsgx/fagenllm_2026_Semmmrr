@@ -202,39 +202,119 @@ Return JSON:
 # RECONCILIATION AGENT PROMPTS
 # ══════════════════════════════════════════════════════════════════════════════
 
-def reconciliation_anomaly_prompt(unmatched: list[dict],
-                                   period: str) -> tuple[str, str]:
+def reconciliation_anomaly_prompt(unmatched: list[dict], period: str) -> tuple[str, str]:
     """
-    Generate natural language explanation for unmatched / anomalous transactions.
-    XAI output stored in agent_events.reasoning.
+    Generate enterprise forensic-grade intelligence for reconciliation anomalies.
+    Produces 3 XAI fields in professional treasury operations language.
     """
-    system = """You are a reconciliation specialist analysing unmatched financial transactions.
-Identify patterns and provide actionable explanations. Return ONLY valid JSON."""
 
-    items_text = "\n".join([
-        f"- {t.get('source')} | {t.get('description', 'no desc')} | "
-        f"${t.get('amount', 0):,.2f} | {t.get('transaction_date')}"
-        for t in unmatched[:20]
-    ])
+    # Enrich with similarity scores and counterparty data
+    if unmatched:
+        # Sort by date descending, then amount to prioritize recent/large anomalies
+        unmatched_sorted = sorted(unmatched, key=lambda x: (x.get('transaction_date', ''), abs(float(x.get('amount', 0)))), reverse=True)
+        sample = unmatched_sorted[:15]
+        items_text = "\n".join([
+            f"  [{i+1:02d}] {t.get('source','?').upper()} | "
+            f"Counterparty: {str(t.get('counterparty','Unknown'))[:35]} | "
+            f"Amount: ${float(t.get('amount',0)):>11,.2f} | "
+            f"Date: {t.get('transaction_date','?')} | "
+            f"Score: {float(t.get('sim_score', t.get('match_score',0))):.3f}"
+            for i, t in enumerate(sample)
+        ])
+        total_n   = len(unmatched)
+        total_exp = sum(float(t.get('amount', 0)) for t in unmatched)
+        cps       = list({t.get('counterparty','') for t in unmatched if t.get('counterparty')})
+        dates     = sorted(t.get('transaction_date','') for t in unmatched if t.get('transaction_date'))
+        date_range = f"{dates[0]} to {dates[-1]}" if len(dates) >= 2 else (dates[0] if dates else "N/A")
+        avg_score = sum(float(t.get('sim_score', t.get('match_score',0))) for t in unmatched) / len(unmatched)
+        cp_str    = ", ".join(cps[:5]) + (" ..." if len(cps) > 5 else "")
+        note      = f" (showing 10 of {total_n})" if total_n > 10 else ""
+    else:
+        items_text = "  (none — all transactions reconciled)"
+        total_n    = 0
+        total_exp  = 0.0
+        cps        = []
+        date_range = "N/A"
+        avg_score  = 0.0
+        cp_str     = ""
+        note       = ""
 
-    user = f"""Analyse these unmatched transactions for the period {period}.
+    system = """You are a senior treasury forensics agent embedded in an enterprise reconciliation system.
+Transform structured reconciliation data into audit-ready intelligence with strict evidence-based reasoning.
+Return ONLY valid JSON.
 
-Unmatched transactions:
+OUTPUT FORMAT:
+{
+  "technical_explanation": "",
+  "business_explanation": "",
+  "causal_explanation": "",
+  "risk_level": "low | medium | high | critical",
+  "confidence": 0-100,
+  "decision": "reconciliation_complete | escalation_required | manual_review_required",
+  "is_systematic": true | false
+}
+
+SCORE INTERPRETATION (critical — follow exactly):
+- Scores 0.80–1.00 = strong match (reconciled)
+- Scores 0.65–0.79 = SYSTEMATIC PARTIAL MATCH — items are related but threshold not met. Do NOT say 'no structural match'. Say 'consistent partial-match signals below threshold'.
+- Scores 0.30–0.64 = weak match, possible rule mismatch
+- Scores <0.30 = no structural relationship found
+NEVER say 'no structural match rules satisfied' when scores are in the 0.65–0.79 band.
+
+TEMPORAL REASONING:
+- If dates span more than 60 days, explicitly segment into: pre-period outliers vs primary cluster.
+- State separately: 'pre-period anomaly: [dates]' and 'primary cluster: [dates]'.
+- A 30-day gap between a single outlier date and a cluster should be named as an outlier, not described as part of the same distribution.
+
+COUNTERPARTY CAUSALITY:
+- Do NOT assume which side (ledger vs bank feed) is failing. State: 'Source of mismatch is unresolved: could be [ledger side] or [bank feed side]'.
+- Only assign Vendor-specific root cause if you can show Vendor entries exist on one side but not the other.
+
+AMOUNT ANALYSIS:
+- Amount-band clustering (e.g. $1k, $5k, $10k groups) is an observation ONLY.
+- Do NOT conclude 'no mirrored amounts' unless you explicitly compared paired internal vs bank entries.
+- If you cannot compare pairs, state: 'Mirroring analysis requires paired dataset — not confirmable from unilateral view'.
+
+ROOT CAUSE CLASSIFICATION:
+- timing delay | missing bank record | ingestion failure | manual posting inconsistency | duplicate risk | rule mismatch
+- Rank hypotheses by probability. Reject weaker ones with evidence.
+
+FINANCIAL EXPOSURE:
+- Do NOT assert unreconciled amount = real liability without confirming root cause.
+- Use qualifier: 'unresolved exposure of $X (pending root cause confirmation)'.
+- Distinguish between: timing mismatch (likely temporary) vs ingestion failure (requires action) vs classification error (may net to zero).
+
+Return ONLY valid JSON."""
+
+    user = f"""RECONCILIATION BRIEF — Period: {period}
+Unreconciled: {total_n} items | Exposure: ${total_exp:,.2f} | Dates: {date_range}
+Counterparties ({len(cps)}): {cp_str} | Avg Match-Score: {avg_score:.3f}
+
+EVIDENCE{note}:
 {items_text}
 
-Identify:
-1. Any systematic patterns (same counterparty, recurring amount gaps, consistent timing delays)
-2. Likely root causes (timing differences, data entry errors, missing records)
-3. Recommended actions
+Return JSON with these 3 distinct analytical fields + metadata:
 
-Your response must provide:
-1. Technical Explanation: Data patterns and discrepancies found.
-2. Business Explanation: Probable root causes and business impact.
-3. Causal Explanation: Recommended actions and downstream triggers.
-4. Decision: Status of the reconciliation.
-5. is_systematic: true if the anomalies show a recurring pattern (e.g. same counterparty underpaying repeatedly, identical timing delays for the same entity). false if anomalies appear isolated or random.
+1. technical_explanation — Analytical fingerprint:
+   Describe match-score distribution (clustered near 0 = no structural match).
+   Identify timing concentration, counterparty recurrence, mirrored amounts, rounding gaps.
+   Quantify items with score < 0.30.
+
+2. business_explanation — Financial operations consequences (no repetition from field 1):
+   Cash visibility gap of ${total_exp:,.2f} blocking {period} financial close.
+   Audit readiness risk, DSO/DPO impact, working capital exposure.
+
+3. causal_explanation — Inference chain (distinct from fields 1 and 2):
+   observation → pattern → interpretation → root cause.
+   Classify root cause: timing delay | missing bank record | ingestion failure |
+   manual posting inconsistency | duplicate risk | rule mismatch.
+   Name which agent/team acts first and their immediate action.
+
+Also set:
+  decision: reconciliation_complete | escalation_required | manual_review_required
+  confidence: 0-100
+  is_systematic: true if ≥3 items share counterparty, amount band, or date window
 """
-
     return system, user
 
 
@@ -243,43 +323,76 @@ Your response must provide:
 # ══════════════════════════════════════════════════════════════════════════════
 
 def credit_risk_prompt(customer: dict, payment_history: list[dict],
-                        risk_score: float, recon_anomalies: str | None = None) -> tuple[str, str]:
+                        risk_score: float, recon_anomalies: str | None = None,
+                        f1: float = 0.0, f2: float = 0.0, f3: float = 0.0) -> tuple[str, str]:
     """
-    Generate XAI explanation for credit risk assessment.
-    Implements weighted R = Σ(w_i × f_i) from thesis Section 2.7.2.
-    risk_score already computed deterministically — LLM adds the explanation.
+    Generate enterprise forensic-grade intelligence for credit risk assessment.
+    Produces structured XAI reasoning for treasury and credit management.
     """
-    system = """You are a credit risk analyst providing explainable risk assessments.
-Your explanation must be clear enough for a non-technical finance manager. Return ONLY valid JSON."""
+    system = """You are a senior credit intelligence agent specialized in enterprise risk forensics.
+Transform quantitative risk metrics into executive-grade credit intelligence.
+Return ONLY valid JSON.
+
+FORMULA RULES (critical — follow exactly):
+The score R is computed as:
+  R = base(100) - (delay_weight × f1) - (outstanding_weight × f2) - f3_penalty
+ALL components are SUBTRACTED. A higher penalty LOWERS the score.
+When f1=0 and f2=0, say: 'No payment delay or outstanding balance recorded. Baseline deduction is zero for behavioral factors.'
+When f3>0, explicitly state: 'A reconciliation-sourced anomaly penalty of {f3} points is SUBTRACTED from the baseline.'
+Do NOT say 'bias penalty applied' — say 'anomaly deduction of X points reduces score from baseline'.
+
+CAUSAL CHAIN RULES:
+- Only escalate to collections if payment_history shows actual overdue behavior.
+- If f1=0 and payment history is clean, the risk comes ONLY from the reconciliation anomaly.
+- The chain must be: [evidence source] → [what it changes] → [score impact] → [proportionate action].
+- Do NOT apply a blanket 'Formal Notice' if the customer's own payment behavior is clean.
+
+EXPOSURE QUALIFICATION:
+- If the exposure comes from a reconciliation anomaly (not direct customer default), say: 'unresolved reconciliation exposure of $X — root cause pending confirmation'.
+- Do NOT assert 'direct liability' from a reconciliation anomaly without confirmed root cause.
+
+Return ONLY valid JSON with exactly:
+{
+  "technical_explanation": "...",
+  "business_explanation": "...",
+  "causal_explanation": "...",
+  "decision": "reminder | formal_notice | escalate | legal_referral | monitor",
+  "confidence": 0-100
+}"""
 
     recent_payments = payment_history[-5:] if payment_history else []
     payment_text = "\n".join([
-        f"- Invoice {p.get('invoice_id', '?')}: "
-        f"due {p.get('due_date')}, paid {p.get('paid_date', 'UNPAID')}, "
-        f"delay: {p.get('days_late', 0)} days"
+        f"  - Invoice {p.get('invoice_id', '?')[:8]}: "
+        f"Due: {p.get('due_date')}, Paid: {p.get('paid_date', 'OVERDUE')}, "
+        f"Delay: {p.get('days_late', 0)}d | Stage: {p.get('collection_stage', 'none')} | Amount: ${float(p.get('amount', 0)):,.2f}"
         for p in recent_payments
-    ]) or "No payment history available"
+    ]) or "  - No receivables history on record for this customer"
 
     recon_ctx = ""
     if recon_anomalies:
-        recon_ctx = f"\nReconciliation Intelligence:\n- Systematic issues detected: {recon_anomalies}\n"
+        recon_ctx = f"\nCROSS-DOMAIN SIGNAL (from Reconciliation Agent):\n  Anomaly: {recon_anomalies}\n  Action: Reconciliation anomaly deduction of {f3:.0f} pts SUBTRACTED from score.\n  Note: This is an unresolved reconciliation exposure — not confirmed customer default.\n"
 
-    user = f"""Explain this credit risk assessment for a finance manager.
+    user = f"""CREDIT RISK FORENSIC ANALYSIS
 
-Customer: {customer.get('name')}
-Credit limit: ${customer.get('credit_limit', 0):,.2f}
-Outstanding balance: ${customer.get('total_outstanding', 0):,.2f}
-Computed risk score R: {risk_score:.1f} / 100
-(Higher = higher risk. Formula: R = Σ(w_i × f_i) over payment delay, outstanding ratio, dispute frequency)
+CUSTOMER: {customer.get('name')} | Credit Limit: ${customer.get('credit_limit', 0):,.2f} | Outstanding: ${customer.get('total_outstanding', 0):,.2f}
+
+SCORE COMPUTATION (deterministic — do not recompute, only explain):
+  R = 100 - ({f1:.1f} × delay_weight) - ({f2:.3f} × outstanding_weight) - {f3:.1f} penalty = {risk_score:.1f}
+  f1 (avg delay days) = {f1:.1f} {'(clean — no delays recorded)' if f1 == 0 else ''}
+  f2 (outstanding $k) = {f2:.3f} {'(zero balance)' if f2 == 0 else ''}
+  f3 (anomaly deduction) = {f3:.1f} {'(no reconciliation anomaly)' if f3 == 0 else '(from cross-domain recon signal)'}
 {recon_ctx}
-Recent payment history (last 5):
+PAYMENT BEHAVIOR (last 5 events):
 {payment_text}
 
-Your response must provide:
-1. Technical Explanation: Interpretation of the risk score R and how different factors (including reconciliation issues if present) contributed.
-2. Business Explanation: What this means for the company's credit exposure and the impact of the detected systematic issues.
-3. Causal Explanation: How this affects payment terms or future transactions. Explain the causal link between reconciliation findings and credit risk.
-4. Decision: One of "reminder", "formal_notice", "escalate", "legal_referral", "monitor".
+REQUIRED OUTPUT:
+1. TECHNICAL — Explain the score components using the EXACT f1/f2/f3 values above. Never say 'bias penalty' — say 'anomaly deduction'.
+2. BUSINESS — Cash flow and audit risk. If f3 is the ONLY deduction, explicitly say so and qualify the exposure.
+3. CAUSAL — Evidence chain from the data above. Only recommend escalation if behavioral evidence (f1>0 or overdue receivables) justifies it.
+
+decision: proportionate to evidence (monitor if only f3 is non-zero and payment history is clean)
+confidence: 0-100
 """
+    return system, user
 
     return system, user

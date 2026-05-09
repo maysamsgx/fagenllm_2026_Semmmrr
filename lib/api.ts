@@ -215,6 +215,10 @@ export const budgetApi = {
     const tail = qs.toString() ? `?${qs.toString()}` : ''
     return req<{ message: string }>(`/budget/run${tail}`, { method: 'POST' })
   },
+  rebalance: (period?: string) => {
+    const tail = period ? `?period=${encodeURIComponent(period)}` : ''
+    return req<{ message: string; reallocated: any[] }>(`/budget/rebalance${tail}`, { method: 'POST' })
+  },
   whatif: (departmentId: string, amount: number, period?: string) => {
     const qs = new URLSearchParams({ department_id: departmentId, amount: String(amount) })
     if (period) qs.set('period', period)
@@ -249,6 +253,11 @@ export const reconApi = {
   unmatched: () => req<any[]>('/reconciliation/unmatched?limit=20'),
   reports: () => req<ReconReport[]>('/reconciliation/reports'),
   report: () => req<ReconReport>('/reconciliation/report'),
+  trace: (id: string) => req<{ 
+    decisions: AgentDecision[], 
+    links: CausalLink[],
+    trace: TraceEvent[] 
+  }>(`/reconciliation/report/${id}/causal-trace`),
 }
 
 // ── Credit ────────────────────────────────────────────────────────────────
@@ -265,7 +274,13 @@ export interface Customer {
 export const creditApi = {
   customers: (risk?: string) => req<Customer[]>(`/credit/customers${risk ? `?risk_level=${risk}` : ''}`),
   aging: () => req<{ buckets: Record<string, number>, total_open: number }>('/credit/aging'),
-  assess: (id: string) => req(`/credit/assess/${id}`, { method: 'POST' }),
+  assess: (id: string) => req<{ status: string; score: number; risk_level: string; decision: any }>(`/credit/assess/${id}`, { method: 'POST' }),
+  trace: (id: string) => req<{ 
+    decisions: any[], 
+    links: any[],
+    trace: TraceEvent[],
+    name?: string
+  }>(`/credit/trace/${id}`),
 }
 
 // ── Payments Layer (V3) ──────────────────────────────────────────────────

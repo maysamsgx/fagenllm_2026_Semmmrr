@@ -17,9 +17,9 @@
 | `transactions` | ~2,500 | Internal + bank, with engineered noise |
 | `cash_flow_forecasts` | 90 | Forward 90 days |
 
-**Not seeded** — your agents must produce these at runtime:
-- `agent_decisions` — the XAI log is what your agents write to
-- `causal_links` — your causal graph is what your agents prove they can build
+**Not seeded** —  agents must produce these at runtime:
+- `agent_decisions` — the XAI log is what  agents write to
+- `causal_links` —  causal graph is what  agents prove they can build
 - `financial_state_snapshots` — auto-populated by the schema's trigger
 - `budget_alerts` — the Budget Agent should generate these from the seeded data
 - `reconciliation_reports` — the Reconciliation Agent generates on demand

@@ -76,9 +76,10 @@ def _inv_decide(_state: FinancialState, percept: dict, _llm) -> dict:
     amount    = percept["amount"]
 
     total_committed = spent + committed + amount
-    prior_pct       = (spent + committed) / allocated * 100 if allocated > 0 else 0.0
-    util_pct        = (total_committed / allocated * 100)   if allocated > 0 else 0.0
+    prior_pct       = (spent + committed) / allocated * 100 if allocated > 0 else (100.0 if (spent + committed) > 0 else 0.0)
+    util_pct        = (total_committed / allocated * 100)   if allocated > 0 else (100.0 if total_committed > 0 else 0.0)
     breach          = util_pct >= BUDGET.alert_threshold
+    # Hard gate: any invoice pushing us past the limit is a mandatory NO.
     hard_stop       = util_pct >= BUDGET.hard_stop_threshold
     remaining       = max(0.0, allocated - total_committed)
 
@@ -107,7 +108,7 @@ def _inv_explain(state: FinancialState, percept: dict, verdict: dict) -> str:
         note = f"No budget defined for {dept_id} / {percept['period']}."
         return db.log_agent_decision(
             agent="budget", decision_type="no_budget",
-            entity_table="budgets", entity_id="none",
+            entity_table="budgets", entity_id="00000000-0000-0000-0000-000000000000",
             technical_explanation=note,
             business_explanation="Could not find a budget allocation for this department.",
             causal_explanation="Bypasses budget breach checks and proceeds to invoice approval.",
@@ -326,7 +327,7 @@ def _rev_explain(state: FinancialState, percept: dict, verdict: dict) -> str:
     period  = percept["period"]
     llm     = verdict.get("llm_summary") or {}
 
-    first_id = budgets[0]["id"] if budgets else "none"
+    first_id = budgets[0]["id"] if budgets else "00000000-0000-0000-0000-000000000000"
 
     technical = (
         f"Scanned {verdict['budgets_scanned']} budgets for period {period}. "

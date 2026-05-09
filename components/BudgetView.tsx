@@ -76,6 +76,27 @@ export default function BudgetView() {
             className="btn-primary"
             disabled={running}
             onClick={async () => {
+              if (!confirm("Agent will now reallocate surplus funds to heal breached departments. Proceed?")) return;
+              setRunning(true)
+              try { 
+                const res = await budgetApi.rebalance(period) 
+                alert(res.message)
+                load()
+              } catch (e) { alert(`Rebalance failed: ${e}`) }
+              setRunning(false)
+            }}
+            style={{ 
+              background: 'linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%)',
+              boxShadow: '0 8px 24px -8px rgba(167, 139, 250, .6)'
+            }}
+          >
+            <RefreshCw size={14} strokeWidth={2.5} />
+            Heal & Rebalance
+          </button>
+          <button
+            className="btn-primary"
+            disabled={running}
+            onClick={async () => {
               setRunning(true)
               try { await budgetApi.run(period) } catch (e) { alert(`Run failed: ${e}`) }
               setTimeout(() => { load(); setRunning(false) }, 5000)

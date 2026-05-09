@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
-import { RefreshCw, ChevronDown, ChevronUp, Info } from 'lucide-react'
+import { RefreshCw, ChevronDown, ChevronUp, Info, Brain } from 'lucide-react'
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts'
 import { reconApi, analyticsApi, ReconStats, ReconReport } from '../lib/api'
 import { Card, Empty, pct, AgentAvatar } from './Shared'
 import { useRealtime } from '../lib/useRealtime'
+import TracePanel from './TracePanel'
 
 export default function ReconciliationView() {
   const [stats, setStats]         = useState<ReconStats | null>(null)
@@ -13,6 +14,7 @@ export default function ReconciliationView() {
   const [showInfo, setShowInfo]   = useState(false)
   const [viewMode, setViewMode]   = useState<'operations' | 'dashboard'>('operations')
   const [dashboardData, setDashboardData] = useState<any[]>([])
+  const [traceId, setTraceId]             = useState<string | null>(null)
 
   const load = () => {
     reconApi.stats().then(setStats).catch(() => {})
@@ -40,6 +42,7 @@ export default function ReconciliationView() {
 
   return (
     <div className="view">
+      {traceId && <TracePanel entityId={traceId} entityType="reconciliation" onClose={() => setTraceId(null)} />}
       <div className="view-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
           <AgentAvatar agent="reconciliation" active={running} />
@@ -152,7 +155,14 @@ export default function ReconciliationView() {
             </Card>
 
             <Card>
-              <h3 style={{ marginBottom: 14 }}>Latest report</h3>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
+                <h3 style={{ margin: 0 }}>Latest report</h3>
+                {report && (
+                  <button className="btn-sm" onClick={() => setTraceId(report.id)}>
+                    <Brain size={11} /> Trace
+                  </button>
+                )}
+              </div>
               {report ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   {[
@@ -250,101 +260,131 @@ export default function ReconciliationView() {
           )}
         </>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+          {/* Executive Analytics Row */}
           <div className="stats-row">
-            <Card>
-              <div className="stat-label">Avg Match Rate</div>
-              <div className="stat-value" style={{ color: '#34d399' }}>
+            <Card style={{ background: 'linear-gradient(135deg, rgba(52, 211, 153, 0.05) 0%, transparent 100%)' }}>
+              <div className="stat-label">System Match Accuracy</div>
+              <div className="stat-value" style={{ color: '#34d399', display: 'flex', alignItems: 'baseline', gap: 6 }}>
                 {dashboardData.length > 0 ? pct(dashboardData.reduce((acc, curr) => acc + curr.match_rate, 0) / dashboardData.length) : '—'}
+                <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-4)' }}>Avg</span>
+              </div>
+            </Card>
+            <Card style={{ background: 'linear-gradient(135deg, rgba(251, 113, 133, 0.05) 0%, transparent 100%)' }}>
+              <div className="stat-label">Exposure Under Review</div>
+              <div className="stat-value" style={{ color: '#fb7185' }}>
+                {dashboardData.length > 0 ? dashboardData[dashboardData.length - 1].unmatched_count : 0}
+                <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-4)', marginLeft: 6 }}>Anomalies</span>
               </div>
             </Card>
             <Card>
-              <div className="stat-label">Total Anomalies Detected</div>
-              <div className="stat-value" style={{ color: '#fbbf24' }}>
-                {dashboardData.reduce((acc, curr) => acc + curr.unmatched_count, 0)}
-              </div>
-            </Card>
-            <Card>
-              <div className="stat-label">Total Matches</div>
+              <div className="stat-label">Autonomous Throughput</div>
               <div className="stat-value" style={{ color: '#67e8f9' }}>
                 {dashboardData.reduce((acc, curr) => acc + curr.matched_count, 0)}
+                <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-4)', marginLeft: 6 }}>Total Matches</span>
               </div>
             </Card>
             <Card>
-              <div className="stat-label">Reconciliation Runs</div>
-              <div className="stat-value">{dashboardData.length}</div>
+              <div className="stat-label">Cognitive Audit Depth</div>
+              <div className="stat-value" style={{ fontSize: 20 }}>Forensic</div>
             </Card>
           </div>
 
-          <Card>
-            <h3 style={{ marginBottom: 14 }}>Match Rate Over Time</h3>
-            {dashboardData.length > 0 ? (
-              <div style={{ height: 300, paddingRight: 20 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={dashboardData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" vertical={false} />
-                    <XAxis 
-                      dataKey="period" 
-                      stroke="rgba(255,255,255,0.4)" 
-                      fontSize={11} 
-                      tickLine={false}
-                      axisLine={false}
-                    />
-                    <YAxis 
-                      stroke="rgba(255,255,255,0.4)" 
-                      fontSize={11} 
-                      domain={[0, 100]} 
-                      tickFormatter={(val) => `${val}%`}
-                      tickLine={false}
-                      axisLine={false}
-                    />
-                    <Tooltip 
-                      contentStyle={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.5)' }}
-                      itemStyle={{ color: '#f8fafc' }}
-                      labelStyle={{ color: '#94a3b8', marginBottom: 4 }}
-                    />
-                    <Legend iconType="circle" wrapperStyle={{ paddingTop: 10 }} />
-                    <Line type="monotone" dataKey="match_rate" name="Match Rate" stroke="#34d399" strokeWidth={3} dot={{ r: 4, strokeWidth: 0, fill: '#34d399' }} activeDot={{ r: 6, strokeWidth: 0 }} />
-                  </LineChart>
-                </ResponsiveContainer>
+          <div className="diagnostic-grid">
+            <Card className="diagnostic-card">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                <h3 style={{ margin: 0, fontSize: 14 }}>Accuracy Progression</h3>
+                <span style={{ fontSize: 10, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>TF-IDF + Semantic</span>
               </div>
-            ) : <Empty msg="No historical data available" />}
-          </Card>
+              {dashboardData.length > 0 ? (
+                <div style={{ height: 320 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={dashboardData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                      <XAxis 
+                        dataKey="generated_at" 
+                        stroke="var(--text-4)" 
+                        fontSize={9} 
+                        tickLine={false} 
+                        axisLine={false}
+                        tickFormatter={(str) => {
+                          const d = new Date(str);
+                          return `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${d.getMinutes().toString().padStart(2, '0')}`;
+                        }}
+                      />
+                      <YAxis stroke="var(--text-4)" fontSize={10} tickLine={false} axisLine={false} domain={[0, 100]} />
+                      <Tooltip 
+                        contentStyle={{ background: 'rgba(13, 18, 38, 0.95)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 11 }}
+                        itemStyle={{ color: '#34d399' }}
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="match_rate" 
+                        stroke="#34d399" 
+                        strokeWidth={3} 
+                        dot={{ r: 4, fill: '#34d399', strokeWidth: 2, stroke: '#0d1226' }}
+                        activeDot={{ r: 6, strokeWidth: 0 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : <Empty msg="Insufficient data for trend analysis" />}
+            </Card>
 
-          <Card>
-            <h3 style={{ marginBottom: 14 }}>Volume Analysis (Matches vs Anomalies)</h3>
-            {dashboardData.length > 0 ? (
-              <div style={{ height: 300, paddingRight: 20 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={dashboardData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" vertical={false} />
-                    <XAxis 
-                      dataKey="period" 
-                      stroke="rgba(255,255,255,0.4)" 
-                      fontSize={11} 
-                      tickLine={false}
-                      axisLine={false}
-                    />
-                    <YAxis 
-                      stroke="rgba(255,255,255,0.4)" 
-                      fontSize={11} 
-                      tickLine={false}
-                      axisLine={false}
-                    />
-                    <Tooltip 
-                      contentStyle={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.5)' }}
-                      itemStyle={{ color: '#f8fafc' }}
-                      labelStyle={{ color: '#94a3b8', marginBottom: 4 }}
-                      cursor={{ fill: 'rgba(255,255,255,0.05)' }}
-                    />
-                    <Legend iconType="circle" wrapperStyle={{ paddingTop: 10 }} />
-                    <Bar dataKey="matched_count" name="Matched" stackId="a" fill="#34d399" radius={[0, 0, 4, 4]} />
-                    <Bar dataKey="unmatched_count" name="Anomalies" stackId="a" fill="#fbbf24" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+            <Card className="diagnostic-card">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                <h3 style={{ margin: 0, fontSize: 14 }}>Anomaly Density</h3>
+                <span style={{ fontSize: 10, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Unmatched Counts</span>
               </div>
-            ) : <Empty msg="No historical data available" />}
-          </Card>
+              {dashboardData.length > 0 ? (
+                <div style={{ height: 320 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={dashboardData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                      <XAxis 
+                        dataKey="generated_at" 
+                        stroke="var(--text-4)" 
+                        fontSize={9} 
+                        tickLine={false} 
+                        axisLine={false}
+                        tickFormatter={(str) => {
+                          const d = new Date(str);
+                          return `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${d.getMinutes().toString().padStart(2, '0')}`;
+                        }}
+                      />
+                      <YAxis stroke="var(--text-4)" fontSize={10} tickLine={false} axisLine={false} />
+                      <Tooltip 
+                        contentStyle={{ background: 'rgba(13, 18, 38, 0.95)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 11 }}
+                        cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                      />
+                      <Bar dataKey="unmatched_count" fill="rgba(251, 191, 36, 0.4)" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : <Empty msg="Insufficient data for density analysis" />}
+            </Card>
+          </div>
+
+          {/* Forensic Intelligence Panel */}
+          {dashboardData.length > 0 && dashboardData[dashboardData.length - 1].narrative && (
+            <div className="forensic-narrative">
+              <div className="forensic-title">
+                <Brain size={14} /> AI Forensic Intelligence — {dashboardData[dashboardData.length - 1].period} Report
+              </div>
+              <div className="forensic-text">
+                {dashboardData[dashboardData.length - 1].narrative}
+              </div>
+              <div style={{ marginTop: 14, display: 'flex', gap: 12 }}>
+                <button 
+                  className="btn-sm" 
+                  onClick={() => setTraceId(dashboardData[dashboardData.length - 1].id)}
+                  style={{ background: 'rgba(103, 232, 249, 0.1)', color: '#67e8f9', border: '1px solid rgba(103, 232, 249, 0.2)' }}
+                >
+                  View Full Reasoning Trace
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

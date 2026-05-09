@@ -144,3 +144,38 @@ def budget_whatif(department_id: str = Query(...), amount: float = Query(...), p
         "will_hard_stop":           hypo_util >= BUDGET.hard_stop_threshold,
         "analysis":                 analysis,
     }
+
+@router.post("/rebalance")
+def rebalance_budgets(period: str = Query(None)):
+    """Agent-led budget healing: reallocate surplus to breached departments."""
+    resolved_period = period or current_period()
+    budgets = db.select("budgets", {"period": resolved_period})
+    
+    over = [b for b in budgets if (b['spent'] + b['committed']) > (b['allocated'] * 0.95)]
+    under = [b for b in budgets if (b['spent'] + b['committed']) < (b['allocated'] * 0.8)]
+    
+    if not over:
+        return {"message": "No significant breaches detected. Portfolio is healthy.", "reallocated": []}
+    
+    reallocated = []
+    for b_over in over:
+        # Give 20% buffer over current usage
+        target_allocation = (b_over['spent'] + b_over['committed']) * 1.2
+        needed = target_allocation - b_over['allocated']
+        
+        for b_under in under:
+            if needed <= 0: break
+            # Keep at least 15% buffer in surplus departments
+            surplus = b_under['allocated'] * 0.85 - (b_under['spent'] + b_under['committed'])
+            if surplus > 1000:
+                take = min(needed, surplus)
+                db.update("budgets", {"id": b_under['id']}, {"allocated": b_under['allocated'] - take})
+                db.update("budgets", {"id": b_over['id']}, {"allocated": b_over['allocated'] + take})
+                reallocated.append({
+                    "from": b_under['department_id'],
+                    "to": b_over['department_id'],
+                    "amount": take
+                })
+                needed -= take
+                
+    return {"message": f"Successfully rebalanced {len(reallocated)} allocations.", "reallocated": reallocated}

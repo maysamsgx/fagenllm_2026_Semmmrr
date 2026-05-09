@@ -32,8 +32,8 @@ class CashPolicy:
 
 @dataclass(frozen=True)
 class InvoicePolicy:
-    auto_approve_max: float = 5_000.0   # < this amount can auto-approve (if checks pass)
-    manager_max:      float = 50_000.0  # 5k–50k → manager; > 50k → senior manager
+    auto_approve_max: float = 10_000.0  # < this amount can auto-approve (if checks pass)
+    manager_max:      float = 100_000.0 # 10k–100k → manager; > 100k → senior manager
 
 
 @dataclass(frozen=True)

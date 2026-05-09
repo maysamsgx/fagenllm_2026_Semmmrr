@@ -1,6 +1,4 @@
-"""routers/credit.py — Credit & Collection Agent endpoints (V2)."""
-
-from fastapi import APIRouter, Query, BackgroundTasks
+from fastapi import APIRouter, Query, BackgroundTasks, HTTPException
 from db.supabase_client import db
 from config import get_supabase
 
@@ -25,15 +23,46 @@ def list_customers(risk_level: str = Query(None)):
             seen_names.add(name)
             deduped.append(r)
             
-    # Calculate real total_outstanding from receivables
-    receivables = supabase.table("receivables").select("customer_id, amount").eq("status", "open").execute().data
-    outstandings = {}
+    # Calculate real total_outstanding and average delay from receivables
+    receivables = supabase.table("receivables").select("customer_id, amount, status, due_date").execute().data
+    customer_id_to_name = {r["id"]: r["name"].strip() for r in rows}
+    
+    outstandings_by_name = {}
+    delays_by_name = {}
+    delay_counts_by_name = {}
+
+    from datetime import date
+    today = date.today()
+
     for rec in receivables:
         cid = rec["customer_id"]
-        outstandings[cid] = outstandings.get(cid, 0.0) + float(rec.get("amount", 0) or 0)
-        
+        name = customer_id_to_name.get(cid)
+        if name:
+            if rec.get("status") == "open":
+                outstandings_by_name[name] = outstandings_by_name.get(name, 0.0) + float(rec.get("amount", 0) or 0)
+            
+            # Dynamic delay calculation for open invoices
+            if rec.get("status") in ("open", "partial"):
+                due_date_str = rec.get("due_date")
+                if due_date_str:
+                    try:
+                        due = date.fromisoformat(str(due_date_str).split("T")[0])
+                        delay = (today - due).days
+                        if delay > 0:
+                            delays_by_name[name] = delays_by_name.get(name, 0) + delay
+                            delay_counts_by_name[name] = delay_counts_by_name.get(name, 0) + 1
+                    except Exception:
+                        pass
+            
     for d in deduped:
-        d["total_outstanding"] = outstandings.get(d["id"], 0.0)
+        d_name = d["name"].strip()
+        d["total_outstanding"] = outstandings_by_name.get(d_name, 0.0)
+        
+        count = delay_counts_by_name.get(d_name, 0)
+        if count > 0:
+            d["payment_delay_avg"] = delays_by_name.get(d_name, 0) / count
+        else:
+            d["payment_delay_avg"] = 0.0
         
     return deduped
 
@@ -69,18 +98,78 @@ def get_aging_buckets():
         "currency": "USD"
     }
 
-@router.get("/events/{customer_id}")
-def get_credit_events(customer_id: str):
-    """V2: Get reasoning trace for a customer from agent_decisions."""
+@router.get("/trace/{customer_id}")
+def get_credit_trace(customer_id: str):
+    """V3: Standardized trace format for Credit Agent reasoning."""
     decisions = db.select("agent_decisions", {"entity_id": customer_id, "agent": "credit"})
-    return {"customer_id": customer_id, "decisions": sorted(decisions, key=lambda d: d["created_at"])}
+    decisions = sorted(decisions, key=lambda d: d.get("created_at", ""))
+    
+    # Map to TraceEvent format
+    trace = [
+        {
+            "agent": d.get("agent"),
+            "event_type": d.get("decision_type"),
+            "timestamp": d.get("created_at"),
+            "technical_explanation": d.get("technical_explanation"),
+            "business_explanation": d.get("business_explanation"),
+            "causal_explanation": d.get("causal_explanation"),
+            "reasoning": d.get("technical_explanation") or d.get("reasoning") or "",
+            "details": {
+                "score": d.get("output_action", {}).get("score"),
+                "risk_level": d.get("output_action", {}).get("risk_level"),
+                "confidence": d.get("confidence"),
+                "input": d.get("input_state") or {},
+                "output": d.get("output_action") or {},
+            },
+        }
+        for d in decisions
+    ]
+    
+    # Fetch customer name for the UI header
+    customer = db.select("customers", {"id": customer_id})
+    customer_name = customer[0].get("name", "Unknown") if customer else "Unknown"
+
+    return {
+        "decisions": decisions,
+        "links": [], 
+        "trace": trace,
+        "name": customer_name
+    }
 
 @router.post("/assess/{customer_id}")
-def assess_customer(customer_id: str, background_tasks: BackgroundTasks):
-    def _run():
-        from agents.graph import graph
-        from agents.state import initial_state
+def assess_customer(customer_id: str):
+    """Synchronous assessment for immediate UI feedback."""
+    from agents.graph import graph
+    from agents.state import initial_state
+    
+    try:
+        # Pass customer_id as entity_id so initial_state sets trigger_entity_id correctly
         state = initial_state("customer_payment_check", customer_id)
-        graph.invoke(state)
-    background_tasks.add_task(_run)
-    return {"message": "Assessment started"}
+        
+        # Invoke the graph synchronously
+        final_state = graph.invoke(state)
+        
+        if final_state.get("error"):
+            raise HTTPException(status_code=400, detail=final_state["error"])
+
+        # Extract the credit results from the final state
+        credit_res = final_state.get("credit", {})
+        decision_id = credit_res.get("decision_id")
+        
+        # Fetch the full decision object for the UI
+        decision = None
+        if decision_id:
+            rows = db.select("agent_decisions", {"id": decision_id})
+            if rows:
+                decision = rows[0]
+                
+        return {
+            "status": "complete",
+            "score": credit_res.get("credit_score"),
+            "risk_level": credit_res.get("risk_level"),
+            "decision": decision
+        }
+    except Exception as e:
+        import logging
+        logging.getLogger("fagentllm").error(f"Credit assessment failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

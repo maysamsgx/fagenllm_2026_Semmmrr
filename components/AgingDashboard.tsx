@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { Clock, TrendingUp, DollarSign, AlertCircle } from 'lucide-react';
-import { Card } from './Shared';
+import { Card, fmt } from './Shared';
 
 const AGING_COLORS = ['#22d3ee', '#6366f1', '#a78bfa', '#e879f9', '#fb7185'];
 
@@ -49,13 +49,13 @@ export const AgingMetricsRow: React.FC<{ metrics: any, loading: boolean }> = ({ 
             />
             <MetricCard
                 title="Total Collected"
-                value={`$${(metrics?.collected_amount / 1000).toFixed(1)}k`}
+                value={metrics?.collected_amount != null ? fmt(metrics.collected_amount) : '—'}
                 icon={<DollarSign size={20} className="text-indigo-400" />}
                 desc="Total Cash Inflow"
             />
             <MetricCard
                 title="Total AR"
-                value={`$${(metrics?.total_receivables / 1000).toFixed(1)}k`}
+                value={metrics?.total_receivables != null ? fmt(metrics.total_receivables) : '—'}
                 icon={<AlertCircle size={20} className="text-amber-400" />}
                 desc="Gross Receivables"
             />

@@ -1,49 +1,108 @@
-
 import pytest
-from unittest.mock import patch
-from agents.reconciliation_agent import reconciliation_node
+from agents.budget_agent import _inv_decide
+from agents.credit_agent import calculate_penalty
+from agents.cash_agent import _decide as cash_decide
+from agents.reconciliation_agent import _find_customers
+from agents.invoice_agent import REQUIRED_FIELDS
 
-@pytest.fixture
-def mock_db():
-    with patch("agents.reconciliation_agent.db") as m:
-        yield m
-
-@pytest.fixture
-def mock_llm():
-    with patch("utils.llm.qwen_structured") as m:
-        yield m
-
-def test_reconciliation_agent_no_transactions(mock_db):
-    # Setup: No unmatched transactions
-    mock_db.get_unmatched_transactions.return_value = []
+def test_invoice_agent_isolated_logic():
+    """Test small, isolated logic component: Invoice field requirements."""
+    # Test that all required fields are present in a mock extraction
+    extracted = {
+        "vendor_name": "ACME",
+        "invoice_number": "123",
+        "invoice_date": "2026-05-01",
+        "total_amount": 1000.0
+    }
+    missing = [f for f in REQUIRED_FIELDS if not extracted.get(f)]
+    assert len(missing) == 0
     
-    state = {"trigger": "daily_reconciliation", "reasoning_trace": []}
-    result = reconciliation_node(state)
-    
-    assert result["current_agent"] == "reconciliation"
-    assert result["next_agent"] == "__end__"
-    mock_db.log_agent_decision.assert_called()
+    # Test missing field detection
+    incomplete = {"vendor_name": "ACME"}
+    missing_fields = [f for f in REQUIRED_FIELDS if not incomplete.get(f)]
+    assert "invoice_number" in missing_fields
+    assert len(missing_fields) == 3
 
-def test_reconciliation_agent_with_matches(mock_db, mock_llm):
-    # Setup: One internal, one bank transaction (matching)
-    mock_db.get_unmatched_transactions.return_value = [
-        {"id": "1", "source": "internal", "amount": 100, "transaction_date": "2026-01-01", "description": "test", "counterparty": "X"},
-        {"id": "2", "source": "bank", "amount": 100, "transaction_date": "2026-01-01", "description": "test", "counterparty": "X"}
+def test_budget_agent_isolated_logic():
+    """Test small, isolated logic component: Budget math and thresholds."""
+    # 1. Valid Input - Threshold Breach
+    percept = {
+        "budget": {"allocated": 100000, "spent": 50000, "committed": 0},
+        "amount": 45000,  # 50k + 45k = 95k (95% utilisation)
+        "dept_id": "marketing", "period": "2026-Q1", "inv_id": "test_1"
+    }
+    verdict = _inv_decide(None, percept, None)
+    assert verdict["utilisation_pct"] == 95.0
+    assert verdict["breach"] is True
+    assert verdict["hard_stop"] is False
+
+    # 2. Invalid Input Handling - Zero Budget
+    percept_invalid = {**percept, "budget": {"allocated": 0, "spent": 0, "committed": 0}}
+    verdict_invalid = _inv_decide(None, percept_invalid, None)
+    # If allocated is 0 and total_committed > 0, it should be 100% (breach)
+    assert verdict_invalid["utilisation_pct"] == 100.0
+    assert verdict_invalid["hard_stop"] is True
+
+def test_cash_agent_isolated_logic():
+    """Test small, isolated logic component: Cash liquidity formula C_{t+1}."""
+    # Formula: balance_after = (balance + inflows - outflows) - invoice_amount
+    percept = {
+        "total_balance": 10000.0,
+        "inflows": 5000.0,
+        "outflows": 2000.0,
+        "invoice_amount": 3000.0,
+        "min_balance": 5000.0
+    }
+    # Projected: 10k + 5k - 2k = 13k. After 3k payment = 10k.
+    # 10k > 5k (min_balance) -> Approved.
+    verdict = cash_decide(None, percept, None)
+    assert verdict["can_approve"] is True
+    assert verdict["balance_after"] == 10000.0
+    assert verdict["headroom"] == 5000.0
+
+    # Test shortfall
+    percept_tight = {**percept, "min_balance": 12000.0}
+    verdict_tight = cash_decide(None, percept_tight, None)
+    assert verdict_tight["can_approve"] is False
+    assert verdict_tight["headroom"] == -2000.0
+
+def test_reconciliation_agent_isolated_logic():
+    """Test small, isolated logic component: Customer-anomaly matching."""
+    # Mock database return for customers
+    import db.supabase_client as db_module
+    from unittest.mock import patch
+    
+    mock_customers = [
+        {"id": "cust_1", "name": "Global Synergy"},
+        {"id": "cust_2", "name": "Acme Corp"}
     ]
     
-    from utils.contracts import ReconciliationOutput
-    mock_llm.return_value = ReconciliationOutput(
-        technical_explanation="Match found",
-        business_explanation="Matched",
-        causal_explanation="None",
-        confidence=1.0,
-        decision="complete",
-        is_systematic=False
+    anomalies = [
+        {"description": "Payment from Global Synergy Dynamics", "id": "tx_1"},
+        {"description": "Unknown transfer", "id": "tx_2"}
+    ]
+    
+    with patch("db.supabase_client.db.select", return_value=mock_customers):
+        found_ids = _find_customers(anomalies)
+        assert "cust_1" in found_ids
+        assert "cust_2" not in found_ids
+
+def test_credit_agent_isolated_logic():
+    """Test small, isolated logic component: Credit penalty math."""
+    assert calculate_penalty("high", 15.0) == 20.0
+    assert calculate_penalty("medium", 8.0) == 10.0
+    assert calculate_penalty("low", 1.0) == 0.0
+    assert calculate_penalty(None, -5.0) == 0.0
+
+def test_agent_schema_conformance():
+    """Verify that agent outputs conform to expected pydantic-like schemas."""
+    from utils.contracts import DecisionOutput
+    output = DecisionOutput(
+        decision="approved",
+        confidence=0.99,
+        technical_explanation="Tech",
+        business_explanation="Bus",
+        causal_explanation="Cause"
     )
-    
-    state = {"trigger": "daily_reconciliation", "reasoning_trace": []}
-    result = reconciliation_node(state)
-    
-    assert result["next_agent"] == "__end__"
-    assert "reconciliation" in result
-    assert result["reconciliation"]["matched_count"] == 1 if "matched_count" in result["reconciliation"] else True
+    assert output.decision in ["approved", "rejected", "escalate", "complete"]
+    assert isinstance(output.confidence, float)

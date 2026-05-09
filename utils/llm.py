@@ -102,7 +102,7 @@ def _groq_raw_call(
     ----------
     use_reasoning_effort : bool
         Must be False for models that do not support the reasoning_effort
-        parameter (e.g. llama-3.3-70b-versatile).
+        parameter (e.g. gpt-oss-20b).
     """
     client = _groq_client()
     base: dict = dict(model=model, messages=messages,
@@ -118,6 +118,42 @@ def _groq_raw_call(
         msg = str(e)
         if force_json and any(k in msg.lower() for k in ("response_format", "json_object", "unsupported")):
             logger.warning(f"Groq rejected response_format for {model}; retrying without JSON mode.")
+            r = client.chat.completions.create(**base)
+        else:
+            raise
+    return (r.choices[0].message.content or "").strip()
+
+
+def _openrouter_client():
+    """Direct OpenAI-compatible client for OpenRouter. Cached per process."""
+    from openai import OpenAI
+    from config import get_settings
+    s = get_settings()
+    if not hasattr(_openrouter_client, "_c"):
+        _openrouter_client._c = OpenAI(api_key=s.openrouter_api_key, base_url=s.openrouter_base_url)
+    return _openrouter_client._c
+
+
+def _openrouter_raw_call(
+    messages: list[dict],
+    model: str,
+    temperature: float = 0.0,
+    force_json: bool = True,
+    max_tokens: int = 4096,
+) -> str:
+    client = _openrouter_client()
+    base: dict = dict(model=model, messages=messages,
+                      temperature=temperature, max_tokens=max_tokens)
+    # Some OpenRouter models don't support JSON mode, but we try
+    try:
+        if force_json:
+            r = client.chat.completions.create(**base, response_format={"type": "json_object"})
+        else:
+            r = client.chat.completions.create(**base)
+    except Exception as e:
+        msg = str(e)
+        if force_json and any(k in msg.lower() for k in ("response_format", "json_object", "unsupported")):
+            logger.warning(f"OpenRouter rejected response_format for {model}; retrying without JSON mode.")
             r = client.chat.completions.create(**base)
         else:
             raise
@@ -141,7 +177,7 @@ def _call_groq_with_fallback(
     max_tokens: int = 4096,
 ) -> tuple[str, str]:
     """
-    Call primary model (Qwen3); on failure retry with fallback (llama-3.3-70b).
+    Call primary model (Qwen3); on failure retry with fallback (gpt-oss-20b).
 
     Returns
     -------
@@ -164,25 +200,25 @@ def _call_groq_with_fallback(
             return raw, "primary"
         logger.warning(
             "Primary model (%s) returned non-JSON output; activating fallback (%s).",
-            s.qwen_model, s.groq_fallback_model,
+            s.qwen_model, s.openrouter_fallback_model,
         )
     except Exception as exc:
         logger.warning(
             "Primary model (%s) raised %s: %s — activating fallback (%s).",
-            s.qwen_model, type(exc).__name__, exc, s.groq_fallback_model,
+            s.qwen_model, type(exc).__name__, exc, s.openrouter_fallback_model,
         )
 
-    # Fallback attempt (llama-3.3-70b-versatile)
+    # Fallback attempt (openai/gpt-oss-20b:free via OpenRouter)
     try:
-        raw = _groq_raw_call(messages, model=s.groq_fallback_model,
+        raw = _openrouter_raw_call(messages, model=s.openrouter_fallback_model,
                              temperature=1.0, force_json=force_json,
-                             max_tokens=1024, use_reasoning_effort=False)
-        logger.info("Fallback model (%s) succeeded.", s.groq_fallback_model)
+                             max_tokens=1024)
+        logger.info("Fallback model (%s) succeeded.", s.openrouter_fallback_model)
         return raw, "fallback"
     except Exception as exc2:
         raise RuntimeError(
             f"Both models failed. "
-            f"Fallback ({s.groq_fallback_model}): {exc2}"
+            f"Fallback ({s.openrouter_fallback_model}): {exc2}"
         ) from exc2
 
 

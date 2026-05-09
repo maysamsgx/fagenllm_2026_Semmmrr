@@ -107,6 +107,9 @@ class SupabaseDB:
             query = query.eq(k, v)
         return query.execute()
 
+    def upsert(self, table: str, data: Any):
+        return self._ensure_client().table(table).upsert(data).execute()
+
     def select(self, table: str, filters: Dict[str, Any] | None = None) -> List[Dict[str, Any]]:
         query = self._ensure_client().table(table).select("*")
         if filters:

@@ -81,7 +81,31 @@ def get_disputes():
 
 @router.get("/reconciliation")
 def get_reconciliation_analytics():
-    """Fetch all reconciliation reports for dashboard visualization."""
+    """Fetch the last 10 reconciliation cycles for historical trend visualization."""
     reports = db.select("reconciliation_reports")
-    sorted_reports = sorted(reports, key=lambda x: x.get("created_at", ""))
+    # Sort by creation time (latest first) and take the last 10
+    sorted_reports = sorted(reports, key=lambda x: x.get("generated_at", ""), reverse=True)[:10]
+    # Reverse back for chronological chart display
+    sorted_reports.reverse()
+    
+    # Enrich with narratives from agent_decisions and linked causal chains
+    for r in sorted_reports:
+        dec_id = r.get("generated_by_decision_id")
+        if dec_id:
+            decision = db.select("agent_decisions", {"id": dec_id})
+            if decision:
+                main_narrative = decision[0].get("causal_explanation") or decision[0].get("business_explanation")
+                r["narrative"] = main_narrative
+                
+                # V3 Causal Enrichment: Find downstream effects (e.g. Credit/Budget hits)
+                links = db.select("causal_links", {"cause_decision_id": dec_id})
+                if links:
+                    for link in links:
+                        effect_dec = db.select("agent_decisions", {"id": link["effect_decision_id"]})
+                        if effect_dec:
+                            ed = effect_dec[0]
+                            # Append the cross-domain signal to the narrative
+                            signal = f"\n\n[Cross-Domain Signal: {ed['agent'].upper()}] {ed.get('business_explanation')}"
+                            r["narrative"] += signal
+                
     return sorted_reports

@@ -107,3 +107,94 @@ def get_stats():
         "unmatched":          total - matched,
         "match_rate_pct":     round(matched / total * 100, 2) if total else 0,
     }
+
+@router.get("/report/{report_id}/causal-trace")
+def get_recon_causal_trace(report_id: str):
+    """
+    Full causal trail for a reconciliation run.
+    
+    Architecture (matches thesis Section on Causal Domain Reasoning):
+    - Step 1: Fetch the reconciliation decision for this report.
+    - Step 2: Follow explicit causal_links to find downstream effects
+              (e.g. Credit risk reassessment triggered by systematic anomaly).
+    - Step 3: Follow further causal_links from those decisions (e.g. Cash AR update).
+    
+    This strictly uses causal_links — NOT temporal proximity —
+    so only decisions that are causally related to THIS run appear.
+    """
+    report = db.select("reconciliation_reports", {"id": report_id})
+    if not report:
+        from fastapi import HTTPException
+        raise HTTPException(404, "Report not found")
+    
+    report = report[0]
+    decision_id = report.get("generated_by_decision_id")
+    
+    decisions = []
+    if not decision_id:
+        return {"decisions": [], "links": [], "trace": [], "name": f"Reconciliation Report — {report.get('period')}"}
+    
+    # Step 1: The root reconciliation decision
+    root = db.select("agent_decisions", {"id": decision_id})
+    if not root:
+        return {"decisions": [], "links": [], "trace": [], "name": f"Reconciliation Report — {report.get('period')}"}
+    
+    decisions = list(root)
+    supabase = get_supabase()
+    
+    # Step 2 & 3: Recursively follow all causal links (BFS, max depth 3)
+    all_links = []
+    visited_ids = {decision_id}
+    frontier = [decision_id]
+    
+    for _ in range(3):  # max 3 hops (recon → credit → cash)
+        next_frontier = []
+        for dec_id in frontier:
+            links = (supabase.table("causal_links")
+                     .select("*")
+                     .or_(f"cause_decision_id.eq.{dec_id},effect_decision_id.eq.{dec_id}")
+                     .execute().data) or []
+            all_links.extend(links)
+            
+            for link in links:
+                # Follow downstream (cause → effect)
+                if link["cause_decision_id"] == dec_id:
+                    other_id = link["effect_decision_id"]
+                    if other_id not in visited_ids:
+                        visited_ids.add(other_id)
+                        other_dec = db.select("agent_decisions", {"id": other_id})
+                        if other_dec:
+                            decisions.extend(other_dec)
+                            next_frontier.append(other_id)
+        frontier = next_frontier
+        if not frontier:
+            break
+
+    decisions = sorted(decisions, key=lambda d: d["created_at"])
+    
+    trace = [
+        {
+            "agent": d.get("agent"),
+            "event_type": d.get("decision_type"),
+            "timestamp": d.get("created_at"),
+            "reasoning": d.get("technical_explanation") or d.get("reasoning") or "",
+            "technical_explanation": d.get("technical_explanation"),
+            "business_explanation": d.get("business_explanation"),
+            "causal_explanation": d.get("causal_explanation"),
+            "details": {
+                "input": d.get("input_state") or {},
+                "output": d.get("output_action") or {},
+                "confidence": d.get("confidence"),
+            },
+        }
+        for d in decisions
+    ]
+
+    return {
+        "decisions": decisions,
+        "links": all_links,
+        "trace": trace,
+        "name": f"Reconciliation Report — {report.get('period')}"
+    }
+
+

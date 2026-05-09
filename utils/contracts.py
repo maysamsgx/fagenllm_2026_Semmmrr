@@ -6,6 +6,7 @@ Strict Pydantic models for Agent JSON Contracts.
 from pydantic import BaseModel, Field
 from typing import Any, Dict
 
+
 class DecisionOutput(BaseModel):
     decision: str = Field(description="The primary decision made by the agent.")
     confidence: float = Field(description="Confidence score between 0 and 100.")

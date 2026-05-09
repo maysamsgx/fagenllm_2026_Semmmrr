@@ -87,8 +87,11 @@ def cash_scenario(
         f"Projected 7-day inflows: ${inflows:,.0f}, outflows: ${outflows:,.0f}. "
         f"Proposed payment '{label}': ${amount:,.2f}. "
         f"Balance after payment: ${balance_after:,.2f} vs minimum reserve ${CASH.minimum_balance:,.0f}. "
+        f"SAFETY HEADROOM: ${headroom:,.2f} (This is the margin ABOVE the reserve). "
         f"Provide JSON with keys: recommendation (string), narrative (1 paragraph), "
-        f"alternatives (list of 2-3 strings), risk_level (low/medium/high/critical).",
+        f"alternatives (list of 2-3 strings), risk_level (low/medium/high/critical). "
+        f"Ensure the narrative accurately reflects that a headroom of ${headroom:,.2f} is "
+        f"{'CRITICAL' if headroom < 0 else 'TIGHT' if headroom < CASH.minimum_balance else 'SUBSTANTIAL'} relative to the reserve.",
     )
 
     return {

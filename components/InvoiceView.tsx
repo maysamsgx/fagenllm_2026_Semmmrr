@@ -48,7 +48,7 @@ export default function InvoiceView() {
 
   return (
     <div className="view">
-      {traceId && <TracePanel invoiceId={traceId} onClose={() => setTraceId(null)} />}
+      {traceId && <TracePanel entityId={traceId} onClose={() => setTraceId(null)} />}
 
       <div className="view-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>

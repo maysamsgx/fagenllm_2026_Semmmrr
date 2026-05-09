@@ -19,6 +19,23 @@ from directives.policies import CREDIT
 from utils.directives import inject_directive
 
 
+def calculate_penalty(risk_level: str | None, delay_days: float) -> float:
+    """
+    Deterministic penalty calculation based on historical risk and current delays.
+    Used to adjust the base credit score before final assessment.
+    """
+    if not risk_level or delay_days < 0:
+        return 0.0
+    
+    # Penalties escalate based on existing risk tier
+    if risk_level == "high":
+        return 20.0
+    if risk_level == "medium" and delay_days > 5:
+        return 10.0
+    
+    return 0.0
+
+
 def credit_node(state: FinancialState) -> FinancialState:
     trigger = state.get("trigger", "customer_payment_check")
     if trigger in ("customer_payment_check", "daily_reconciliation"):
@@ -49,7 +66,10 @@ def _assess_customer(state: FinancialState) -> FinancialState:
     f3 = 0.0
     recon_summary = None
     if recon_ctx.get("decision_id") and customer_id in recon_ctx.get("anomalous_customer_ids", []):
-        f3 = 20.0  # Flat 20pt penalty for systematic reconciliation issues
+        # We apply the penalty logic based on current state
+        f3 = calculate_penalty(customer.get("risk_level"), f1)
+        # Ensure a minimum 20pt penalty if it's systematic
+        f3 = max(f3, 20.0) 
         recon_summary = recon_ctx.get("anomaly_summary")
 
     score = max(0.0, min(100.0,
@@ -68,9 +88,35 @@ def _assess_customer(state: FinancialState) -> FinancialState:
     })
 
     # ── LLM reasoning (Orchestration — explanation only) ─────────────────────
-    # Inject the credit directive so the LLM explains within policy boundaries.
+    # Fetch REAL payment history from receivables to give the LLM accurate behavioral data
     from utils.prompts import credit_risk_prompt as _crp
-    base_system, user = _crp(customer, [], score, recon_summary)
+    from db.supabase_client import db as _db
+    
+    payment_history = []
+    try:
+        receivables = _db.select("receivables", {"customer_id": customer_id})
+        for r in receivables[-5:]:  # Last 5 receivables
+            due = r.get("due_date")
+            status = r.get("status")
+            days_late = 0
+            if due and status not in ("paid",):
+                from datetime import date as _d
+                try:
+                    days_late = max(0, (_d.today() - _d.fromisoformat(due)).days)
+                except Exception:
+                    pass
+            payment_history.append({
+                "invoice_id": r.get("invoice_id", "?"),
+                "due_date": due,
+                "paid_date": "PAID" if status == "paid" else None,
+                "days_late": days_late,
+                "amount": r.get("amount"),
+                "collection_stage": r.get("collection_stage"),
+            })
+    except Exception:
+        pass  # graceful degradation
+
+    base_system, user = _crp(customer, payment_history, score, recon_summary, f1, f2, f3)
     system = inject_directive(base_system, "credit")
     assessment = qwen_structured(system, user, DecisionOutput)
 
@@ -88,6 +134,7 @@ def _assess_customer(state: FinancialState) -> FinancialState:
         }
     }
 
+    # ── Explanation: log decision ────────────────────────────────────────────
     decision_id = db.log_agent_decision(
         agent="credit",
         decision_type="risk_assessed",
@@ -97,30 +144,42 @@ def _assess_customer(state: FinancialState) -> FinancialState:
         business_explanation=assessment.business_explanation,
         causal_explanation=assessment.causal_explanation,
         input_state=input_state,
-        output_action={"risk_level": risk_level, "decision": assessment.decision},
+        output_action={"risk_level": risk_level, "decision": assessment.decision, "score": score},
         confidence=assessment.confidence
     )
 
+    # V3 Causal Integrity: Link this assessment back to the reconciliation anomaly
     if recon_ctx.get("decision_id"):
-        explanation = "Systematic payment delays detected in reconciliation trigger risk reassessment."
+        link_explanation = f"Systematic reconciliation anomalies for {customer.get('name')} triggered forensic risk reassessment."
         if f3 > 0:
-            explanation = f"Systematic reconciliation anomalies for {customer.get('name')} triggered a 20pt risk penalty and reassessment."
+            link_explanation = f"Cross-domain anomaly signal detected: 20pt risk penalty applied to {customer.get('name')} due to systematic settlement delays."
         
         db.log_causal_link(
-            recon_ctx["decision_id"], decision_id, "elevates_risk",
-            explanation
+            recon_ctx["decision_id"], 
+            decision_id, 
+            "elevates_risk",
+            link_explanation
         )
 
-    # ── Execution: advance collection stage for open receivables if high risk ─
+    # ── Execution: autonomous policy enforcement ─────────────────────────────
     if risk_level == "high":
+        # Slash credit limit by 50% immediately to prevent further exposure (Agentic Action)
+        new_limit = float(customer.get("credit_limit", 10000.0)) * 0.5
+        db.update("customers", {"id": customer_id}, {"credit_limit": round(new_limit, 2)})
+        
+        # Advance collection stages for all open invoices
         _advance_collection_stages(customer_id)
 
+    # ── Communication: Append to reasoning trace for UI visibility ──────────
     trace = state.get("reasoning_trace", []) + [{
-        "agent": "credit",
-        "step": "Assessed risk",
+        "agent":                 "credit",
+        "step":                  "Forensic Risk Assessment",
+        "event_type":            "risk_assessed",
         "technical_explanation": assessment.technical_explanation,
-        "business_explanation": assessment.business_explanation,
-        "causal_explanation": assessment.causal_explanation
+        "business_explanation":  assessment.business_explanation,
+        "causal_explanation":    assessment.causal_explanation,
+        "risk_level":            risk_level,
+        "confidence":            assessment.confidence
     }]
 
     return {
@@ -133,8 +192,12 @@ def _assess_customer(state: FinancialState) -> FinancialState:
             "decision_id":  decision_id,
         },
         "reasoning_trace": trace,
-        "next_agent": "cash" if risk_level == "high" else END,
-        "trigger":    "cash_position_refresh" if risk_level == "high" else "done",
+        # Step 6 (thesis): always hand off to Cash for AR forecast update when triggered
+        # by reconciliation. For invoice checks, only hand off if high risk.
+        "next_agent": "cash" if recon_ctx.get("decision_id") or risk_level == "high" else END,
+        "trigger":    "ar_forecast_update" if recon_ctx.get("decision_id") else (
+                      "cash_position_refresh" if risk_level == "high" else "done"
+        ),
     }
 
 

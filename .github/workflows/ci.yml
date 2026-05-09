@@ -67,7 +67,7 @@ jobs:
           pip install pytest pytest-mock
 
       - name: Run Unit Tests
-        run: python -m pytest tests/test_utils.py tests/test_agents.py -v
+        run: python -m pytest tests/test_utils.py tests/test_agents.py tests/test_llm_fallback.py -v
 
   # 3️⃣ LINT: Code Quality (Commit Stage)
   lint:

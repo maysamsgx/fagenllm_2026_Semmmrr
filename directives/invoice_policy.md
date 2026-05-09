@@ -28,9 +28,9 @@ Apply rules in order; first match wins:
 | Rule | Condition | Action |
 |---|---|---|
 | 1. Hard stop | Budget utilisation ≥ 100% | **REJECT** — mandatory, no override |
-| 2. Senior manager | Amount > $50,000 OR cash FAILED OR utilisation ≥ 95% | Escalate |
-| 3. Manager | Amount $5,000–$50,000 OR utilisation ≥ 90% OR amount unknown | Manager review |
-| 4. Auto-approve | Amount < $5,000 AND cash PASSED AND utilisation < 90% | Approve automatically |
+| 2. Senior manager | Amount > $100,000 OR cash FAILED OR utilisation ≥ 95% | Escalate |
+| 3. Manager | Amount $10,000–$100,000 OR utilisation ≥ 90% OR amount unknown | Manager review |
+| 4. Auto-approve | Amount < $10,000 AND cash PASSED AND utilisation < 90% | Approve automatically |
 
 ## Causal Chain
 OCR → Extraction → Vendor Validation → Cash Check → Budget Check → Approval Routing
