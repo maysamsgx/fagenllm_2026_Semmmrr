@@ -29,6 +29,30 @@
   padding: 0;
 }
 
+/* Cinematic Background Video Styles */
+#bg-video {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  object-fit: cover;
+  z-index: -2;
+  opacity: 0.4; /* Fade it out slightly */
+  filter: blur(2px) saturate(120%); /* Make it blend with the dark tech theme */
+  pointer-events: none;
+}
+
+/* Add a dark overlay to ensure text contrast */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at center, rgba(4, 6, 13, 0.6) 0%, rgba(4, 6, 13, 0.95) 100%);
+  z-index: -1;
+  pointer-events: none;
+}
+
 :root {
   /* Surfaces */
   --bg-0: #04060d;
