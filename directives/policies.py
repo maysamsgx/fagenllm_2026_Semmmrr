@@ -50,7 +50,7 @@ class ReconciliationPolicy:
     match_threshold:          float = 0.8   # TF-IDF cosine similarity
     semantic_match_threshold: float = 0.75  # SentenceTransformer similarity
     systematic_keywords:      tuple = ("systematic", "pattern", "recurring", "repeated")
-    max_fetch:           int   = 100   # max unmatched rows per reconciliation run
+    max_fetch:           int   = 20    # max unmatched rows per reconciliation run
 
 
 # Module-level singletons — import these in agent files

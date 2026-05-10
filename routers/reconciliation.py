@@ -5,8 +5,12 @@ Handles triggering runs and pulling the latest match reports.
 """
 
 from fastapi import APIRouter, Query, BackgroundTasks
+from pydantic import BaseModel
 from db.supabase_client import db
 from config import get_supabase
+
+class ResolveRequest(BaseModel):
+    action: str  # 'match', 'ignore', 'escalate'
 
 router = APIRouter()
 
@@ -198,3 +202,24 @@ def get_recon_causal_trace(report_id: str):
     }
 
 
+@router.post("/resolve/{tx_id}")
+def resolve_dispute(tx_id: str, req: ResolveRequest):
+    """
+    Manual Stakeholder Resolution Portal — satisfying V3 requirement for
+    stakeholder collaboration in dispute resolution.
+    """
+    if req.action == "match":
+        db.update("transactions", {"id": tx_id}, {"matched": True, "match_score": 1.0})
+    elif req.action == "escalate":
+        # Log a manual decision indicating stakeholder escalation
+        db.log_agent_decision(
+            agent="reconciliation",
+            decision_type="stakeholder_escalation",
+            entity_table="transactions",
+            entity_id=tx_id,
+            technical_explanation="Stakeholder manually flagged transaction for higher-level audit.",
+            business_explanation="This transaction requires external validation with the vendor/bank.",
+            causal_explanation="Payment lifecycle paused until manual resolution.",
+            confidence=1.0
+        )
+    return {"status": "success", "id": tx_id, "action": req.action}

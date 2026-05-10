@@ -212,7 +212,7 @@ def reconciliation_anomaly_prompt(unmatched: list[dict], period: str) -> tuple[s
     if unmatched:
         # Sort by date descending, then amount to prioritize recent/large anomalies
         unmatched_sorted = sorted(unmatched, key=lambda x: (x.get('transaction_date', ''), abs(float(x.get('amount', 0)))), reverse=True)
-        sample = unmatched_sorted[:15]
+        sample = unmatched_sorted[:5]
         items_text = "\n".join([
             f"  [{i+1:02d}] {t.get('source','?').upper()} | "
             f"Counterparty: {str(t.get('counterparty','Unknown'))[:35]} | "

@@ -1530,3 +1530,29 @@ input[type="file"].sr-only {
   line-height: 1.7;
   color: #e9d5ff;
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Modals & Overlays (V3 Stakeholder Portal)
+   ══════════════════════════════════════════════════════════════════════════ */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 6, 13, 0.85);
+  backdrop-filter: blur(8px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  animation: fadeIn 0.3s ease;
+}
+
+.modal-content {
+  position: relative;
+  width: 100%;
+  box-shadow: 0 40px 100px rgba(0,0,0,0.8), 0 0 0 1px var(--border-2);
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }

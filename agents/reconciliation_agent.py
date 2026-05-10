@@ -47,10 +47,9 @@ def _run_reconciliation(state: FinancialState) -> FinancialState:
     run_id = str(uuid.uuid4())
     period = _current_period()
 
-    # ── Perception: fetch unmatched transactions ──────────────────────────────
-    all_unmatched = db.get_unmatched_transactions(limit=RECON.max_fetch)
-    internal_txs  = [tx for tx in all_unmatched if tx.get("source") == "internal"]
-    bank_txs      = [tx for tx in all_unmatched if tx.get("source") == "bank"]
+    # ── Perception: fetch unmatched transactions (balanced) ──────────────────
+    internal_txs = db.select("transactions", {"matched": False, "source": "internal"})[:RECON.max_fetch]
+    bank_txs     = db.select("transactions", {"matched": False, "source": "bank"})[:RECON.max_fetch]
 
     if not internal_txs:
         note = f"Reconciliation {period}: No internal transactions to match."
@@ -70,7 +69,7 @@ def _run_reconciliation(state: FinancialState) -> FinancialState:
     if bank_txs:
         def tx_to_string(tx: dict) -> str:
             parts = [
-                str(tx.get("amount", "")),
+                str(abs(float(tx.get("amount", 0)))),
                 str(tx.get("transaction_date", "")),
                 str(tx.get("counterparty", "")),
                 str(tx.get("description", ""))
@@ -175,33 +174,10 @@ def _run_reconciliation(state: FinancialState) -> FinancialState:
         for tx in anomalies
     ]
 
-    report_id = db.create_reconciliation_report({
-        "period":          period,
-        "total_internal":  len(internal_txs),
-        "total_external":  len(bank_txs),
-        "matched_count":   len(matched),
-        "unmatched_count": len(anomalies),
-        "match_rate":      (len(matched) / max(1, len(internal_txs))) * 100.0,
-        "discrepancies":   discrepancy_summary,
-        "generated_by_decision_id": decision_id,
-    })
-
-    items = [
-        {"transaction_id": tx["id"], "item_type": "matched",
-         "notes": f"Match ({tx.get('match_type')}): {tx.get('sim_score', 0):.2f}"}
-        for tx in matched
-    ] + [
-        {"transaction_id": tx["id"], "item_type": "discrepancy",
-         "notes": f"Below threshold. Score: {tx.get('sim_score', 0):.2f} ({tx.get('match_type')})"}
-        for tx in anomalies
-    ]
-    db.add_reconciliation_items(report_id, items)
-    
     # ── Execution: update transactions with match scores ──────────────────────
     # V3 Latency Fix: Use bulk upsert instead of individual row updates
     updates = []
     for tx in internal_txs:
-        # We must include all NOT NULL columns in the upsert for it to be valid in Postgres
         updates.append({
             "id": tx["id"],
             "amount": tx["amount"],
@@ -222,6 +198,35 @@ def _run_reconciliation(state: FinancialState) -> FinancialState:
         except Exception as e:
             import logging
             logging.getLogger("fagentllm").error(f"Bulk transaction match update failed: {e}")
+
+    # ── Execution: write reconciliation report and items ──────────────────────
+    # Fetch global stats for the report to ensure it reflects system-wide accuracy
+    sb = db._ensure_client()
+    global_total = sb.table("transactions").select("id", count="exact").execute().count or 0
+    global_matched = sb.table("transactions").select("id", count="exact").eq("matched", True).execute().count or 0
+    global_match_rate = (global_matched / max(1, global_total)) * 100.0
+
+    report_id = db.create_reconciliation_report({
+        "period":          period,
+        "total_internal":  len(internal_txs),
+        "total_external":  len(bank_txs),
+        "matched_count":   len(matched),
+        "unmatched_count": len(anomalies),
+        "match_rate":      global_match_rate, # System-wide rate (now including this run)
+        "discrepancies":   discrepancy_summary,
+        "generated_by_decision_id": decision_id,
+    })
+
+    items = [
+        {"transaction_id": tx["id"], "item_type": "matched",
+         "notes": f"Match ({tx.get('match_type')}): {tx.get('sim_score', 0):.2f}"}
+        for tx in matched
+    ] + [
+        {"transaction_id": tx["id"], "item_type": "discrepancy",
+         "notes": f"Below threshold. Score: {tx.get('sim_score', 0):.2f} ({tx.get('match_type')})"}
+        for tx in anomalies
+    ]
+    db.add_reconciliation_items(report_id, items)
 
     # ── Communication: route to credit if systematic issue found ─────────────
     # We find ALL customers involved in systematic anomalies

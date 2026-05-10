@@ -57,16 +57,14 @@ def ensure_initial_match_state() -> None:
         logger.warning(f"Could not probe transactions: {e}")
         return
 
-    if total == 0 or matched > 0:
-        # Either no data yet, or recon already ran at least once.
+    if total == 0:
+        # No data yet.
         return
 
     logger.info("All transactions unmatched; pairing seeded internal/bank rows…")
 
     try:
-        rows = sb.table("transactions").select(
-            "id,source,invoice_id,amount,matched"
-        ).execute().data or []
+        rows = sb.table("transactions").select("*").execute().data or []
     except Exception as e:
         logger.warning(f"Could not pull transactions: {e}")
         return
@@ -95,14 +93,15 @@ def ensure_initial_match_state() -> None:
         return
 
     # Bulk update for performance (latency fix)
+    row_map = {r["id"]: r for r in rows}
     to_update = []
     for tx_id, mate_id, score in matches:
-        to_update.append({
-            "id": tx_id,
-            "matched": True,
-            "matched_to": mate_id,
-            "match_score": round(score, 3),
-        })
+        if tx_id in row_map:
+            row = row_map[tx_id]
+            row["matched"] = True
+            row["matched_to"] = mate_id
+            row["match_score"] = round(score, 3)
+            to_update.append(row)
 
     if to_update:
         try:

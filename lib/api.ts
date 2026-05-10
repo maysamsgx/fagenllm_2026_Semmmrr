@@ -258,6 +258,10 @@ export const reconApi = {
     links: CausalLink[],
     trace: TraceEvent[] 
   }>(`/reconciliation/report/${id}/causal-trace`),
+  resolve: (id: string, action: 'match' | 'ignore' | 'escalate') => req(`/reconciliation/resolve/${id}`, { 
+    method: 'POST', 
+    body: JSON.stringify({ action }) 
+  }),
 }
 
 // ── Credit ────────────────────────────────────────────────────────────────

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { RefreshCw, ChevronDown, ChevronUp, Info, Brain } from 'lucide-react'
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts'
 import { reconApi, analyticsApi, ReconStats, ReconReport } from '../lib/api'
@@ -15,22 +15,58 @@ export default function ReconciliationView() {
   const [viewMode, setViewMode]   = useState<'operations' | 'dashboard'>('operations')
   const [dashboardData, setDashboardData] = useState<any[]>([])
   const [traceId, setTraceId]             = useState<string | null>(null)
+  const [selectedTx, setSelectedTx]       = useState<any | null>(null)
 
-  const load = () => {
-    reconApi.stats().then(setStats).catch(() => {})
-    reconApi.report().then(r => { if (r && 'match_rate' in r) setReport(r) }).catch(() => {})
-    reconApi.unmatched().then(setUnmatched).catch(() => {})
-    analyticsApi.reconciliation().then(setDashboardData).catch(() => {})
-  }
-  useEffect(() => { load() }, [])
+  const load = useCallback(() => {
+    reconApi.stats().then(setStats).catch(console.error)
+    reconApi.report().then(r => { 
+      if (r && typeof r === 'object' && 'match_rate' in r) setReport(r as ReconReport) 
+    }).catch(console.error)
+    reconApi.unmatched().then(setUnmatched).catch(console.error)
+    analyticsApi.reconciliation().then(setDashboardData).catch(console.error)
+  }, [])
+
+  useEffect(() => { load() }, [load])
 
   useRealtime('transactions', load)
   useRealtime('reconciliation_reports', load)
 
   async function runRecon() {
     setRunning(true)
-    try { await reconApi.run() } catch (e) { alert(`Run failed: ${e}`) }
-    setTimeout(() => { load(); setRunning(false) }, 8000)
+    try { 
+      await reconApi.run() 
+      // Polling fallback (v3.1): Increase duration to 60s to handle cold-starts/large batches
+      let attempts = 0
+      const poll = setInterval(() => {
+        load()
+        attempts++
+        if (attempts >= 30) {
+          clearInterval(poll)
+          setRunning(false)
+        }
+      }, 2000)
+      
+      // Safety release
+      setTimeout(() => {
+        clearInterval(poll)
+        setRunning(false)
+        load()
+      }, 65000)
+    } catch (e) { 
+      alert(`Run failed: ${e}`) 
+      setRunning(false)
+    }
+  }
+
+  async function handleResolve(action: 'match' | 'escalate') {
+    if (!selectedTx) return
+    try {
+      await reconApi.resolve(selectedTx.id, action)
+      setSelectedTx(null)
+      load()
+    } catch (e) {
+      alert(`Resolution failed: ${e}`)
+    }
   }
 
   const pieData = stats ? [
@@ -107,6 +143,7 @@ export default function ReconciliationView() {
               <div className="stat-value" style={{ color: (stats?.match_rate_pct ?? 0) >= 90 ? '#34d399' : '#fbbf24' }}>
                 {stats ? pct(stats.match_rate_pct) : '—'}
               </div>
+              <div style={{ fontSize: 10, color: 'var(--text-4)', marginTop: -4 }}>System Accuracy</div>
             </Card>
             <Card>
               <div className="stat-label">Matched pairs</div>
@@ -167,7 +204,7 @@ export default function ReconciliationView() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   {[
                     ['Period', String(report.period)],
-                    ['Match rate', `${Number(report.match_rate).toFixed(1)}%`],
+                    ['System rate', `${Number(report.match_rate).toFixed(1)}%`],
                     ['Matched', String(report.matched_count)],
                     ['Unmatched', String(report.unmatched_count)],
                     ['Generated', new Date(String(report.generated_at)).toLocaleString()],
@@ -221,34 +258,32 @@ export default function ReconciliationView() {
                           ${Number(tx.amount ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                         </td>
                         <td style={{ padding: '12px 18px', textAlign: 'right', borderTopRightRadius: 8, borderBottomRightRadius: 8 }}>
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-                            <span style={{
-                              fontFamily: 'JetBrains Mono, monospace',
-                              fontSize: 12,
-                              fontWeight: 700,
-                              color: (tx.match_score || tx.sim_score) != null && Number(tx.match_score || tx.sim_score) >= 0.6 ? '#fbbf24' : '#fb7185'
-                            }}>
-                              {(Number(tx.match_score || tx.sim_score || 0) * 100).toFixed(0)}%
-                            </span>
-                            <div style={{ width: 60, height: 3, background: 'rgba(255,255,255,0.05)', borderRadius: 2, overflow: 'hidden' }}>
-                              <div style={{
-                                width: `${Math.min(100, Number(tx.match_score || tx.sim_score || 0) * 100)}%`,
-                                height: '100%',
-                                background: (tx.match_score || tx.sim_score) != null && Number(tx.match_score || tx.sim_score) >= 0.6 ? '#fbbf24' : '#fb7185',
-                                boxShadow: `0 0 8px ${(tx.match_score || tx.sim_score) != null && Number(tx.match_score || tx.sim_score) >= 0.6 ? 'rgba(251,191,36,0.4)' : 'rgba(251,113,133,0.4)'}`
-                              }} />
-                            </div>
-                            {tx.match_type && (
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12 }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
                               <span style={{
-                                fontSize: 9, fontWeight: 700, letterSpacing: '.06em',
-                                textTransform: 'uppercase', padding: '2px 6px', borderRadius: 4,
-                                background: tx.match_type === 'semantic' ? 'rgba(167,139,250,.15)' : 'rgba(34,211,238,.10)',
-                                color: tx.match_type === 'semantic' ? '#a78bfa' : '#67e8f9',
-                                border: `1px solid ${tx.match_type === 'semantic' ? 'rgba(167,139,250,.25)' : 'rgba(34,211,238,.2)'}`,
+                                fontFamily: 'JetBrains Mono, monospace',
+                                fontSize: 12,
+                                fontWeight: 700,
+                                color: (tx.match_score || tx.sim_score) != null && Number(tx.match_score || tx.sim_score) >= 0.6 ? '#fbbf24' : '#fb7185'
                               }}>
-                                {tx.match_type}
+                                {(Number(tx.match_score || tx.sim_score || 0) * 100).toFixed(0)}%
                               </span>
-                            )}
+                              <div style={{ width: 60, height: 3, background: 'rgba(255,255,255,0.05)', borderRadius: 2, overflow: 'hidden' }}>
+                                <div style={{
+                                  width: `${Math.min(100, Number(tx.match_score || tx.sim_score || 0) * 100)}%`,
+                                  height: '100%',
+                                  background: (tx.match_score || tx.sim_score) != null && Number(tx.match_score || tx.sim_score) >= 0.6 ? '#fbbf24' : '#fb7185',
+                                  boxShadow: `0 0 8px ${(tx.match_score || tx.sim_score) != null && Number(tx.match_score || tx.sim_score) >= 0.6 ? 'rgba(251,191,36,0.4)' : 'rgba(251,113,133,0.4)'}`
+                                }} />
+                              </div>
+                            </div>
+                            <button 
+                              className="btn-sm" 
+                              style={{ background: 'rgba(103,232,249,0.1)', color: '#67e8f9', padding: '4px 8px' }}
+                              onClick={() => setSelectedTx(tx)}
+                            >
+                              Resolve
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -266,8 +301,11 @@ export default function ReconciliationView() {
             <Card style={{ background: 'linear-gradient(135deg, rgba(52, 211, 153, 0.05) 0%, transparent 100%)' }}>
               <div className="stat-label">System Match Accuracy</div>
               <div className="stat-value" style={{ color: '#34d399', display: 'flex', alignItems: 'baseline', gap: 6 }}>
-                {dashboardData.length > 0 ? pct(dashboardData.reduce((acc, curr) => acc + curr.match_rate, 0) / dashboardData.length) : '—'}
-                <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-4)' }}>Avg</span>
+                {dashboardData.length > 0 ? pct(dashboardData[dashboardData.length - 1].match_rate) : '—'}
+                <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-4)' }}>Current</span>
+              </div>
+              <div style={{ fontSize: 10, color: 'var(--text-4)', marginTop: 4 }}>
+                Avg: {dashboardData.length > 0 ? (dashboardData.reduce((acc, curr) => acc + curr.match_rate, 0) / dashboardData.length).toFixed(1) : 0}%
               </div>
             </Card>
             <Card style={{ background: 'linear-gradient(135deg, rgba(251, 113, 133, 0.05) 0%, transparent 100%)' }}>
@@ -385,6 +423,32 @@ export default function ReconciliationView() {
               </div>
             </div>
           )}
+        </div>
+      )}
+      {selectedTx && (
+        <div className="modal-overlay">
+          <Card className="modal-content" style={{ maxWidth: 500 }}>
+            <h3 style={{ marginBottom: 16 }}>Dispute Resolution</h3>
+            <p style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 20 }}>
+              Transaction ID: <code style={{ color: '#67e8f9' }}>{selectedTx.id}</code><br/>
+              Counterparty: <strong>{selectedTx.counterparty}</strong><br/>
+              Amount: <strong>${selectedTx.amount?.toLocaleString()}</strong>
+            </p>
+            
+            <div style={{ background: 'rgba(0,0,0,0.2)', padding: 12, borderRadius: 8, marginBottom: 20 }}>
+              <div style={{ fontSize: 11, color: 'var(--text-4)', textTransform: 'uppercase', marginBottom: 6 }}>AI Reasoning</div>
+              <p style={{ margin: 0, fontSize: 12, color: 'var(--text-2)' }}>
+                Similarity score of <strong>{(selectedTx.match_score || selectedTx.sim_score || 0 * 100).toFixed(0)}%</strong> via {selectedTx.match_type || 'TF-IDF'}. 
+                Manual stakeholder intervention required due to policy threshold (0.80).
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+              <button className="btn-secondary" onClick={() => setSelectedTx(null)}>Cancel</button>
+              <button className="btn-secondary" style={{ color: '#fb7185' }} onClick={() => handleResolve('escalate')}>Escalate to Audit</button>
+              <button className="btn-primary" onClick={() => handleResolve('match')}>Force Match</button>
+            </div>
+          </Card>
         </div>
       )}
     </div>
