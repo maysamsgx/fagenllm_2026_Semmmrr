@@ -1,4 +1,4 @@
-![FAgentLLM Banner](public/assets/image.png)
+![FAgentLLM Hero](public/assets/image%20copy.png)
 
 # 🌌 FAgentLLM
 **Five Agents, One Vision: Smarter Finance, Better Decisions.**
@@ -6,7 +6,7 @@
 [![Python Version](https://img.shields.io/badge/python-3.11%2B-blue.svg?style=for-the-badge&logo=python)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactjs.org/)
-[![LangGraph](https://img.shields.io/badge/LangGraph-FF9900?style=for-the-badge&logo=langchain&logoColor=white)](https://www.langchain.com/langgraph)
+[![LangGraph](https://img.shields.io/badge/LangGraph-FF9900?style=for-the-badge&logo=langchain&logoColor=white)](https://www.langchain.com/langchain)
 
 *A unified multi-agent LLM architecture that overcomes fragmented enterprise finance operations through autonomous orchestration, causal reasoning, and explainable decision-making.*
 
@@ -179,5 +179,8 @@ To prevent "LLM Hallucinations" in financial contexts, the system employs a **Hy
 ---
 
 <div align="center">
+  <img src="public/assets/image.png" alt="FAgentLLM Footer" width="800" style="margin-bottom: 20px; box-shadow: 0 20px 50px rgba(0,0,0,0.5);" />
   <p>Built for the future of Autonomous Enterprise Finance.</p>
+  <br />
+  <h2>Alhamdulillah</h2>
 </div>
