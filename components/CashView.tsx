@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { RefreshCw, TrendingUp, TrendingDown, FlaskConical, ChevronDown, ChevronUp } from 'lucide-react'
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts'
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, Sankey, Layer } from 'recharts'
 import { cashApi, CashAccount, ForecastDay, CashScenarioResult } from '../lib/api'
 import { Card, Badge, Empty, fmt, AgentAvatar, Spinner } from './Shared'
 import { useRealtime } from '../lib/useRealtime'
@@ -208,7 +208,7 @@ export default function CashView() {
 
             {scResult && (
               <div style={{ marginTop: 16 }}>
-                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 14 }}>
+                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 20 }}>
                   {[
                     ['Current balance', fmt(scResult.current_balance), 'var(--text-2)'],
                     ['After payment', fmt(scResult.balance_after), RISK_COLOR[scResult.risk_level]],
@@ -226,6 +226,72 @@ export default function CashView() {
                       color={scResult.can_approve ? '#34d399' : '#fb7185'}
                       bg={scResult.can_approve ? 'rgba(52,211,153,.14)' : 'rgba(251,113,133,.14)'}
                     />
+                  </div>
+                </div>
+
+                {/* --- Honors Level: Scenario Comparison Forecast --- */}
+                <div style={{ 
+                  background: 'rgba(0,0,0,0.2)', 
+                  borderRadius: 12, 
+                  padding: '24px', 
+                  marginBottom: 20,
+                  border: '1px solid rgba(255,255,255,0.05)'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
+                    <div>
+                      <h4 style={{ fontSize: 13, color: 'var(--text)', margin: 0 }}>Liquidity Impact Timeline</h4>
+                      <p style={{ fontSize: 11, color: 'var(--text-4)', margin: '4px 0 0' }}>Comparing baseline vs. proposed payment impact</p>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <span style={{ fontSize: 11, color: scResult.can_approve ? '#34d399' : '#fb7185', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        {scResult.can_approve ? 'Acceptable Liquidity Drain' : 'Critical Reserve Warning'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <ResponsiveContainer width="100%" height={220}>
+                    <AreaChart data={forecast.map((d: ForecastDay) => ({
+                      day: fmtDay(d.forecast_date),
+                      baseline: d.net_position,
+                      scenario: d.net_position - parseFloat(scAmount),
+                      reserve: scResult.minimum_balance
+                    }))}>
+                      <defs>
+                        <linearGradient id="gDiff" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#fb7185" stopOpacity={0.15} />
+                          <stop offset="100%" stopColor="#fb7185" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="2 4" stroke="rgba(255,255,255,.05)" vertical={false} />
+                      <XAxis dataKey="day" tick={{ fontSize: 10, fill: 'var(--text-4)' }} stroke="transparent" />
+                      <YAxis tick={{ fontSize: 10, fill: 'var(--text-4)' }} stroke="transparent" tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
+                      <Tooltip 
+                        contentStyle={{ background: '#0d1226', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }}
+                        formatter={(v: number) => fmt(v)}
+                      />
+                      {/* Danger Zone */}
+                      <Area type="monotone" dataKey="reserve" stroke="#fb7185" fill="rgba(251, 113, 133, 0.05)" strokeDasharray="5 5" name="Min Reserve" />
+                      
+                      {/* Current Projection */}
+                      <Area type="monotone" dataKey="baseline" stroke="var(--text-4)" fill="transparent" strokeWidth={1} name="Baseline" />
+                      
+                      {/* Scenario Projection */}
+                      <Area 
+                        type="monotone" 
+                        dataKey="scenario" 
+                        stroke={scResult.can_approve ? '#67e8f9' : '#fb7185'} 
+                        fill="url(#gDiff)" 
+                        strokeWidth={3} 
+                        name="Scenario"
+                        animationDuration={1500}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+
+                  <div style={{ display: 'flex', gap: 20, marginTop: 15, fontSize: 11, color: 'var(--text-4)', justifyContent: 'center' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><div style={{ width: 12, height: 2, background: 'var(--text-4)' }} /> Baseline</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><div style={{ width: 12, height: 3, background: scResult.can_approve ? '#67e8f9' : '#fb7185' }} /> Proposed Scenario</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><div style={{ width: 12, height: 1, borderTop: '2px dashed #fb7185' }} /> Reserve Line</span>
                   </div>
                 </div>
 
