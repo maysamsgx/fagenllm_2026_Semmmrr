@@ -20,7 +20,7 @@ export default function TracePanel({ entityId, entityType = 'invoice', onClose }
       .then(r => { 
         if (alive) {
           setTrace(r.trace)
-          if (r.name) setEntityName(r.name)
+          if ((r as any).name) setEntityName((r as any).name)
         }
       })
       .finally(() => { if (alive) setLoading(false) })
@@ -29,7 +29,7 @@ export default function TracePanel({ entityId, entityType = 'invoice', onClose }
       fetchTrace().then(r => { 
         if (alive) {
           setTrace(r.trace)
-          if (r.name) setEntityName(r.name)
+          if ((r as any).name) setEntityName((r as any).name)
         }
       }).catch(() => {})
     }, 4000)
