@@ -3,7 +3,7 @@ utils/llm.py
 Utility wrappers for:
   - Qwen3-32B via Groq                       (reasoning / extraction / risk)
   - Baidu Qianfan-OCR-Fast via OpenRouter    (primary OCR)
-  - Tesseract + LayoutLMv3                   (local OCR fallback)
+  - Tesseract                              (local OCR fallback)
 """
 
 import base64
@@ -354,11 +354,11 @@ def _baidu_ocr_call(image_bytes: bytes, media_type: str) -> str:
 
 
 def baidu_ocr(image_bytes: bytes, media_type: str = "image/jpeg") -> str:
-    """Try Baidu first. On any failure fall back to local Tesseract + LayoutLMv3."""
+    """Try Baidu first. On any failure fall back to local Tesseract."""
     try:
         return _baidu_ocr_call(image_bytes, media_type)
     except Exception as e:
-        logger.warning(f"Baidu OCR unavailable ({e}); falling back to Tesseract+LayoutLMv3")
+        logger.warning(f"Baidu OCR unavailable ({e}); falling back to local Tesseract")
         return fallback_ocr(image_bytes)
 
 
@@ -381,19 +381,10 @@ def fallback_ocr(image_bytes: bytes) -> str:
         ocr_data = pytesseract.image_to_data(img, output_type=pytesseract.Output.DICT)
         
         words: list[str] = []
-        boxes: list[list[int]] = []
         for i, w in enumerate(ocr_data["text"]):
             token = (w or "").strip()
             if not token:
                 continue
-            x, y, w_, h_ = ocr_data["left"][i], ocr_data["top"][i], ocr_data["width"][i], ocr_data["height"][i]
-            # LayoutLMv3 wants boxes scaled to [0, 1000]
-            boxes.append([
-                max(0, int(1000 * x / width)),
-                max(0, int(1000 * y / height)),
-                min(1000, int(1000 * (x + w_) / width)),
-                min(1000, int(1000 * (y + h_) / height)),
-            ])
             words.append(token)
 
         if not words:
@@ -401,15 +392,18 @@ def fallback_ocr(image_bytes: bytes) -> str:
 
         tag = "TESSERACT"
 
-        # Reassemble layout
-        lines: dict[int, list[tuple[int, str]]] = {}
-        for word, box in zip(words, boxes):
-            line_key = box[1] // 12
-            lines.setdefault(line_key, []).append((box[0], word))
+        # Reassemble layout using Tesseract's line numbering
+        lines: dict[int, list[str]] = {}
+        for i, w in enumerate(ocr_data["text"]):
+            token = (w or "").strip()
+            if not token:
+                continue
+            line_idx = ocr_data["line_num"][i]
+            lines.setdefault(line_idx, []).append(token)
         
         rendered = []
         for k in sorted(lines.keys()):
-            rendered.append(" ".join(w for _, w in sorted(lines[k], key=lambda t: t[0])))
+            rendered.append(" ".join(lines[k]))
             
         return f"[LOCAL OCR: {tag}]\n" + "\n".join(rendered)
             

@@ -30,7 +30,7 @@ FAgentLLM solves this by acting as a **Cognitive Intelligence Layer** over tradi
 ## ✨ Key Features
 
 - **🤖 5-Agent Ecosystem**: Specialized agents orchestrating Invoice, Budget, Cash, Reconciliation, and Credit operations.
-- **📄 3-Layer Resilient OCR Pipeline**: Cascading document ingestion via PyMuPDF (Native) → Baidu Qianfan (Cloud) → Tesseract + LayoutLMv3 (Local fallback).
+- **📄 3-Layer Resilient OCR Pipeline**: Cascading document ingestion via PyMuPDF (Native) → Baidu Qianfan (Cloud) → Tesseract (Local fallback).
 - **🔗 Causal Domain Reasoning**: The XAI engine dynamically links agent decisions. An anomaly in reconciliation autonomously triggers a credit risk reassessment and adjusts AR liquidity forecasts.
 - **🛡️ Deterministic Financial Guardrails**: LLMs are used strictly for cognitive routing and qualitative analysis, while math, budgets, and similarities are enforced via hard deterministic formulas.
 - **📊 Forensic Audit Tracing**: A beautiful React frontend that visualizes the exact technical, business, and causal reasoning behind every single autonomous decision.
@@ -98,13 +98,66 @@ npm run dev
 
 ## 🏗️ System Architecture
 
-The core of FAgentLLM is built on **LangGraph**. The state is passed as a `FinancialState` dictionary through the nodes. 
+FAgentLLM is built on a **Supervisor-led Multi-Agent Orchestration** model using **LangGraph**. The architecture emphasizes modularity, shared state consistency, and causal explainability.
 
-1. **Input**: An event (e.g., invoice upload, reconciliation trigger) initiates the graph.
-2. **Perception**: Agents pull relevant context from the Supabase ERP ledger.
-3. **Reasoning**: Agents use the LLM to interpret complex/qualitative rules or deterministic models for hard math.
-4. **Action**: Agents mutate the database (e.g., deducting budgets, flagging risk).
-5. **Causal Linking**: If an agent's decision impacts another domain, it explicitly logs a `causal_link` to the database, forming a traversable BFS graph for the XAI trace UI.
+### 1. The Multi-Agent Cognitive Graph
+The system operates as a stateful graph where each node is a specialized agent. The **Supervisor (Cognitive Router)** manages the lifecycle of a request, delegating tasks to domain experts based on the real-time financial state.
+
+```mermaid
+graph TD
+    Trigger((External Trigger)) --> Supervisor[agent_supervisor]
+    
+    subgraph "LangGraph Intelligence Layer"
+        Supervisor -->|routes| Invoice[agent_invoice]
+        Supervisor -->|routes| Budget[agent_budget]
+        Supervisor -->|routes| Cash[agent_cash]
+        Supervisor -->|routes| Recon[agent_reconciliation]
+        Supervisor -->|routes| Credit[agent_credit]
+        
+        Invoice -->|handoff| Supervisor
+        Budget -->|handoff| Supervisor
+        Cash -->|handoff| Supervisor
+        Recon -->|handoff| Supervisor
+        Credit -->|handoff| Supervisor
+    end
+    
+    Supervisor -->|END| StateFinal((State Finalized))
+    
+    subgraph "Persistence & Memory"
+        Invoice -.-> DB[(Supabase ERP Ledger)]
+        Budget -.-> DB
+        Cash -.-> DB
+        Recon -.-> DB
+        Credit -.-> DB
+    end
+```
+
+### 2. The FinancialState (Shared Memory)
+Every agent operates on a shared **FinancialState** object (Stigmergy coordination). When one agent identifies a risk or executes a transaction, the modification is immediately visible to the next agent in the sequence.
+
+*   **Shared Attributes:** `total_cash`, `budget_utilisation`, `system_risk_score`, `causal_summary`.
+*   **Agentic Memory:** Agents append their `technical_explanation` and `business_explanation` to the state, allowing the next agent to understand the "context" of previous actions.
+
+### 3. Causal Reasoning Engine
+The most innovative part of the architecture is the **Causal Linkage System**. When the Reconciliation Agent detects an anomaly, it doesn't just log it; it proactively creates a `causal_link` to the Credit Agent, forcing a risk-score reduction.
+
+```mermaid
+sequenceDiagram
+    participant R as Reconciliation Agent
+    participant C as Credit Agent
+    participant S as Cash Agent
+    
+    R->>R: Detects Duplicate Transaction
+    R->>C: PROACTIVE: Flag Risk Score reduction (-20 pts)
+    C->>C: Lower Credit Limit
+    C->>S: PROACTIVE: Apply Risk Discount to AR Forecast
+    S->>S: Adjust 7-Day Liquidity Forecast
+```
+
+### 4. Deterministic Guardrails
+To prevent "LLM Hallucinations" in financial contexts, the system employs a **Hybrid Execution Model**:
+*   **LLM (Qwen3):** Handles qualitative reasoning, semantic interpretation, and complex decision-routing.
+*   **Math Engine:** All budget subtractions, cash-flow totals, and risk score calculations are enforced via **Hard Python Logic**, ensuring 100% mathematical integrity.
 
 ---
 

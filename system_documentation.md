@@ -28,7 +28,7 @@ The system uses LangGraph to manage the deterministic flow of data between speci
     *   **Workflow:** Implements a highly resilient **3-Layer Document Ingestion Pipeline**:
         1.  Native PyMuPDF extraction (fastest, for digital PDFs).
         2.  Baidu Qianfan-OCR-Fast via OpenRouter (primary cloud OCR for scanned documents).
-        3.  Local Tesseract + LayoutLMv3 (absolute fallback for offline/air-gapped processing).
+        3.  Local Tesseract (absolute fallback for offline/air-gapped processing).
         After extraction, Qwen3 performs structured JSON field extraction and validates cross-domain constraints (calling Budget and Cash agents).
     *   **Impact:** Ensures 100% ingestion uptime and field extraction accuracy while dynamically routing approvals based on deterministic thresholds.
 
