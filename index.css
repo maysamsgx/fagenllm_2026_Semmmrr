@@ -38,8 +38,10 @@
   height: 100vh;
   object-fit: cover;
   z-index: -2;
-  opacity: 0.4; /* Fade it out slightly */
-  filter: blur(2px) saturate(120%); /* Make it blend with the dark tech theme */
+  opacity: 0.4;
+  /* Fade it out slightly */
+  filter: blur(2px) saturate(120%);
+  /* Make it blend with the dark tech theme */
   pointer-events: none;
 }
 
@@ -234,8 +236,17 @@ body::after {
 }
 
 @keyframes logoGlow {
-  0%, 100% { opacity: 0.6; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.1); }
+
+  0%,
+  100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
 }
 
 .brand-logo-img {
@@ -1385,10 +1396,18 @@ input[type="file"].sr-only {
     filter: grayscale(0%) drop-shadow(0 0 35px var(--cyan)) brightness(1.3);
   }
 }
-.perspective-dramatic { perspective: 800px; }
-.transform-3d { transform-style: preserve-3d; }
-.backface-hidden { backface-visibility: hidden; }
-$css
+
+.perspective-dramatic {
+  perspective: 800px;
+}
+
+.transform-3d {
+  transform-style: preserve-3d;
+}
+
+.backface-hidden {
+  backface-visibility: hidden;
+}
 
 .forensic-narrative {
   padding: 20px;
@@ -1424,7 +1443,8 @@ $css
   color: var(--cyan);
   margin-bottom: 8px;
   display: flex;
-  align-items: center; gap: 8px;
+  align-items: center;
+  gap: 8px;
 }
 
 .forensic-text {
@@ -1436,11 +1456,14 @@ $css
 
 .diagnostic-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr; gap: 20px;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
 }
 
 @media (max-width: 1024px) {
-  .diagnostic-grid { grid-template-columns: 1fr; }
+  .diagnostic-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .diagnostic-card {
@@ -1450,7 +1473,7 @@ $css
 }
 
 .trace-reasoning {
-  border-left: 2px solid rgba(255,255,255,0.1);
+  border-left: 2px solid rgba(255, 255, 255, 0.1);
   padding-left: 12px;
   margin: 10px 0;
 }
@@ -1482,11 +1505,13 @@ $css
   gap: 10px;
   margin: 12px 0;
 }
+
 .trace-causal-bridge-line {
   flex: 1;
   height: 1px;
   background: linear-gradient(90deg, transparent, rgba(168, 85, 247, 0.4), transparent);
 }
+
 .trace-causal-bridge-label {
   font-size: 9px;
   font-weight: 900;
@@ -1499,6 +1524,7 @@ $css
   border-radius: 20px;
   background: rgba(168, 85, 247, 0.08);
 }
+
 .trace-causal-content {
   font-size: 12.5px;
   line-height: 1.7;

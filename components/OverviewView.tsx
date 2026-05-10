@@ -1,11 +1,11 @@
 import React, { useState } from 'react'
 
 const AGENTS = [
-  { id: 'invoice',        label: 'Invoice Agent',        desc: 'Autonomously extracts data via 3-Layer OCR, enforces 3-way matching, and routes approvals globally.', color: '#67e8f9', icon: '/assets/agents/invoice.png' },
-  { id: 'cash',           label: 'Cash Flow Agent',       desc: 'The ultimate liquidity defense. Projects 7-day cash flows and dynamically discounts AR based on real-time risk.',      color: '#22d3ee', icon: '/assets/agents/cash.png' },
-  { id: 'budget',         label: 'Budget Agent',          desc: 'A real-time financial gatekeeper. Blocks excess spend and analyzes variance before cash leaves the system.',       color: '#a78bfa', icon: '/assets/agents/budget.png' },
-  { id: 'reconciliation', label: 'Reconciliation Agent',  desc: 'Forensic anomaly detection. Maps transactional patterns to find root causes of cross-ledger discrepancies.',     color: '#fbbf24', icon: '/assets/agents/reconciliation.png' },
-  { id: 'credit',         label: 'Credit Agent',          desc: 'Dynamic risk evaluation. Adjusts credit limits based on behavioral aging and cross-domain reconciliation penalties.',          color: '#fb7185', icon: '/assets/agents/credit.png' },
+  { id: 'invoice', label: 'Invoice Agent', desc: 'Autonomously extracts data via 3-Layer OCR, enforces 3-way matching, and routes approvals globally.', color: '#67e8f9', icon: '/assets/agents/invoice.png' },
+  { id: 'cash', label: 'Cash Flow Agent', desc: 'The ultimate liquidity defense. Projects 7-day cash flows and dynamically discounts AR based on real-time risk.', color: '#22d3ee', icon: '/assets/agents/cash.png' },
+  { id: 'budget', label: 'Budget Agent', desc: 'A real-time financial gatekeeper. Blocks excess spend and analyzes variance before cash leaves the system.', color: '#a78bfa', icon: '/assets/agents/budget.png' },
+  { id: 'reconciliation', label: 'Reconciliation Agent', desc: 'Forensic anomaly detection. Maps transactional patterns to find root causes of cross-ledger discrepancies.', color: '#fbbf24', icon: '/assets/agents/reconciliation.png' },
+  { id: 'credit', label: 'Credit Agent', desc: 'Dynamic risk evaluation. Adjusts credit limits based on behavioral aging and cross-domain reconciliation penalties.', color: '#fb7185', icon: '/assets/agents/credit.png' },
 ]
 
 const UPDATES = [
@@ -37,10 +37,10 @@ function TiltCard({ agent, index, onNavigate }: { agent: typeof AGENTS[0], index
     setIsHovered(false)
   }
 
-  const btnText = agent.id === 'invoice' ? 'Inspect Pipeline' : 
-                  agent.id === 'cash' ? 'Analyze Liquidity' : 
-                  agent.id === 'budget' ? 'Manage Caps' :
-                  agent.id === 'reconciliation' ? 'Audit Ledgers' : 'Review Risk';
+  const btnText = agent.id === 'invoice' ? 'Inspect Pipeline' :
+    agent.id === 'cash' ? 'Analyze Liquidity' :
+      agent.id === 'budget' ? 'Manage Caps' :
+        agent.id === 'reconciliation' ? 'Audit Ledgers' : 'Review Risk';
 
   return (
     <div
@@ -79,8 +79,8 @@ function TiltCard({ agent, index, onNavigate }: { agent: typeof AGENTS[0], index
               {agent.label}
             </div>
             <div style={{
-              display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 10px', 
-              borderRadius: '999px', background: `${agent.color}15`, border: `1px solid ${agent.color}33`, 
+              display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 10px',
+              borderRadius: '999px', background: `${agent.color}15`, border: `1px solid ${agent.color}33`,
               color: agent.color, fontSize: '10px', fontWeight: 700, letterSpacing: '0.05em'
             }}>
               <span className="pulse-dot" style={{ width: 6, height: 6, borderRadius: '50%', background: agent.color, boxShadow: `0 0 10px ${agent.color}` }} />
@@ -95,7 +95,7 @@ function TiltCard({ agent, index, onNavigate }: { agent: typeof AGENTS[0], index
         {/* Center Piece: Holographic Pod (Breakout Effect) */}
         <div style={{
           position: 'relative', width: '100%', height: '140px', borderRadius: '16px', flexShrink: 0,
-          background: `rgba(20,20,20,0.4)`, 
+          background: `rgba(20,20,20,0.4)`,
           border: `1px solid rgba(255,255,255,0.05)`,
           display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
           boxShadow: `inset 0 0 40px rgba(0,0,0,0.5)`,
@@ -106,22 +106,22 @@ function TiltCard({ agent, index, onNavigate }: { agent: typeof AGENTS[0], index
           {/* Inner container with hidden overflow for the grid/glow only */}
           <div style={{ position: 'absolute', inset: 0, borderRadius: '16px', overflow: 'hidden', zIndex: 0 }}>
             {/* Subtle Grid Background */}
-            <div style={{ 
-              position: 'absolute', inset: 0, 
-              backgroundImage: `linear-gradient(to right, rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.03) 1px, transparent 1px)`, 
-              backgroundSize: '14px 24px' 
+            <div style={{
+              position: 'absolute', inset: 0,
+              backgroundImage: `linear-gradient(to right, rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.03) 1px, transparent 1px)`,
+              backgroundSize: '14px 24px'
             }} />
-            
+
             {/* Glow Behind Mascot */}
             <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(circle at center, ${agent.color}15 0%, transparent 70%)` }} />
           </div>
 
-          <img src={agent.icon} alt={agent.label} style={{ 
-            width: agent.id === 'invoice' ? '85%' : 'auto', 
-            height: agent.id === 'invoice' ? 'auto' : '170px', 
+          <img src={agent.icon} alt={agent.label} style={{
+            width: agent.id === 'invoice' ? '85%' : 'auto',
+            height: agent.id === 'invoice' ? 'auto' : '170px',
             maxHeight: '170px',
-            objectFit: 'contain', 
-            filter: `drop-shadow(0 15px 25px ${agent.color}44)`, 
+            objectFit: 'contain',
+            filter: `drop-shadow(0 15px 25px ${agent.color}44)`,
             position: 'relative', zIndex: 2,
             marginBottom: '-5px' // Anchors image to bottom, letting the top overflow
           }} onError={(e) => { e.currentTarget.style.display = 'none' }} />
@@ -182,7 +182,7 @@ export default function OverviewView({ onNavigate }: { onNavigate?: (id: string)
           background: 'radial-gradient(ellipse, rgba(34,211,238,.15) 0%, transparent 70%)',
           pointerEvents: 'none',
         }} />
-        
+
         <p style={{ fontSize: '11px', letterSpacing: '0.25em', color: 'var(--text-4)', textTransform: 'uppercase', fontFamily: "'Space Grotesk', sans-serif", marginBottom: '20px', fontWeight: 700 }}>
           Design Science Research Artifact · v1.2
         </p>
@@ -209,15 +209,15 @@ export default function OverviewView({ onNavigate }: { onNavigate?: (id: string)
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '48px', marginBottom: '40px' }}>
-        
+
         {/* Agent Roster */}
         <div>
           <h3 style={{ marginBottom: '24px', color: 'var(--text-3)', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.14em', fontFamily: "'Space Grotesk', sans-serif", borderBottom: '1px solid rgba(255,255,255,.05)', paddingBottom: '12px' }}>
             Agent Roster
           </h3>
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', 
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
             gap: '24px'
           }}>
             {AGENTS.map((agent, i) => (
@@ -228,24 +228,24 @@ export default function OverviewView({ onNavigate }: { onNavigate?: (id: string)
 
         {/* Latest Architecture Updates */}
         <div>
-           <h3 style={{ marginBottom: '24px', color: 'var(--text-3)', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.14em', fontFamily: "'Space Grotesk', sans-serif", borderBottom: '1px solid rgba(255,255,255,.05)', paddingBottom: '12px' }}>
+          <h3 style={{ marginBottom: '24px', color: 'var(--text-3)', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.14em', fontFamily: "'Space Grotesk', sans-serif", borderBottom: '1px solid rgba(255,255,255,.05)', paddingBottom: '12px' }}>
             Latest Architecture Updates
           </h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
             {UPDATES.map((update, i) => (
-               <div key={i} style={{
-                 padding: '24px', background: 'rgba(0,0,0,.2)', border: '1px solid rgba(255,255,255,.04)',
-                 borderRadius: '20px', display: 'flex', flexDirection: 'column', gap: '12px',
-                 boxShadow: '0 4px 10px rgba(0,0,0,0.2)'
-               }}>
-                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.1em', background: 'rgba(167,139,250,.15)', color: '#a78bfa', padding: '4px 10px', borderRadius: '6px' }}>
-                      {update.tag}
-                    </span>
-                    <span style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-1)' }}>{update.title}</span>
-                 </div>
-                 <p style={{ fontSize: '14px', color: 'var(--text-4)', lineHeight: 1.6, margin: 0 }}>{update.desc}</p>
-               </div>
+              <div key={i} style={{
+                padding: '24px', background: 'rgba(0,0,0,.2)', border: '1px solid rgba(255,255,255,.04)',
+                borderRadius: '20px', display: 'flex', flexDirection: 'column', gap: '12px',
+                boxShadow: '0 4px 10px rgba(0,0,0,0.2)'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.1em', background: 'rgba(167,139,250,.15)', color: '#a78bfa', padding: '4px 10px', borderRadius: '6px' }}>
+                    {update.tag}
+                  </span>
+                  <span style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-1)' }}>{update.title}</span>
+                </div>
+                <p style={{ fontSize: '14px', color: 'var(--text-4)', lineHeight: 1.6, margin: 0 }}>{update.desc}</p>
+              </div>
             ))}
           </div>
         </div>
@@ -263,7 +263,7 @@ export default function OverviewView({ onNavigate }: { onNavigate?: (id: string)
             System Architecture & Tool Stack
           </h3>
         </div>
-        
+
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '32px' }}>
           <div>
             <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginBottom: '12px', letterSpacing: '0.05em', fontFamily: "'JetBrains Mono', monospace" }}>ORCHESTRATION</div>
@@ -303,7 +303,7 @@ export default function OverviewView({ onNavigate }: { onNavigate?: (id: string)
           </div>
         </div>
       </div>
-      
+
       {/* Dynamic inline styles for the tech badges to avoid cluttering CSS */}
       <style>{`
         .tech-badge {
