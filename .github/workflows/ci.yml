@@ -15,6 +15,7 @@ env:
   OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
   QWEN_MODEL: qwen/qwen3-32b
   GROQ_FALLBACK_MODEL: llama-3.3-70b-versatile
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   # 1️⃣ BUILD: Environment Setup & Dependency Validation
