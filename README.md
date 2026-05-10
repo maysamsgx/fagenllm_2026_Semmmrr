@@ -101,42 +101,51 @@ npm run dev
 FAgentLLM is built on a **Supervisor-led Multi-Agent Orchestration** model using **LangGraph**. The architecture emphasizes modularity, shared state consistency, and causal explainability.
 
 ### 1. The Multi-Agent Cognitive Graph
-The system operates as a stateful graph where each node is a specialized agent. The **Supervisor (Cognitive Router)** manages the lifecycle of a request, delegating tasks to domain experts based on the real-time financial state.
+The system operates as a **Stateful Agentic Hub**. Control is managed by the **Supervisor (Router)**, but communication is handled through the **Shared Financial State**. This prevents tight coupling and allows for asynchronous "Stigmergic" coordination.
 
 ```mermaid
-graph TD
-    Trigger((External Trigger)) --> Supervisor[agent_supervisor]
-    
-    subgraph "LangGraph Intelligence Layer"
-        Supervisor -->|routes| Invoice[agent_invoice]
-        Supervisor -->|routes| Budget[agent_budget]
-        Supervisor -->|routes| Cash[agent_cash]
-        Supervisor -->|routes| Recon[agent_reconciliation]
-        Supervisor -->|routes| Credit[agent_credit]
-        
-        Invoice -->|handoff| Supervisor
-        Budget -->|handoff| Supervisor
-        Cash -->|handoff| Supervisor
-        Recon -->|handoff| Supervisor
-        Credit -->|handoff| Supervisor
+graph LR
+    %% Control Layer
+    subgraph Control ["Cognitive Control Layer"]
+        Supervisor{agent_supervisor}
     end
-    
-    Supervisor -->|END| StateFinal((State Finalized))
-    
-    subgraph "Persistence & Memory"
-        Invoice -.-> DB[(Supabase ERP Ledger)]
-        Budget -.-> DB
-        Cash -.-> DB
-        Recon -.-> DB
-        Credit -.-> DB
+
+    %% State Layer (The Hub)
+    subgraph State ["Shared Financial State (Memory Hub)"]
+        FS((FinancialState))
     end
+
+    %% Execution Layer (The Agents)
+    subgraph Agents ["Domain Expert Agents"]
+        Invoice[Invoice Agent]
+        Budget[Budget Agent]
+        Cash[Cash Agent]
+        Recon[Reconciliation Agent]
+        Credit[Credit Agent]
+    end
+
+    %% Routing Flow (Control)
+    Supervisor -->|delegates| Invoice
+    Supervisor -->|delegates| Budget
+    Supervisor -->|delegates| Cash
+    Supervisor -->|delegates| Recon
+    Supervisor -->|delegates| Credit
+
+    %% State Interaction (Data)
+    Invoice <--> FS
+    Budget <--> FS
+    Cash <--> FS
+    Recon <--> FS
+    Credit <--> FS
+
+    %% Persistence
+    FS -.-> DB[(Supabase ERP Ledger)]
 ```
 
 ### 2. The FinancialState (Shared Memory)
-Every agent operates on a shared **FinancialState** object (Stigmergy coordination). When one agent identifies a risk or executes a transaction, the modification is immediately visible to the next agent in the sequence.
-
-*   **Shared Attributes:** `total_cash`, `budget_utilisation`, `system_risk_score`, `causal_summary`.
-*   **Agentic Memory:** Agents append their `technical_explanation` and `business_explanation` to the state, allowing the next agent to understand the "context" of previous actions.
+The `FinancialState` is the single source of truth. Instead of agents passing messages to each other (which is brittle), they mutate the **Shared State Hub**. 
+*   **The Workflow:** An agent reads the current state, performs its specialized logic (LLM reasoning + Deterministic Math), and writes its findings back to the Hub. 
+*   **Causal Linkage:** When the state is updated, it triggers the next node in the LangGraph, creating a chain of autonomous reasoning.
 
 ### 3. Causal Reasoning Engine
 The most innovative part of the architecture is the **Causal Linkage System**. When the Reconciliation Agent detects an anomaly, it doesn't just log it; it proactively creates a `causal_link` to the Credit Agent, forcing a risk-score reduction.
