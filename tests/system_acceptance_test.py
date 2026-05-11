@@ -51,17 +51,46 @@ def mock_db(monkeypatch):
         recommended_limit = 50000
         cross_domain_signals = {}
         
+    # Patch utils.llm directly — agents that use local `from utils.llm import ...`
+    # inside function bodies bypass module-level attribute patches on the agent namespace.
+    # Patching the source module intercepts all consumers regardless of import style.
+    import utils.llm
+    monkeypatch.setattr(utils.llm, "qwen_json", lambda *a, **kw: mock_json, raising=False)
+    monkeypatch.setattr(utils.llm, "qwen_structured", lambda *a, **kw: MockStruct(), raising=False)
+    monkeypatch.setattr(utils.llm, "ocr_invoice", lambda *a, **kw: "MOCK OCR", raising=False)
+
+    # Also patch agent-level bindings for agents that import at module top-level
     import agents.invoice_agent
-    import agents.reconciliation_agent
-    import agents.credit_agent
-    import agents.budget_agent
-    
     monkeypatch.setattr(agents.invoice_agent, "qwen_json", lambda *a, **kw: mock_json, raising=False)
     monkeypatch.setattr(agents.invoice_agent, "qwen_structured", lambda *a, **kw: MockStruct(), raising=False)
     monkeypatch.setattr(agents.invoice_agent, "ocr_invoice", lambda *a, **kw: "MOCK OCR", raising=False)
-    monkeypatch.setattr(agents.reconciliation_agent, "qwen_structured", lambda *a, **kw: MockStruct(), raising=False)
-    monkeypatch.setattr(agents.credit_agent, "qwen_structured", lambda *a, **kw: MockStruct(), raising=False)
-    monkeypatch.setattr(agents.budget_agent, "qwen_structured", lambda *a, **kw: MockStruct(), raising=False)
+
+    # Mock db.select so reconciliation gets transactions to process (not empty → not early-exit)
+    MOCK_TX = {
+        "id": str(uuid.uuid4()), "amount": 100.0, "transaction_date": "2026-05-01",
+        "counterparty": "Test Vendor", "description": "payment ref 123",
+        "cash_account_id": None, "invoice_id": None, "payment_id": None,
+        "matched": False,
+    }
+    def mock_select(table, filters=None):
+        if table == "transactions":
+            src = (filters or {}).get("source", "internal")
+            return [{**MOCK_TX, "source": src}]
+        if table == "customers":
+            return []
+        return []
+    monkeypatch.setattr(db, "select", mock_select, raising=False)
+    monkeypatch.setattr(db, "upsert", lambda *a, **kw: None, raising=False)
+    monkeypatch.setattr(db, "update", lambda *a, **kw: None, raising=False)
+    class MockCount:
+        count = 0
+        data = []
+    class MockChain:
+        def table(self, *a): return self
+        def select(self, *a, **kw): return self
+        def eq(self, *a): return self
+        def execute(self): return MockCount()
+    monkeypatch.setattr(db, "_ensure_client", lambda: MockChain(), raising=False)
 
 def test_spending_path_invoice_to_budget_to_cash():
     """
