@@ -320,3 +320,66 @@ export const analyticsApi = {
   reconciliation: () => req<any[]>('/analytics/reconciliation'),
 }
 
+export interface EvaluationMetrics {
+  generated_at: string
+  invoice: {
+    total: number
+    approved: number
+    rejected: number
+    pending: number
+    status_dist: Record<string, number>
+    avg_confidence: number
+    approval_rate: number
+    tp: number; fp: number; fn: number; tn: number
+    precision: number; recall: number; f1: number
+  }
+  reconciliation: {
+    match_rate: number
+    matched: number
+    unmatched: number
+    total_transactions: number
+    report_count: number
+    history: { date: string; match_rate: number; matched: number; unmatched: number }[]
+  }
+  credit: {
+    total_customers: number
+    high_risk: number; medium_risk: number; low_risk: number
+    avg_credit_score: number
+    avg_payment_delay_days: number
+    score_histogram: { bin: string; count: number }[]
+    dso_days: number
+    recovery_rate_pct: number
+    total_receivables: number
+    collected_amount: number
+    outstanding_amount: number
+  }
+  cash: {
+    total_balance: number
+    account_count: number
+    snapshot_history: { date: string; total_cash: number; risk_score: number }[]
+    cash_mape_pct: number | null
+  }
+  budget: {
+    total_departments: number
+    avg_utilization_pct: number
+    over_budget_count: number
+    at_risk_count: number
+    department_rows: { dept: string; utilization: number; period: string }[]
+    active_alerts: number
+    alert_type_dist: Record<string, number>
+  }
+  system: {
+    total_decisions: number
+    total_causal_links: number
+    coordination_rate_pct: number
+    per_agent: Record<string, { count: number; avg_confidence: number }>
+    link_type_distribution: Record<string, number>
+    decision_timeline: Record<string, number | string>[]
+    top_decision_types: Record<string, { type: string; count: number }[]>
+  }
+}
+
+export const evaluationApi = {
+  metrics: () => req<EvaluationMetrics>('/analytics/evaluation'),
+}
+
