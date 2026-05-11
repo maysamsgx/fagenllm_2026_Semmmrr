@@ -85,9 +85,14 @@ def mock_db(monkeypatch):
     monkeypatch.setattr(db, "select", mock_select, raising=False)
     monkeypatch.setattr(db, "upsert", lambda *a, **kw: None, raising=False)
     monkeypatch.setattr(db, "update", lambda *a, **kw: None, raising=False)
+    monkeypatch.setattr(db, "insert", lambda *a, **kw: type("R", (), {"data": [{"id": str(uuid.uuid4())}]})(), raising=False)
+    monkeypatch.setattr(db, "ensure_vendor", lambda name: "vendor-mock-id", raising=False)
+    monkeypatch.setattr(db, "get_vendor_risk", lambda vendor_id: None, raising=False)
+    monkeypatch.setattr(db, "record_payment", lambda *a, **kw: str(uuid.uuid4()), raising=False)
+    monkeypatch.setattr(db, "get_latest_snapshot", lambda: None, raising=False)
     class MockCount:
         count = 0
-        data = []
+        data = [{"id": "mock-id-000"}]
     class MockChain:
         def table(self, *a): return self
         def select(self, *a, **kw): return self
