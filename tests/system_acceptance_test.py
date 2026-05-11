@@ -47,6 +47,9 @@ def mock_db(monkeypatch):
         causal_explanation = "mock"
         confidence = 0.99
         recommended_action = "approve"
+        decision = "approve"
+        score = 80.0
+        risk_level = "low"
         risk_segment = "low"
         recommended_limit = 50000
         cross_domain_signals = {}
@@ -89,6 +92,12 @@ def mock_db(monkeypatch):
         def table(self, *a): return self
         def select(self, *a, **kw): return self
         def eq(self, *a): return self
+        def gte(self, *a): return self
+        def insert(self, *a): return self
+        def upsert(self, *a): return self
+        def update(self, *a): return self
+        def order(self, *a, **kw): return self
+        def limit(self, *a): return self
         def execute(self): return MockCount()
     monkeypatch.setattr(db, "_ensure_client", lambda: MockChain(), raising=False)
 
