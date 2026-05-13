@@ -1,9 +1,11 @@
 """
 utils/llm.py
 Utility wrappers for:
-  - Qwen3-32B via Groq                       (reasoning / extraction / risk)
-  - Baidu Qianfan-OCR-Fast via OpenRouter    (primary OCR)
-  - Tesseract                              (local OCR fallback)
+  - Qwen3-32B (Reasoning Tier)             : Governance, Audit & Self-Reflection
+  - Llama-3.1-8b (Workhorse Tier)         : High-speed Structured Extraction
+  - Baidu Qianfan-OCR-Fast via OpenRouter : Primary OCR
+  - Tesseract                           : Local OCR Fallback
+  - Multi-Key Rotation & Tiered Model Resiliency
 """
 
 import base64
@@ -78,13 +80,12 @@ def qwen_extract(system_prompt: str, user_prompt: str, temperature: float = 0.0)
 
 
 def _groq_client():
-    """Direct OpenAI-compatible client for Groq. Cached per process."""
+    """Direct OpenAI-compatible client for Groq. Rotates keys on every call."""
     from openai import OpenAI
-    from config import get_settings
+    from config import get_settings, get_groq_key
     s = get_settings()
-    if not hasattr(_groq_client, "_c"):
-        _groq_client._c = OpenAI(api_key=s.groq_api_key, base_url=s.groq_base_url)
-    return _groq_client._c
+    # No caching here to ensure key rotation via get_groq_key()
+    return OpenAI(api_key=get_groq_key(), base_url=s.groq_base_url)
 
 
 def _groq_raw_call(
@@ -161,13 +162,15 @@ def _openrouter_raw_call(
 
 
 def _qwen_chat_json(messages: list[dict], temperature: float = 0.0,
-                    force_json: bool = True, max_tokens: int = 4096) -> str:
+                    force_json: bool = True, max_tokens: int = 4096, 
+                    tier: str = "reasoning") -> str:
     """Primary model call. Use _call_groq_with_fallback for resilient callers."""
     from config import get_settings
     s = get_settings()
-    return _groq_raw_call(messages, model=s.qwen_model, temperature=temperature,
+    model = s.qwen_model if tier == "reasoning" else s.workhorse_model
+    return _groq_raw_call(messages, model=model, temperature=temperature,
                           force_json=force_json, max_tokens=max_tokens,
-                          use_reasoning_effort=True)
+                          use_reasoning_effort=(tier == "reasoning"))
 
 
 def _call_groq_with_fallback(
@@ -175,6 +178,7 @@ def _call_groq_with_fallback(
     temperature: float = 0.0,
     force_json: bool = True,
     max_tokens: int = 4096,
+    tier: str = "reasoning"
 ) -> tuple[str, str]:
     """
     Call primary model (Qwen3); on failure retry with fallback (gpt-oss-20b).
@@ -195,7 +199,8 @@ def _call_groq_with_fallback(
     # Primary attempt
     try:
         raw = _qwen_chat_json(messages, temperature=temperature,
-                              force_json=force_json, max_tokens=max_tokens)
+                              force_json=force_json, max_tokens=max_tokens,
+                              tier=tier)
         if not force_json or _coerce_json(_strip_reasoning(raw)) is not None:
             return raw, "primary"
         logger.warning(
@@ -244,7 +249,8 @@ def qwen_json(system_prompt: str, user_prompt: str) -> dict:
         {"role": "system", "content": system},
         {"role": "user",   "content": user_prompt},
     ]
-    raw, model_used = _call_groq_with_fallback(messages, temperature=0.0, force_json=True)
+    # Use 'workhorse' for routine JSON extraction tasks to save 'reasoning' TPM
+    raw, model_used = _call_groq_with_fallback(messages, temperature=0.0, force_json=True, tier="workhorse")
     logger.info("qwen_json attempt 1: model_used=%s", model_used)
     cleaned = _strip_reasoning(raw)
     parsed = _coerce_json(cleaned)
@@ -262,7 +268,8 @@ def qwen_json(system_prompt: str, user_prompt: str) -> dict:
     )
     messages.append({"role": "assistant", "content": cleaned[:1500]})
     messages.append({"role": "user", "content": correction})
-    raw2, model_used2 = _call_groq_with_fallback(messages, temperature=0.0, force_json=True)
+    # Correction still uses 'workhorse'
+    raw2, model_used2 = _call_groq_with_fallback(messages, temperature=0.0, force_json=True, tier="workhorse")
     logger.info("qwen_json attempt 2: model_used=%s", model_used2)
     cleaned2 = _strip_reasoning(raw2)
     parsed = _coerce_json(cleaned2)
@@ -276,7 +283,7 @@ def qwen_json(system_prompt: str, user_prompt: str) -> dict:
 
 
 
-def qwen_structured(system_prompt: str, user_prompt: str, schema: Type[T]) -> T:
+def qwen_structured(system_prompt: str, user_prompt: str, schema: Type[T], tier: str = "workhorse") -> T:
     """
     Same robust loop as qwen_json but validates against a Pydantic schema.
     Retries once if validation fails.
@@ -294,7 +301,8 @@ def qwen_structured(system_prompt: str, user_prompt: str, schema: Type[T]) -> T:
     ]
     last_raw = ""
     for attempt in range(2):
-        raw, model_used = _call_groq_with_fallback(messages, temperature=0.0, force_json=True)
+        # Use 'workhorse' for routine structured extraction
+        raw, model_used = _call_groq_with_fallback(messages, temperature=0.0, force_json=True, tier="workhorse")
         logger.info("qwen_structured attempt %d: model_used=%s", attempt + 1, model_used)
         raw = raw  # keep variable name consistent below
         last_raw = raw
@@ -328,7 +336,7 @@ def qwen_structured_with_reflection(system_prompt: str, user_prompt: str, schema
     # 1. Initial reasoning pass
     first_answer = qwen_structured(system_prompt, user_prompt, schema)
     
-    # 2. Self-reflection pass
+    # 2. Self-reflection pass (Uses 'reasoning' tier for audit quality)
     reflection_system = (
         "You are a senior financial auditor. Review the following decision for logical errors, "
         "causal consistency, and proportionate action. If the reasoning is sound, return the same JSON. "
@@ -343,7 +351,7 @@ def qwen_structured_with_reflection(system_prompt: str, user_prompt: str, schema
     Return ONLY the final (corrected) JSON object matching the schema.
     """
     
-    return qwen_structured(reflection_system, reflection_user, schema)
+    return qwen_structured(reflection_system, reflection_user, schema, tier="reasoning")
 
 
 def qwen_explain(context: str, question: str) -> str:
@@ -393,7 +401,7 @@ def baidu_ocr(image_bytes: bytes, media_type: str = "image/jpeg") -> str:
 def fallback_ocr(image_bytes: bytes) -> str:
     """
     Fallback OCR using Tesseract (Local). 
-    If local OCR also fails, returns a Mock Invoice for demo safety.
+    If local OCR also fails, it raises a RuntimeError for safety.
     """
     try:
         import pytesseract

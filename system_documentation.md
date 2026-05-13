@@ -10,7 +10,10 @@ The system relies on a **10/10 Causal Perfection Architecture**, emphasising **E
 *   **Orchestration:** LangGraph (Python) with a `FinancialState` shared-context pattern
 *   **Backend:** FastAPI (Python) — `uvicorn main:app`
 *   **Database:** Supabase (PostgreSQL with Realtime triggers, `pgvector` for semantic matching, and PostgREST)
-*   **LLMs:** Qwen3-32B via Groq/OpenRouter (extraction, validation, and complex reasoning); auto-failover to secondary model on rate-limit/downtime
+*   **LLMs:** Tiered Model Architecture via Groq:
+    *   **Reasoning Tier:** Qwen3-32B (Best-in-class reasoning for Governance & Reflection)
+    *   **Workhorse Tier:** Llama-3.1-8b-instant (High-speed, high-limit extraction)
+    *   **Resilience:** Multi-key round-robin rotation (`gsk_...`) and auto-failover to OpenRouter (GPT-OSS-20B).
 *   **Frontend:** React (Vite + TypeScript) — Recharts for Analytics, LangGraph-state-driven Trace Panel
 *   **Resilience:** Auto-failover LLM routing and recursive Pydantic schema enforcement loops (`qwen_structured_with_reflection`)
 *   **Security:** JWT-based authentication (`/token` endpoint); PII masking (`utils/security.mask_pii`) on all XAI trace logs
@@ -50,7 +53,7 @@ The system uses LangGraph to manage deterministic flow between specialised agent
     *   Layer 2: Local Tesseract (fallback for offline/air-gapped processing; 80% confidence).
     *   Failure at this stage permanently rejects the invoice and logs an XAI decision.
 
-2.  **Structured Extraction:** Qwen3-32B maps the OCR text to a structured schema (`vendor_name`, `invoice_number`, `invoice_date`, `total_amount`, `currency`, `department_id`). A **math validation** check (`subtotal + tax == total`) runs here; a mismatch reduces confidence by 15 points.
+2.  **Structured Extraction (Workhorse Tier):** Llama-3.1-8b-instant maps the OCR text to a structured schema (`vendor_name`, `invoice_number`, `invoice_date`, `total_amount`, `currency`, `department_id`). A **math validation** check (`subtotal + tax == total`) runs here; a mismatch reduces confidence by 15 points.
 
 3.  **Fraud Prevention Layer (V4 — Thesis Improvement):** After extraction, the system calls `db.find_duplicate_invoice()` to check if the same vendor has already submitted an invoice with an identical number that is `approved`, `paid`, or `awaiting_approval`. On a hit:
     *   The invoice is immediately **rejected**.
@@ -61,7 +64,7 @@ The system uses LangGraph to manage deterministic flow between specialised agent
     *   Vendor risk score is loaded from `vendor_risk_scores`. New vendors receive a neutral baseline (50/100, `medium`).
     *   **Persistent Memory Check:** Past fraud memories for this vendor lower confidence by 20 pts and force human review regardless of risk score.
     *   A **deterministic hard-stop gate** (budget utilisation ≥ 100%) runs before any LLM routing call.
-    *   For all other cases, Qwen3 (`qwen_structured_with_reflection`) produces a `DecisionOutput` with `auto_approve`, `manager_review`, or `reject`.
+    *   For all other cases, Qwen3 (`qwen_structured_with_reflection`) produces a `DecisionOutput` with `auto_approve`, `manager_review`, or `reject`. This **Reflection Pass** uses the Reasoning Tier (Qwen3) to audit the initial Workhorse Tier (Llama) decision.
     *   On auto-approval, a payment is immediately recorded via `db.record_payment()` (wire transfer).
 
 **State Output:**  `next_agent → cash` (for liquidity checks during invoice flow).

@@ -21,18 +21,24 @@ class Settings(BaseSettings):
     supabase_anon_key: str = ""
     supabase_service_key: str
 
-    # Qwen3-32B via Groq (OpenAI-compatible, free tier)
-    # Get key: https://console.groq.com -> API Keys
-    groq_api_key: str
+    # Groq Configuration (Rate Limit Solution)
+    # Provide multiple keys as a comma-separated string: "key1,key2,key3"
+    groq_api_keys: str = "" 
     groq_base_url: str = "https://api.groq.com/openai/v1"
+    
+    # Tiered Model Strategy
+    # 1. Reasoning Model (High logic, lower TPM)
     qwen_model: str = "qwen/qwen3-32b"
+    
+    # 2. Workhorse Model (High RPM, good for routine tasks)
+    # llama-3.1-8b-instant is extremely fast for extraction
+    workhorse_model: str = "llama-3.1-8b-instant"
 
-    # OpenRouter Models (free tier)
-    # Get key: https://openrouter.ai -> API Keys
+    # OpenRouter Models (Final Fallback)
     openrouter_api_key: str = ""
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
-    openrouter_fallback_model: str = "openai/gpt-oss-20b:free" # activated when qwen fails
-    ocr_model: str = "baidu/qianfan-ocr-fast:free"             # primary OCR model
+    openrouter_fallback_model: str = "openai/gpt-oss-20b:free"
+    ocr_model: str = "baidu/qianfan-ocr-fast:free"
 
     # App
     app_env: str = "development"
@@ -45,6 +51,25 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """Cached settings - reads .env once at startup."""
     return Settings()
+
+
+def get_groq_key() -> str:
+    """
+    Round-robin rotation of Groq API keys to multiply TPM/RPM limits.
+    """
+    s = get_settings()
+    keys = [k.strip() for k in s.groq_api_keys.split(",") if k.strip()]
+    if not keys:
+        # Fallback to single key if provided for backward compatibility
+        return getattr(s, "groq_api_key", "")
+    
+    # Simple rotation based on a global counter (safe for prototype)
+    if not hasattr(get_groq_key, "_counter"):
+        get_groq_key._counter = 0
+    
+    key = keys[get_groq_key._counter % len(keys)]
+    get_groq_key._counter += 1
+    return key
 
 
 def get_supabase() -> Client:
@@ -60,18 +85,19 @@ def get_supabase() -> Client:
     return create_client(s.supabase_url, s.supabase_service_key)
 
 
-def get_llm(temperature: float = 0.0) -> ChatOpenAI:
+def get_llm(temperature: float = 0.0, tier: str = "reasoning") -> ChatOpenAI:
     """
-    Qwen3-32B via Groq.
-    Groq is OpenAI-compatible -> LangChain's ChatOpenAI works directly.
-
-    temperature=0.0  -> deterministic extraction (invoices, reconciliation)
-    temperature=0.4  -> natural language explanations (XAI traces)
+    Get an LLM instance based on the required tier.
+    
+    - 'reasoning': Qwen3-32B (Best for governance, causal logic)
+    - 'workhorse': Llama-4-Scout (30k TPM, best for routine extraction)
     """
     s = get_settings()
+    model = s.qwen_model if tier == "reasoning" else s.workhorse_model
+    
     return ChatOpenAI(
-        model=s.qwen_model,
-        api_key=s.groq_api_key,
+        model=model,
+        api_key=get_groq_key(),
         base_url=s.groq_base_url,
         temperature=temperature,
         max_tokens=4096,

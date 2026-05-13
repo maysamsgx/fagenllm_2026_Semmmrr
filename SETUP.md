@@ -63,20 +63,20 @@ DATABASE_URL=postgresql://postgres:[PASSWORD]@[HOST]:5432/postgres
 VITE_SUPABASE_URL=https://[YOUR_PROJECT].supabase.co
 VITE_SUPABASE_ANON_KEY=[YOUR_ANON_KEY]
 
-# Cognitive Orchestration (Primary LLM)
-GROQ_API_KEY=gsk_...
+# Cognitive Orchestration (Rate Limit Resilience)
+# Use GROQ_API_KEYS (plural) with commas to enable multi-key rotation
+GROQ_API_KEYS=gsk_key1,gsk_key2
 GROQ_BASE_URL=https://api.groq.com/openai/v1
-QWEN_MODEL=qwen/qwen3-32b
+
+# Tiered Model Strategy
+QWEN_MODEL=qwen/qwen3-32b                   # Reasoning Tier
+WORKHORSE_MODEL=llama-3.1-8b-instant       # Workhorse Tier (High-speed)
 
 # Fallback & OCR
 OPENROUTER_API_KEY=sk-or-v1-...
 OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
 OPENROUTER_FALLBACK_MODEL=openai/gpt-oss-20b:free
 OCR_MODEL=baidu/qianfan-ocr-fast:free
-
-# Application Security
-APP_ENV=development
-APP_SECRET=[SECURE_RANDOM_STRING]
 ```
 
 ---

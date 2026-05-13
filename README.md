@@ -40,6 +40,7 @@ FAgentLLM solves this by acting as a **Cognitive Intelligence Layer** over tradi
 - **📊 Forensic Audit Tracing**: A beautiful React frontend that visualizes the exact technical, business, and causal reasoning behind every single autonomous decision.
 - **🤝 Stakeholder Collaboration Portal**: A manual dispute resolution system allowing stakeholders to resolve anomalies, force matches, or escalate disputes to external audit.
 - **🛡️ Deterministic Financial Guardrails**: LLMs are used strictly for cognitive routing and qualitative analysis, while math, budgets, and similarities are enforced via hard deterministic formulas.
+- **🔄 Resilient Multi-Key Rotation**: High-availability LLM orchestration that rotates through multiple API keys to multiply TPM/RPM limits and prevent 429 errors.
 - **📈 Evaluation & Metrics Dashboard**: Live performance tracking (F1-score, Precision, Recall) and confusion matrices for each agent, visualizing the system's accuracy and reliability.
 
 ---
@@ -50,7 +51,8 @@ FAgentLLM solves this by acting as a **Cognitive Intelligence Layer** over tradi
 - **Python 3.11+**
 - **FastAPI** (High-performance API routing)
 - **LangGraph** (Stateful multi-agent orchestration)
-- **Qwen3-32B** (Primary reasoning LLM via Groq)
+- **Qwen3-32B** (Primary Reasoning & Reflection tier)
+- **Llama-3.1-8b-instant** (High-speed Workhorse tier for routine extraction)
 - **MiniLM-L6** (Local vector embeddings via `sentence-transformers`)
 - **Baidu Qianfan / Tesseract** (OCR pipeline)
 
