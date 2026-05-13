@@ -252,23 +252,25 @@ def _run_reconciliation(state: FinancialState) -> FinancialState:
     db.add_reconciliation_items(report_id, items)
 
     # ── Communication: route to credit if systematic issue found ─────────────
-    # We find ALL customers involved in systematic anomalies
+    # Thesis V4: Multi-Customer Support
     affected_customer_ids = _find_customers(anomalies) if systematic else []
     
-    # Thesis Improvement: Dynamic Penalty Calculation
-    # We calculate the specific frequency of anomalies per customer to drive
-    # a more granular credit risk penalty.
+    # Calculate granular anomaly metrics per customer
     customer_anomaly_counts = {}
     if systematic:
         for a in anomalies:
             for cid in affected_customer_ids:
-                # Basic string matching check to attribute anomaly to customer
+                # Find customer record (already fetched in _find_customers)
                 cust = next((c for c in db.select("customers") if c["id"] == cid), None)
-                if cust and (cust["name"].lower() in (a.get("description") or "").lower() or 
-                             cust["name"].lower() in (a.get("counterparty") or "").lower()):
-                    customer_anomaly_counts[cid] = customer_anomaly_counts.get(cid, 0) + 1
+                if cust:
+                    from thefuzz import fuzz
+                    name = cust["name"].lower()
+                    desc = (a.get("description") or "").lower()
+                    cp   = (a.get("counterparty") or "").lower()
+                    if fuzz.partial_ratio(name, desc) > 80 or fuzz.partial_ratio(name, cp) > 80:
+                        customer_anomaly_counts[cid] = customer_anomaly_counts.get(cid, 0) + 1
 
-        # Persistent Agent Memory: Record semantic memory for systematic anomalies
+        # Record semantic memories
         for cid, count in customer_anomaly_counts.items():
             db.store_memory("reconciliation", {
                 "period": period,
@@ -276,23 +278,25 @@ def _run_reconciliation(state: FinancialState) -> FinancialState:
                 "summary": analysis.business_explanation
             }, memory_type="semantic", entity_id=cid)
 
-    # If multiple customers are affected, the graph currently only processes one at a time.
-    # We'll pick the one with the most anomalies for this run.
-    target_customer_id = affected_customer_ids[0] if affected_customer_ids else None
-    next_agent  = "credit" if target_customer_id else END
+    # V4 Orchestration: Pass all flagged customers to the pending list
+    pending = affected_customer_ids.copy()
+    target_customer_id = pending.pop(0) if pending else None
+    next_agent = "credit" if target_customer_id else END
 
     return {
         **state,
         "current_agent": "reconciliation",
         "next_agent":    next_agent,
         "trigger":       "customer_payment_check" if next_agent == "credit" else "done",
+        "pending_risk_assessments": pending, # Remaining customers for the loop
+        "processed_risk_assessments": [],
         "reconciliation": {
             "run_id":        run_id,
             "report_id":     report_id,
             "decision_id":   decision_id,
             "anomaly_summary": analysis.business_explanation,
             "anomalous_customer_ids": affected_customer_ids,
-            "customer_anomaly_counts": customer_anomaly_counts, # V4: Granular metrics
+            "customer_anomaly_counts": customer_anomaly_counts,
         },
         "reasoning_trace": trace,
         "credit": {**state.get("credit", {}), "customer_id": target_customer_id or ""},
@@ -300,7 +304,8 @@ def _run_reconciliation(state: FinancialState) -> FinancialState:
 
 
 def _find_customers(anomalies: list) -> list[str]:
-    """Find all unique customer IDs related to the anomalies based on description matching."""
+    """Find all unique customer IDs related to the anomalies using fuzzy matching."""
+    from thefuzz import fuzz
     customers = db.select("customers")
     found_ids = []
     for a in anomalies:
@@ -308,7 +313,8 @@ def _find_customers(anomalies: list) -> list[str]:
         counterparty = (a.get("counterparty") or "").lower()
         for c in customers:
             name = c["name"].lower()
-            if name in desc or name in counterparty:
+            # Catch partial matches (e.g. "Acme Corp" matches "Acme Corporation payment")
+            if fuzz.partial_ratio(name, desc) > 80 or fuzz.partial_ratio(name, counterparty) > 80:
                 if c["id"] not in found_ids:
                     found_ids.append(c["id"])
     return found_ids

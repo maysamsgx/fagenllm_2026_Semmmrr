@@ -52,6 +52,13 @@ def route(state: FinancialState) -> str:
         return END
 
     next_agent = state.get("next_agent", "")
+    
+    # Thesis V4: Handle multi-customer reconciliation loop
+    pending = state.get("pending_risk_assessments", [])
+    if not next_agent or next_agent == END:
+        if pending:
+            return "credit"
+    
     if next_agent in NODE_MAP:
         return next_agent
         

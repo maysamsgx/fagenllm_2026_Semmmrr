@@ -67,13 +67,42 @@ def governance_node(state: FinancialState) -> FinancialState:
         confidence=audit.confidence
     )
     
+    # ── Execution: Cross-Agent Conflict Detection (V4) ──────────────────────
+    findings = audit.findings or []
+    
+    # 1. Budget vs Invoice: Hard stop but approval logic?
+    budget_ctx = state.get("budget", {})
+    invoice_ctx = state.get("invoice", {})
+    if budget_ctx.get("hard_stop") and invoice_ctx.get("status") in ("approved", "awaiting_approval"):
+        msg = f"CONFLICT: Budget issued a HARD STOP for {budget_ctx.get('department_id')}, but Invoice agent proceeded with approval logic."
+        findings.append(msg)
+        db.log_governance_violation(
+            severity="high", category="policy_breach", agent="governance",
+            details=msg, rule="BUDGET_HARD_STOP_ADHERENCE",
+            entity_table="invoices", entity_id=invoice_ctx.get("invoice_id"),
+            decision_id=audit_id
+        )
+
+    # 2. Credit vs Invoice: High risk customer but large invoice approved?
+    credit_ctx = state.get("credit", {})
+    if credit_ctx.get("risk_level") == "high" and invoice_ctx.get("status") == "approved" and invoice_ctx.get("amount", 0) > 5000:
+        msg = f"CONFLICT: High-risk customer {credit_ctx.get('customer_id')} had a large invoice (${invoice_ctx.get('amount')}) auto-approved."
+        findings.append(msg)
+        db.log_governance_violation(
+            severity="medium", category="risk_mismatch", agent="governance",
+            details=msg, rule="HIGH_RISK_EXPOSURE_CONTROL",
+            entity_table="invoices", entity_id=invoice_ctx.get("invoice_id"),
+            decision_id=audit_id
+        )
+
     # ── Update State ────────────────────────────────────────────────────────
     new_trace = trace + [{
         "agent": "governance",
         "step": "Compliance Audit",
         "technical_explanation": audit.technical_explanation,
         "business_explanation": audit.business_explanation,
-        "causal_explanation": audit.causal_explanation
+        "causal_explanation": audit.causal_explanation,
+        "findings": findings
     }]
     
     return {

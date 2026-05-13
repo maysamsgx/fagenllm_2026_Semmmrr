@@ -107,6 +107,10 @@ class FinancialState(TypedDict, total=False):
     # Mapping of agent name -> last decision ID in this run
     decision_ids: Dict[str, str]
 
+    # Orchestration: Multi-Entity Loops (V4)
+    pending_risk_assessments: List[str]     # List of customer IDs to check
+    processed_risk_assessments: List[str]   # List of already checked IDs
+    
     # XAI: reasoning traces
     reasoning_trace: List[Dict[str, str]]
 
@@ -129,6 +133,8 @@ def initial_state(trigger: str, entity_id: str) -> FinancialState:
         cash={},
         governance={},
         decision_ids={},
+        pending_risk_assessments=[],
+        processed_risk_assessments=[],
         reasoning_trace=[],
         error=None,
         error_agent=None,

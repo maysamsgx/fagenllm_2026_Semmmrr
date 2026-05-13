@@ -64,6 +64,23 @@ def calculate_dynamic_penalty(anomaly_count: int, avg_variance: float = 0.0) -> 
 
 
 def credit_node(state: FinancialState) -> FinancialState:
+    # Thesis V4: Multi-Customer Loop
+    # If customer_id is missing in credit context, try popping from pending list
+    credit_ctx = state.get("credit", {})
+    customer_id = credit_ctx.get("customer_id")
+    
+    if not customer_id:
+        pending = state.get("pending_risk_assessments", [])
+        if pending:
+            # We take the first one
+            customer_id = pending.pop(0)
+            state["pending_risk_assessments"] = pending
+            state["credit"] = {**credit_ctx, "customer_id": customer_id}
+            # Track that we are processing this one
+            processed = state.get("processed_risk_assessments", [])
+            processed.append(customer_id)
+            state["processed_risk_assessments"] = processed
+
     trigger = state.get("trigger", "customer_payment_check")
     if trigger in ("customer_payment_check", "daily_reconciliation"):
         return _assess_customer(state)

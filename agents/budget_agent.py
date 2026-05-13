@@ -40,7 +40,16 @@ def budget_node(state: FinancialState) -> FinancialState:
 def _inv_perceive(state: FinancialState) -> dict:
     budget_ctx  = state.get("budget", {})
     invoice_ctx = state.get("invoice", {})
-    dept_id  = budget_ctx.get("department_id") or invoice_ctx.get("department_id") or "engineering"
+    dept_id  = budget_ctx.get("department_id") or invoice_ctx.get("department_id")
+    if not dept_id:
+        # Improved V4: Try to derive department from the invoice object in DB
+        if inv_id != "system":
+            inv_row = db.get_invoice(inv_id)
+            if inv_row:
+                dept_id = inv_row.get("department_id")
+    
+    # Final fallback if still missing
+    dept_id = dept_id or "engineering" 
     period   = budget_ctx.get("period") or _current_period()
     inv_id   = invoice_ctx.get("invoice_id", "system")
     amount   = float(invoice_ctx.get("amount", 0) or 0)
@@ -396,8 +405,28 @@ def _rev_explain(state: FinancialState, percept: dict, verdict: dict) -> str:
 
 
 def _rev_execute(_state: FinancialState, percept: dict, verdict: dict) -> None:
-    """Fire budget_alerts for any department at or above the alert threshold."""
+    """Fire budget_alerts and persist reallocation suggestions."""
     period = percept["period"]
+    llm = verdict.get("llm_summary") or {}
+    reallocations = llm.get("reallocations") or []
+    decision_id = verdict.get("decision_id")
+
+    # 1. Persist Reallocation Suggestions (V4)
+    for r in reallocations:
+        try:
+            db.create_budget_reallocation(
+                from_dept=r.get("from_dept"),
+                to_dept=r.get("to_dept"),
+                amount=float(r.get("suggested_amount", 0)),
+                period=period,
+                reason=r.get("reason", "Proactive reallocation"),
+                decision_id=decision_id
+            )
+        except Exception as e:
+            import logging
+            logging.getLogger("fagentllm").warning(f"Failed to persist reallocation: {e}")
+
+    # 2. Fire alerts and record memory
     for b in percept["budgets"]:
         alloc = float(b.get("allocated") or 0)
         spent = float(b.get("spent") or 0)

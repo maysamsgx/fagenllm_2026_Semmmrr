@@ -329,6 +329,33 @@ BEGIN
 END;
 $$;
 
+-- V4: Budget Reallocations
+CREATE TABLE IF NOT EXISTS budget_reallocations (
+    id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    from_department_id  TEXT NOT NULL REFERENCES departments(id),
+    to_department_id    TEXT NOT NULL REFERENCES departments(id),
+    amount              NUMERIC(14, 2) NOT NULL,
+    period              TEXT NOT NULL,
+    reason              TEXT,
+    status              TEXT DEFAULT 'suggested' CHECK (status IN ('suggested','approved','rejected')),
+    decision_id         UUID REFERENCES agent_decisions(id),
+    created_at          TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- V4: Governance Violations
+CREATE TABLE IF NOT EXISTS governance_violations (
+    id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    severity        TEXT CHECK (severity IN ('low','medium','high')),
+    category        TEXT NOT NULL,          -- e.g. 'conflict_of_interest', 'policy_breach'
+    agent_involved  TEXT NOT NULL,
+    rule_violated   TEXT,
+    details         TEXT,
+    entity_table    TEXT,
+    entity_id       UUID,
+    decision_id     UUID REFERENCES agent_decisions(id),
+    created_at      TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- =============================================================
 -- TRIGGER - auto-snapshot on key state changes
 -- =============================================================
@@ -425,6 +452,9 @@ ALTER TABLE financial_state_snapshots REPLICA IDENTITY FULL;
 ALTER TABLE agent_decisions           REPLICA IDENTITY FULL;
 ALTER TABLE causal_links              REPLICA IDENTITY FULL;
 ALTER TABLE vendor_risk_scores        REPLICA IDENTITY FULL;
+ALTER TABLE agent_memory              REPLICA IDENTITY FULL;
+ALTER TABLE budget_reallocations       REPLICA IDENTITY FULL;
+ALTER TABLE governance_violations     REPLICA IDENTITY FULL;
 
 DO $pub$
 DECLARE
@@ -433,15 +463,12 @@ DECLARE
     'invoices','budgets','budget_alerts','transactions','receivables',
     'cash_accounts','cash_flow_forecasts','customers','payments',
     'reconciliation_reports','financial_state_snapshots','agent_decisions',
-    'causal_links','vendor_risk_scores'
+    'causal_links','vendor_risk_scores','agent_memory',
+    'budget_reallocations','governance_violations'
   ];
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
-    CREATE PUBLICATION supabase_realtime FOR TABLE
-      invoices, budgets, budget_alerts, transactions, receivables,
-      cash_accounts, cash_flow_forecasts, customers, payments,
-      reconciliation_reports, financial_state_snapshots, agent_decisions,
-      causal_links, vendor_risk_scores;
+    CREATE PUBLICATION supabase_realtime FOR ALL TABLES;
   ELSE
     FOREACH t IN ARRAY tables LOOP
       BEGIN

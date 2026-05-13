@@ -26,22 +26,61 @@ class SupabaseDB:
             self.supabase = get_supabase()
         return self.supabase
 
-    def get_department_uuid(self, dept_slug: str) -> str:
+    def get_department_uuid(self, dept_slug: str) -> str | None:
         """Translate a department slug (e.g. 'marketing') to a stable UUID.
-
-        The departments table uses short string IDs (e.g. 'marketing') as its
-        primary key, not UUIDs.  But agent_memory.entity_id is a UUID column,
-        so we derive a deterministic UUID from the slug via the same uuid5
-        namespace used by erp_seed.py — guaranteeing stability across runs.
-
-        Results are cached so the DB is queried at most once per process.
+        
+        Improved V4: Returns None if slug is invalid, allowing callers to 
+        handle missing departments gracefully instead of using silent defaults.
         """
+        if not dept_slug or not isinstance(dept_slug, str):
+            return None
+            
         if dept_slug in self._dept_uuid_cache:
             return self._dept_uuid_cache[dept_slug]
-        # Derive stable UUID from the slug (same formula as seeder's gen_uuid)
+        
+        # Verify department exists in the lookup table first
+        try:
+            res = self._ensure_client().table("departments").select("id").eq("id", dept_slug).execute()
+            if not res.data:
+                return None
+        except Exception:
+            # Fallback to local derivation if DB is down, to maintain stability
+            pass
+
         dept_uuid = _slug_to_uuid(dept_slug)
         self._dept_uuid_cache[dept_slug] = dept_uuid
         return dept_uuid
+
+    def log_governance_violation(self, severity: str, category: str, agent: str, 
+                               details: str, rule: str = None, 
+                               entity_table: str = None, entity_id: str = None,
+                               decision_id: str = None):
+        """Thesis Requirement: Formal logging of cross-agent policy violations."""
+        data = {
+            "severity": severity,
+            "category": category,
+            "agent_involved": agent,
+            "details": details,
+            "rule_violated": rule,
+            "entity_table": entity_table,
+            "entity_id": entity_id,
+            "decision_id": decision_id
+        }
+        return self.insert("governance_violations", data)
+
+    def create_budget_reallocation(self, from_dept: str, to_dept: str, amount: float, 
+                                 period: str, reason: str, decision_id: str = None):
+        """Persist a suggested budget transfer for CFO review."""
+        data = {
+            "from_department_id": from_dept,
+            "to_department_id": to_dept,
+            "amount": amount,
+            "period": period,
+            "reason": reason,
+            "decision_id": decision_id,
+            "status": "suggested"
+        }
+        return self.insert("budget_reallocations", data)
 
     # -- Entity Helpers --
     

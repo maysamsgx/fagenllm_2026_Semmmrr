@@ -49,8 +49,15 @@ def _update_ar_forecast(state: FinancialState) -> FinancialState:
     if not customer_id:
         return {**state, "next_agent": END, "current_agent": "cash"}
     
-    # Probability of collection based on revised risk level
-    collection_prob = {"high": 0.40, "medium": 0.70, "low": 0.90}.get(risk_level, 0.70)
+    # Thesis V4: DynamicCashModel
+    # We factor in the system-wide risk score from the latest snapshot
+    snapshot = db.get_latest_snapshot()
+    system_risk = float(snapshot.get("system_risk_score", 50.0)) if snapshot else 50.0
+    risk_multiplier = (100 - system_risk) / 100.0 # High system risk = lower collection prob
+    
+    # Probability of collection based on revised risk level AND system risk
+    base_prob = {"high": 0.40, "medium": 0.70, "low": 0.90}.get(risk_level, 0.70)
+    collection_prob = round(base_prob * risk_multiplier, 2)
     
     # Find open receivables for this customer and update their forecast weight
     try:
