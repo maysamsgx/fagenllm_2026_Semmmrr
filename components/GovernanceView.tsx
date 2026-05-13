@@ -123,7 +123,7 @@ export default function GovernanceView() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <PolicyItem
                 title="Scenario 1: Liquidity"
-                desc="High-value invoices (> $100k) must pass the 7-day liquidity gate or have Senior Manager sign-off."
+                desc={`High-value invoices (> $100k) must pass the 7-day liquidity gate or have Senior Manager sign-off.`}
               />
               <PolicyItem
                 title="Scenario 2: Forensic"

@@ -21,7 +21,7 @@ import {
   Database,
 } from 'lucide-react'
 import { evaluationApi, EvaluationMetrics } from '../lib/api'
-import { cashApi, reconApi, creditApi, budgetApi } from '../lib/api'
+import { cashApi, reconApi, creditApi, budgetApi, governanceApi } from '../lib/api'
 
 // ─── Colour palette (matches the rest of the app) ────────────────────────────
 const AC: Record<string, string> = {
@@ -808,7 +808,7 @@ function GovernanceTab({ data }: { data: EvaluationMetrics }) {
             <h4 style={{ color: '#fff', marginBottom: 10 }}>Active Policy Rules</h4>
             <ul style={{ paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 8 }}>
               <li><strong>BUDGET_HARD_STOP_ADHERENCE:</strong> Blocks any invoice approval if the department has reached 100% utilisation.</li>
-              <li><strong>HIGH_RISK_EXPOSURE_CONTROL:</strong> Flags invoices > $5,000 for customers with 'High' risk level.</li>
+              <li><strong>HIGH_RISK_EXPOSURE_CONTROL:</strong> Flags invoices {'>'} $5,000 for customers with 'High' risk level.</li>
               <li><strong>CROSS_AGENT_CONSISTENCY:</strong> Detects contradictions between Credit and Cash agent forecasts.</li>
             </ul>
           </div>

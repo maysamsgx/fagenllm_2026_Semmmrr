@@ -1,7 +1,9 @@
-![FAgentLLM Hero](public/assets/image%20copy.png)
+<div align="center">
+  <img src="public/assets/image%20copy.png" alt="FAgentLLM Hero Banner" width="1000" style="border-radius: 12px; margin-bottom: 24px;" />
 
-# ⭐ FAgentLLM
-**Five Agents, One Vision: Smarter Finance, Better Decisions.**
+  # ⭐ FAgentLLM
+  **Six Agents, One Vision: Smarter Finance, Better Decisions.**
+</div>
 
 [![Python Version](https://img.shields.io/badge/python-3.11%2B-blue.svg?style=for-the-badge&logo=python)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
@@ -17,7 +19,7 @@
 
 **FAgentLLM** is an advanced, multi-agent financial intelligence system designed to replicate and automate the complex, cross-domain decision-making processes of a corporate finance department. 
 
-Instead of relying on rigid, rule-based ERP systems or isolated AI chat interfaces, FAgentLLM deploys **five specialized autonomous agents** (Invoice, Budget, Cash, Reconciliation, and Credit) that communicate, validate, and causally influence each other's decisions in real-time.
+Instead of relying on rigid, rule-based ERP systems or isolated AI chat interfaces, FAgentLLM deploys **six specialized autonomous agents** (Invoice, Budget, Cash, Reconciliation, Credit, and Governance) that communicate, validate, and causally influence each other's decisions in real-time.
 
 ### ❓ Why this project exists (The Problem)
 Enterprise finance teams suffer from massive operational silos. Accounts Payable doesn't dynamically talk to Treasury, and Credit Risk doesn't instantly react to Reconciliation anomalies. This fragmentation causes delayed reporting, missed liquidity risks, and manual data-entry bottlenecks. 
@@ -29,12 +31,16 @@ FAgentLLM solves this by acting as a **Cognitive Intelligence Layer** over tradi
 
 ## ✨ Key Features
 
-- **🤖 5-Agent Ecosystem**: Specialized agents orchestrating Invoice, Budget, Cash, Reconciliation, and Credit operations.
+- **🤖 6-Agent Ecosystem**: Specialized agents orchestrating Invoice, Budget, Cash, Reconciliation, Credit, and **Governance** operations.
+- **🛡️ Governance Auditor**: A dedicated safety gate agent that reviews all cross-agent decisions against corporate policy and financial guardrails before final execution.
 - **📄 3-Layer Resilient OCR Pipeline**: Cascading document ingestion via PyMuPDF (Native) → Baidu Qianfan (Cloud) → Tesseract (Local fallback).
 - **🔗 Causal Domain Reasoning**: The XAI engine dynamically links agent decisions. An anomaly in reconciliation autonomously triggers a credit risk reassessment and adjusts AR liquidity forecasts.
+- **🔍 Hybrid Vector Reconciliation**: TF-IDF + `pgvector` (MiniLM-L6) embeddings for robust, semantic matching of bank transactions and invoices.
+- **🧠 Persistent Agent Memory**: Agents utilize a multi-layer memory system (episodic, semantic, procedural) to maintain context and improve decisions over time.
 - **📊 Forensic Audit Tracing**: A beautiful React frontend that visualizes the exact technical, business, and causal reasoning behind every single autonomous decision.
 - **🤝 Stakeholder Collaboration Portal**: A manual dispute resolution system allowing stakeholders to resolve anomalies, force matches, or escalate disputes to external audit.
 - **🛡️ Deterministic Financial Guardrails**: LLMs are used strictly for cognitive routing and qualitative analysis, while math, budgets, and similarities are enforced via hard deterministic formulas.
+- **📈 Evaluation & Metrics Dashboard**: Live performance tracking (F1-score, Precision, Recall) and confusion matrices for each agent, visualizing the system's accuracy and reliability.
 
 ---
 
@@ -45,6 +51,7 @@ FAgentLLM solves this by acting as a **Cognitive Intelligence Layer** over tradi
 - **FastAPI** (High-performance API routing)
 - **LangGraph** (Stateful multi-agent orchestration)
 - **Qwen3-32B** (Primary reasoning LLM via Groq)
+- **MiniLM-L6** (Local vector embeddings via `sentence-transformers`)
 - **Baidu Qianfan / Tesseract** (OCR pipeline)
 
 ### Frontend / UI
@@ -53,7 +60,7 @@ FAgentLLM solves this by acting as a **Cognitive Intelligence Layer** over tradi
 - **Vanilla CSS** (Glassmorphism & modern design tokens)
 
 ### Database
-- **Supabase (PostgreSQL)** (Real-time state and causal link storage)
+- **Supabase (PostgreSQL + pgvector)** (Real-time state, causal links, and vector embeddings)
 
 ---
 
@@ -61,8 +68,8 @@ FAgentLLM solves this by acting as a **Cognitive Intelligence Layer** over tradi
 
 ### 1. Clone the repository
 ```bash
-git https://github.com/maysamsgx/fagenllm_2026_Semmmrr
-cd FAgentLLM
+git clone https://github.com/maysamsgx/fagenllm_2026_Semmmrr.git
+cd fagenllm_2026_Semmmrr
 ```
 
 ### 2. Set up the Python backend
@@ -75,9 +82,9 @@ pip install -r requirements.txt
 ### 3. Set up environment variables
 Create a `.env` file in the root directory (see `.env.example`):
 ```env
-# Database
+# Database (Supabase)
 SUPABASE_URL="your_supabase_url"
-SUPABASE_KEY="your_supabase_key"
+SUPABASE_SERVICE_KEY="your_service_role_key"
 
 # LLM Providers
 GROQ_API_KEY="your_groq_key"
@@ -123,6 +130,7 @@ graph LR
         Cash[Cash Agent]
         Recon[Reconciliation Agent]
         Credit[Credit Agent]
+        Governance[Governance Auditor]
     end
 
     %% Routing Flow (Control)
@@ -131,6 +139,7 @@ graph LR
     Supervisor -->|delegates| Cash
     Supervisor -->|delegates| Recon
     Supervisor -->|delegates| Credit
+    Supervisor -->|delegates| Governance
 
     %% State Interaction (Data)
     Invoice <--> FS
@@ -138,6 +147,7 @@ graph LR
     Cash <--> FS
     Recon <--> FS
     Credit <--> FS
+    Governance <--> FS
 
     %% Persistence
     FS -.-> DB[(Supabase ERP Ledger)]
@@ -156,12 +166,16 @@ sequenceDiagram
     participant R as Reconciliation Agent
     participant C as Credit Agent
     participant S as Cash Agent
+    participant G as Governance Auditor
     
     R->>R: Detects Duplicate Transaction
     R->>C: PROACTIVE: Flag Risk Score reduction (-20 pts)
     C->>C: Lower Credit Limit
     C->>S: PROACTIVE: Apply Risk Discount to AR Forecast
     S->>S: Adjust 7-Day Liquidity Forecast
+    S->>G: SUBMIT: Proposed actions for audit
+    G->>G: Policy Check (Safety Gate)
+    G-->>R: Final Decision: APPROVED / FLAGGED
 ```
 
 ### 4. Deterministic Guardrails
@@ -174,7 +188,7 @@ To prevent "LLM Hallucinations" in financial contexts, the system employs a **Hy
 ## 🔮 Future Improvements / Roadmap
 
 - [ ] **Asynchronous Event Bus**: Migrate from sequential LangGraph routing to an asynchronous pub/sub model (e.g., Kafka) for true parallel execution.
-- [ ] **Vector Embeddings (RAG)**: Replace the current TF-IDF / textual matching with SBERT embeddings stored in `pgvector` for enhanced reconciliation accuracy.
+- [ ] **Enhanced RAG Coverage**: Expand vector search to include vendor/customer semantic profiling for better risk assessment.
 - [ ] **External Integration**: Hook the Credit Agent's escalation logic into Twilio/SendGrid APIs for real automated collection notices.
 
 ---
