@@ -1,6 +1,6 @@
 ![FAgentLLM Hero](public/assets/image%20copy.png)
 
-# 🌌 FAgentLLM
+# ⭐ FAgentLLM
 **Five Agents, One Vision: Smarter Finance, Better Decisions.**
 
 [![Python Version](https://img.shields.io/badge/python-3.11%2B-blue.svg?style=for-the-badge&logo=python)](https://www.python.org/)

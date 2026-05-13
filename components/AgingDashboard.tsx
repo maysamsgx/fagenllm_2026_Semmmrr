@@ -14,8 +14,8 @@ export function useAnalytics() {
         const fetchData = async () => {
             try {
                 const [agingRes, metricsRes] = await Promise.all([
-                    fetch('http://localhost:8000/api/analytics/aging'),
-                    fetch('http://localhost:8000/api/analytics/performance')
+                    fetch('/api/analytics/aging'),
+                    fetch('/api/analytics/performance')
                 ]);
                 setAgingData(await agingRes.json());
                 setMetrics(await metricsRes.json());

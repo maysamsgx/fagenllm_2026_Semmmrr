@@ -67,8 +67,8 @@ export const AGENT_COLOR: Record<string, string> = {
   supervisor: '#94a3b8',
 }
 
-export const BRAND_LOGO = '/assets/image-removebg-preview (21).png'
-export const LEGACY_BRAND_LOGO = '/assets/logo_for_FAgentllm.png'
+export const BRAND_LOGO = '/assets/logo_FAgentLLM_m.png'
+export const LEGACY_BRAND_LOGO = '/assets/logo_FAgentLLM_m.png'
 
 export const AGENT_AVATAR: Record<string, string> = {
   overview: '/assets/image-removebg-preview (22).png',

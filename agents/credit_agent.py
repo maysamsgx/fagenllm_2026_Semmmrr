@@ -151,7 +151,7 @@ def _assess_customer(state: FinancialState) -> FinancialState:
     payment_history = []
     try:
         receivables = _db.select("receivables", {"customer_id": customer_id})
-        for r in receivables[-5:]:  # Last 5 receivables
+        for r in receivables[-3:]:  # Limit to last 3 for token efficiency
             due = r.get("due_date")
             status = r.get("status")
             days_late = 0

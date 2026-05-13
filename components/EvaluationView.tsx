@@ -25,12 +25,12 @@ import { cashApi, reconApi, creditApi, budgetApi } from '../lib/api'
 
 // ─── Colour palette (matches the rest of the app) ────────────────────────────
 const AC: Record<string, string> = {
-  invoice:        '#67e8f9',
-  cash:           '#22d3ee',
-  budget:         '#a78bfa',
+  invoice: '#67e8f9',
+  cash: '#22d3ee',
+  budget: '#a78bfa',
   reconciliation: '#fbbf24',
-  credit:         '#fb7185',
-  system:         '#34d399',
+  credit: '#fb7185',
+  system: '#34d399',
 }
 
 const PIE_COLORS = ['#34d399', '#fbbf24', '#fb7185', '#67e8f9', '#a78bfa', '#22d3ee']
@@ -100,8 +100,10 @@ function KPI({ label, value, sub, good, color }: {
       </div>
       <div style={{ fontSize: 22, fontWeight: 800, color, fontVariantNumeric: 'tabular-nums' }}>{value}</div>
       {sub && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11,
-          color: good === undefined ? 'rgba(255,255,255,0.4)' : good ? '#34d399' : '#fb7185' }}>
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 4, fontSize: 11,
+          color: good === undefined ? 'rgba(255,255,255,0.4)' : good ? '#34d399' : '#fb7185'
+        }}>
           {good === true && <TrendingUp size={11} />}
           {good === false && <TrendingDown size={11} />}
           {sub}
@@ -203,30 +205,30 @@ function Skeleton({ h = 120 }: { h?: number }) {
   )
 }
 
-// ─── Tab bar ──────────────────────────────────────────────────────────────────
 const TABS = [
-  { id: 'overview',     label: 'Overview',           icon: BarChart2  },
-  { id: 'agents',       label: 'Per-Agent Metrics',  icon: Brain      },
-  { id: 'matrices',     label: 'Confusion Matrices', icon: Target     },
-  { id: 'coordination', label: 'Coordination',       icon: GitBranch  },
-  { id: 'baseline',     label: 'Baseline Compare',   icon: Activity   },
-  { id: 'explainability', label: 'Explainability',   icon: Shield     },
+  { id: 'overview', label: 'Overview', icon: BarChart2 },
+  { id: 'agents', label: 'Per-Agent Metrics', icon: Brain },
+  { id: 'governance', label: 'Governance & Audit', icon: Shield },
+  { id: 'matrices', label: 'Confusion Matrices', icon: Target },
+  { id: 'coordination', label: 'Coordination', icon: GitBranch },
+  { id: 'baseline', label: 'Baseline Compare', icon: Activity },
+  { id: 'explainability', label: 'Explainability', icon: Shield },
 ]
 
 // ══════════════════════════════════════════════════════════════════════════════
 //  MAIN COMPONENT
 // ══════════════════════════════════════════════════════════════════════════════
 export default function EvaluationView() {
-  const [tab, setTab]       = useState('overview')
-  const [data, setData]     = useState<EvaluationMetrics | null>(null)
+  const [tab, setTab] = useState('overview')
+  const [data, setData] = useState<EvaluationMetrics | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError]   = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
   const [lastUpdated, setLastUpdated] = useState<string | null>(null)
 
   // Supplementary data for charts not covered by the evaluation endpoint
-  const [cashForecast, setCashForecast]   = useState<any[]>([])
-  const [budgetRows, setBudgetRows]       = useState<any[]>([])
-  const [creditAging, setCreditAging]     = useState<any[]>([])
+  const [cashForecast, setCashForecast] = useState<any[]>([])
+  const [budgetRows, setBudgetRows] = useState<any[]>([])
+  const [creditAging, setCreditAging] = useState<any[]>([])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -254,7 +256,7 @@ export default function EvaluationView() {
           return {
             name: (f.forecast_date || '').slice(5),   // MM-DD
             balance: +running.toFixed(2),
-            inflow:  +((parseFloat(f.projected_inflow)  || 0) / 1_000_000).toFixed(2),
+            inflow: +((parseFloat(f.projected_inflow) || 0) / 1_000_000).toFixed(2),
             outflow: +((parseFloat(f.projected_outflow) || 0) / 1_000_000).toFixed(2),
           }
         }))
@@ -314,8 +316,10 @@ export default function EvaluationView() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {data && (
-            <div style={{ fontSize: 11, color: '#34d399', background: '#34d39912', border: '1px solid #34d39930',
-              borderRadius: 8, padding: '4px 10px', display: 'flex', alignItems: 'center', gap: 5 }}>
+            <div style={{
+              fontSize: 11, color: '#34d399', background: '#34d39912', border: '1px solid #34d39930',
+              borderRadius: 8, padding: '4px 10px', display: 'flex', alignItems: 'center', gap: 5
+            }}>
               <Database size={11} /> {data.system.total_decisions.toLocaleString()} decisions tracked
             </div>
           )}
@@ -364,11 +368,12 @@ export default function EvaluationView() {
         </div>
       ) : data ? (
         <>
-          {tab === 'overview'       && <OverviewTab      data={data} />}
-          {tab === 'agents'         && <AgentsTab        data={data} cashForecast={cashForecast} budgetRows={budgetRows} creditAging={creditAging} />}
-          {tab === 'matrices'       && <MatricesTab      data={data} />}
-          {tab === 'coordination'   && <CoordinationTab  data={data} />}
-          {tab === 'baseline'       && <BaselineTab      data={data} />}
+          {tab === 'overview' && <OverviewTab data={data} />}
+          {tab === 'agents' && <AgentsTab data={data} cashForecast={cashForecast} budgetRows={budgetRows} creditAging={creditAging} />}
+          {tab === 'governance' && <GovernanceTab data={data} />}
+          {tab === 'matrices' && <MatricesTab data={data} />}
+          {tab === 'coordination' && <CoordinationTab data={data} />}
+          {tab === 'baseline' && <BaselineTab data={data} />}
           {tab === 'explainability' && <ExplainabilityTab data={data} />}
         </>
       ) : null}
@@ -385,43 +390,43 @@ function OverviewTab({ data }: { data: EvaluationMetrics }) {
   const radarData = [
     {
       metric: 'F1 / Accuracy',
-      invoice:        invoice.f1,
-      budget:         budget.avg_utilization_pct > 0 ? Math.min(95, 100 - Math.abs(budget.avg_utilization_pct - 80)) : 80,
+      invoice: invoice.f1,
+      budget: budget.avg_utilization_pct > 0 ? Math.min(95, 100 - Math.abs(budget.avg_utilization_pct - 80)) : 80,
       reconciliation: reconciliation.match_rate,
-      credit:         credit.recovery_rate_pct,
-      cash:           cash.cash_mape_pct != null ? Math.max(0, 100 - cash.cash_mape_pct * 5) : 90,
+      credit: credit.recovery_rate_pct,
+      cash: cash.cash_mape_pct != null ? Math.max(0, 100 - cash.cash_mape_pct * 5) : 90,
     },
     {
       metric: 'Precision',
-      invoice:        invoice.precision,
-      budget:         budget.at_risk_count > 0 ? Math.min(95, 80 + (budget.avg_utilization_pct < 90 ? 10 : 0)) : 88,
+      invoice: invoice.precision,
+      budget: budget.at_risk_count > 0 ? Math.min(95, 80 + (budget.avg_utilization_pct < 90 ? 10 : 0)) : 88,
       reconciliation: Math.min(99, reconciliation.match_rate + 2),
-      credit:         Math.min(98, credit.avg_credit_score),
-      cash:           Math.min(99, 95),
+      credit: Math.min(98, credit.avg_credit_score),
+      cash: Math.min(99, 95),
     },
     {
       metric: 'Recall',
-      invoice:        invoice.recall,
-      budget:         Math.min(95, invoice.recall - 2),
+      invoice: invoice.recall,
+      budget: Math.min(95, invoice.recall - 2),
       reconciliation: Math.min(98, reconciliation.match_rate - 1),
-      credit:         Math.min(96, credit.recovery_rate_pct + 5),
-      cash:           Math.min(97, 93),
+      credit: Math.min(96, credit.recovery_rate_pct + 5),
+      cash: Math.min(97, 93),
     },
     {
       metric: 'Speed',
-      invoice:        Math.min(100, 100 - invoice.pending),
-      budget:         85,
+      invoice: Math.min(100, 100 - invoice.pending),
+      budget: 85,
       reconciliation: Math.min(95, 80 + system.total_causal_links),
-      credit:         Math.min(90, 80 + credit.low_risk),
-      cash:           90,
+      credit: Math.min(90, 80 + credit.low_risk),
+      cash: 90,
     },
     {
       metric: 'Coverage',
-      invoice:        invoice.approval_rate,
-      budget:         Math.min(100, 100 - budget.over_budget_count * 5),
+      invoice: invoice.approval_rate,
+      budget: Math.min(100, 100 - budget.over_budget_count * 5),
       reconciliation: reconciliation.match_rate,
-      credit:         credit.recovery_rate_pct,
-      cash:           Math.min(100, 90),
+      credit: credit.recovery_rate_pct,
+      cash: Math.min(100, 90),
     },
   ]
 
@@ -430,22 +435,22 @@ function OverviewTab({ data }: { data: EvaluationMetrics }) {
   const agentBarData = Object.entries(system.per_agent).map(([agent, info]) => ({
     agent: agent.charAt(0).toUpperCase() + agent.slice(1),
     decisions: info.count,
-    avgConf:   info.avg_confidence,
-    color:     AC[agent] || '#94a3b8',
+    avgConf: info.avg_confidence,
+    color: AC[agent] || '#94a3b8',
   }))
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       {/* KPI strip */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 14 }}>
-        <KPI label="Invoice F1"         value={pct(invoice.f1)}                      sub={`${invoice.total} invoices processed`}       good={invoice.f1 > 80}      color={AC.invoice}        />
-        <KPI label="Recon Match Rate"   value={pct(reconciliation.match_rate)}        sub={`${reconciliation.matched} matched`}          good={reconciliation.match_rate > 80} color={AC.reconciliation} />
-        <KPI label="Avg Credit Score"   value={num(credit.avg_credit_score, 1)}       sub={`${credit.high_risk} high-risk clients`}      good={credit.avg_credit_score > 60} color={AC.credit}      />
-        <KPI label="Recovery Rate"      value={pct(credit.recovery_rate_pct)}         sub={`DSO ${num(credit.dso_days, 1)} days`}        good={credit.recovery_rate_pct > 70} color={AC.cash}       />
-        <KPI label="Budget Utilisation" value={pct(budget.avg_utilization_pct)}       sub={`${budget.over_budget_count} over-budget`}    good={budget.over_budget_count === 0} color={AC.budget}    />
-        <KPI label="Total Decisions"    value={system.total_decisions.toLocaleString()} sub={`${system.total_causal_links} causal links`}                            color="#34d399"            />
-        <KPI label="Coordination Rate"  value={pct(system.coordination_rate_pct)}     sub="causal links / decisions"                     good                        color="#34d399"            />
-        <KPI label="Cash Balance"       value={`$${(cash.total_balance / 1_000_000).toFixed(1)}M`} sub={`${cash.account_count} accounts`}                            color={AC.cash}            />
+        <KPI label="Invoice F1" value={pct(invoice.f1)} sub={`${invoice.total} invoices processed`} good={invoice.f1 > 80} color={AC.invoice} />
+        <KPI label="Recon Match Rate" value={pct(reconciliation.match_rate)} sub={`${reconciliation.matched} matched`} good={reconciliation.match_rate > 80} color={AC.reconciliation} />
+        <KPI label="Avg Credit Score" value={num(credit.avg_credit_score, 1)} sub={`${credit.high_risk} high-risk clients`} good={credit.avg_credit_score > 60} color={AC.credit} />
+        <KPI label="Recovery Rate" value={pct(credit.recovery_rate_pct)} sub={`DSO ${num(credit.dso_days, 1)} days`} good={credit.recovery_rate_pct > 70} color={AC.cash} />
+        <KPI label="Budget Utilisation" value={pct(budget.avg_utilization_pct)} sub={`${budget.over_budget_count} over-budget`} good={budget.over_budget_count === 0} color={AC.budget} />
+        <KPI label="Total Decisions" value={system.total_decisions.toLocaleString()} sub={`${system.total_causal_links} causal links`} color="#34d399" />
+        <KPI label="Coordination Rate" value={pct(system.coordination_rate_pct)} sub="causal links / decisions" good color="#34d399" />
+        <KPI label="Cash Balance" value={`$${(cash.total_balance / 1_000_000).toFixed(1)}M`} sub={`${cash.account_count} accounts`} color={AC.cash} />
       </div>
 
       {/* Radar */}
@@ -501,8 +506,8 @@ function OverviewTab({ data }: { data: EvaluationMetrics }) {
               tick={{ fill: 'rgba(255,255,255,0.45)', fontSize: 11 }} tickFormatter={v => `${v}%`} />
             <Tooltip content={<ChartTip />} />
             <Legend />
-            <Bar yAxisId="left"  dataKey="decisions" name="Decisions"       radius={[6, 6, 0, 0]} fill="#67e8f9" fillOpacity={0.75} />
-            <Bar yAxisId="right" dataKey="avgConf"   name="Avg Confidence %" radius={[6, 6, 0, 0]} fill="#34d399" fillOpacity={0.75} />
+            <Bar yAxisId="left" dataKey="decisions" name="Decisions" radius={[6, 6, 0, 0]} fill="#67e8f9" fillOpacity={0.75} />
+            <Bar yAxisId="right" dataKey="avgConf" name="Avg Confidence %" radius={[6, 6, 0, 0]} fill="#34d399" fillOpacity={0.75} />
           </BarChart>
         </ResponsiveContainer>
       </GlassCard>
@@ -553,13 +558,13 @@ function AgentsTab({ data, cashForecast, budgetRows, creditAging }: {
       {/* ── Invoice ── */}
       <AgentSection label="Invoice Management Agent" color={AC.invoice}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 20 }}>
-          <KPI label="Precision"         value={pct(inv.precision)}         sub="from confidence matrix"     good={inv.precision > 80}   color={AC.invoice} />
-          <KPI label="Recall"            value={pct(inv.recall)}            sub="from confidence matrix"     good={inv.recall > 80}      color={AC.invoice} />
-          <KPI label="F1-Score"          value={pct(inv.f1)}                sub="harmonic mean"              good={inv.f1 > 80}          color={AC.invoice} />
-          <KPI label="Avg Confidence"    value={pct(inv.avg_confidence)}    sub="OCR extraction quality"     good={inv.avg_confidence > 80} color={AC.invoice} />
-          <KPI label="Approval Rate"     value={pct(inv.approval_rate)}     sub={`${inv.approved} approved`} good={inv.approval_rate > 70} color={AC.invoice} />
-          <KPI label="Total Invoices"    value={String(inv.total)}          sub={`${inv.pending} pending`}                               color={AC.invoice} />
-          <KPI label="Avg Confidence"    value={`${(sys.per_agent.invoice?.avg_confidence || 0).toFixed(1)}%`}
+          <KPI label="Precision" value={pct(inv.precision)} sub="from confidence matrix" good={inv.precision > 80} color={AC.invoice} />
+          <KPI label="Recall" value={pct(inv.recall)} sub="from confidence matrix" good={inv.recall > 80} color={AC.invoice} />
+          <KPI label="F1-Score" value={pct(inv.f1)} sub="harmonic mean" good={inv.f1 > 80} color={AC.invoice} />
+          <KPI label="Avg Confidence" value={pct(inv.avg_confidence)} sub="OCR extraction quality" good={inv.avg_confidence > 80} color={AC.invoice} />
+          <KPI label="Approval Rate" value={pct(inv.approval_rate)} sub={`${inv.approved} approved`} good={inv.approval_rate > 70} color={AC.invoice} />
+          <KPI label="Total Invoices" value={String(inv.total)} sub={`${inv.pending} pending`} color={AC.invoice} />
+          <KPI label="Avg Confidence" value={`${(sys.per_agent.invoice?.avg_confidence || 0).toFixed(1)}%`}
             sub={`over ${sys.per_agent.invoice?.count || 0} decisions`} color={AC.invoice} />
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
@@ -595,10 +600,10 @@ function AgentsTab({ data, cashForecast, budgetRows, creditAging }: {
       {/* ── Budget ── */}
       <AgentSection label="Budget Management Agent" color={AC.budget}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 20 }}>
-          <KPI label="Avg Utilisation"   value={pct(budget.avg_utilization_pct)} sub={`${budget.at_risk_count} depts at risk`}   good={budget.avg_utilization_pct < 90} color={AC.budget} />
-          <KPI label="Over Budget"       value={String(budget.over_budget_count)}  sub="departments"                              good={budget.over_budget_count === 0}  color={AC.budget} />
-          <KPI label="Active Alerts"     value={String(budget.active_alerts)}       sub="unacknowledged"                           good={budget.active_alerts === 0}      color={AC.budget} />
-          <KPI label="Decisions"         value={String(sys.per_agent.budget?.count || 0)} sub={`avg ${(sys.per_agent.budget?.avg_confidence || 0).toFixed(1)}% conf`} color={AC.budget} />
+          <KPI label="Avg Utilisation" value={pct(budget.avg_utilization_pct)} sub={`${budget.at_risk_count} depts at risk`} good={budget.avg_utilization_pct < 90} color={AC.budget} />
+          <KPI label="Over Budget" value={String(budget.over_budget_count)} sub="departments" good={budget.over_budget_count === 0} color={AC.budget} />
+          <KPI label="Active Alerts" value={String(budget.active_alerts)} sub="unacknowledged" good={budget.active_alerts === 0} color={AC.budget} />
+          <KPI label="Decisions" value={String(sys.per_agent.budget?.count || 0)} sub={`avg ${(sys.per_agent.budget?.avg_confidence || 0).toFixed(1)}% conf`} color={AC.budget} />
         </div>
         <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginBottom: 10 }}>Department Budget Utilisation % (live from budgets table)</div>
         {budgetChart.length > 0 ? (
@@ -621,11 +626,11 @@ function AgentsTab({ data, cashForecast, budgetRows, creditAging }: {
       {/* ── Reconciliation ── */}
       <AgentSection label="Reconciliation Agent" color={AC.reconciliation}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 20 }}>
-          <KPI label="Match Rate"        value={pct(recon.match_rate)}        sub="real from reconciliation_reports" good={recon.match_rate > 80} color={AC.reconciliation} />
-          <KPI label="Matched TXs"       value={String(recon.matched)}         sub={`of ${recon.total_transactions} total`}                       color={AC.reconciliation} />
-          <KPI label="Unmatched TXs"     value={String(recon.unmatched)}        sub="requires review"                  good={recon.unmatched === 0}  color={AC.reconciliation} />
-          <KPI label="Reports Run"       value={String(recon.report_count)}     sub="reconciliation cycles"                                          color={AC.reconciliation} />
-          <KPI label="Decisions"         value={String(sys.per_agent.reconciliation?.count || 0)}
+          <KPI label="Match Rate" value={pct(recon.match_rate)} sub="real from reconciliation_reports" good={recon.match_rate > 80} color={AC.reconciliation} />
+          <KPI label="Matched TXs" value={String(recon.matched)} sub={`of ${recon.total_transactions} total`} color={AC.reconciliation} />
+          <KPI label="Unmatched TXs" value={String(recon.unmatched)} sub="requires review" good={recon.unmatched === 0} color={AC.reconciliation} />
+          <KPI label="Reports Run" value={String(recon.report_count)} sub="reconciliation cycles" color={AC.reconciliation} />
+          <KPI label="Decisions" value={String(sys.per_agent.reconciliation?.count || 0)}
             sub={`avg ${(sys.per_agent.reconciliation?.avg_confidence || 0).toFixed(1)}% conf`} color={AC.reconciliation} />
         </div>
         <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginBottom: 10 }}>Match Rate History (from reconciliation_reports table)</div>
@@ -649,12 +654,12 @@ function AgentsTab({ data, cashForecast, budgetRows, creditAging }: {
       {/* ── Credit ── */}
       <AgentSection label="Credit Tracking Agent" color={AC.credit}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 20 }}>
-          <KPI label="Avg Credit Score"     value={num(credit.avg_credit_score, 1)}    sub="live from customers"          good={credit.avg_credit_score > 60}   color={AC.credit} />
-          <KPI label="High Risk Clients"    value={String(credit.high_risk)}             sub={`${credit.medium_risk} medium, ${credit.low_risk} low`}              color={AC.credit} />
-          <KPI label="Avg Payment Delay"    value={`${num(credit.avg_payment_delay_days, 1)}d`} sub="from receivables"   good={credit.avg_payment_delay_days < 30} color={AC.credit} />
-          <KPI label="DSO"                  value={`${num(credit.dso_days, 1)}d`}        sub="days sales outstanding"       good={credit.dso_days < 60}            color={AC.credit} />
-          <KPI label="Recovery Rate"        value={pct(credit.recovery_rate_pct)}        sub="paid / total receivables"     good={credit.recovery_rate_pct > 70}   color={AC.credit} />
-          <KPI label="Outstanding"          value={`$${(credit.outstanding_amount / 1000).toFixed(0)}k`} sub="open receivables"                                   color={AC.credit} />
+          <KPI label="Avg Credit Score" value={num(credit.avg_credit_score, 1)} sub="live from customers" good={credit.avg_credit_score > 60} color={AC.credit} />
+          <KPI label="High Risk Clients" value={String(credit.high_risk)} sub={`${credit.medium_risk} medium, ${credit.low_risk} low`} color={AC.credit} />
+          <KPI label="Avg Payment Delay" value={`${num(credit.avg_payment_delay_days, 1)}d`} sub="from receivables" good={credit.avg_payment_delay_days < 30} color={AC.credit} />
+          <KPI label="DSO" value={`${num(credit.dso_days, 1)}d`} sub="days sales outstanding" good={credit.dso_days < 60} color={AC.credit} />
+          <KPI label="Recovery Rate" value={pct(credit.recovery_rate_pct)} sub="paid / total receivables" good={credit.recovery_rate_pct > 70} color={AC.credit} />
+          <KPI label="Outstanding" value={`$${(credit.outstanding_amount / 1000).toFixed(0)}k`} sub="open receivables" color={AC.credit} />
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
           <div>
@@ -691,9 +696,9 @@ function AgentsTab({ data, cashForecast, budgetRows, creditAging }: {
       {/* ── Cash ── */}
       <AgentSection label="Cash Management Agent" color={AC.cash}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 20 }}>
-          <KPI label="Total Balance"   value={`$${(cash.total_balance / 1_000_000).toFixed(2)}M`} sub={`${cash.account_count} accounts`}    color={AC.cash} />
-          <KPI label="Forecast MAPE"  value={cash.cash_mape_pct != null ? pct(cash.cash_mape_pct) : 'N/A'} sub="vs snapshot actuals" good={cash.cash_mape_pct != null && cash.cash_mape_pct < 10} color={AC.cash} />
-          <KPI label="Decisions"      value={String(sys.per_agent.cash?.count || 0)}
+          <KPI label="Total Balance" value={`$${(cash.total_balance / 1_000_000).toFixed(2)}M`} sub={`${cash.account_count} accounts`} color={AC.cash} />
+          <KPI label="Forecast MAPE" value={cash.cash_mape_pct != null ? pct(cash.cash_mape_pct) : 'N/A'} sub="vs snapshot actuals" good={cash.cash_mape_pct != null && cash.cash_mape_pct < 10} color={AC.cash} />
+          <KPI label="Decisions" value={String(sys.per_agent.cash?.count || 0)}
             sub={`avg ${(sys.per_agent.cash?.avg_confidence || 0).toFixed(1)}% conf`} color={AC.cash} />
         </div>
         <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginBottom: 10 }}>Cash Flow Forecast (live from cash_flow_forecasts + cash_accounts)</div>
@@ -705,7 +710,7 @@ function AgentsTab({ data, cashForecast, budgetRows, creditAging }: {
               <YAxis tick={{ fill: 'rgba(255,255,255,0.45)', fontSize: 11 }} tickFormatter={v => `$${v}M`} />
               <Tooltip content={<ChartTip />} />
               <Legend />
-              <Area type="monotone" dataKey="inflow"  name="Inflow ($M)"  stroke="#34d399" fill="#34d399" fillOpacity={0.1} strokeWidth={1.5} />
+              <Area type="monotone" dataKey="inflow" name="Inflow ($M)" stroke="#34d399" fill="#34d399" fillOpacity={0.1} strokeWidth={1.5} />
               <Area type="monotone" dataKey="outflow" name="Outflow ($M)" stroke="#fb7185" fill="#fb7185" fillOpacity={0.1} strokeWidth={1.5} />
               <Line type="monotone" dataKey="balance" name="Balance ($M)" stroke={AC.cash} strokeWidth={2} dot={false} />
             </AreaChart>
@@ -736,6 +741,90 @@ function AgentsTab({ data, cashForecast, budgetRows, creditAging }: {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+//  GOVERNANCE TAB
+// ══════════════════════════════════════════════════════════════════════════════
+function GovernanceTab({ data }: { data: EvaluationMetrics }) {
+  const { governance, system } = data
+  const [violations, setViolations] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    governanceApi.violations().then(setViolations).finally(() => setLoading(false))
+  }, [])
+
+  const severityData = [
+    { name: 'High', value: governance.severity_dist.high, color: '#fb7185' },
+    { name: 'Medium', value: governance.severity_dist.medium, color: '#fbbf24' },
+    { name: 'Low', value: governance.severity_dist.low, color: '#34d399' },
+  ].filter(d => d.value > 0)
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14 }}>
+        <KPI label="Compliance Score" value={`${governance.compliance_score}%`} sub="avg audit confidence" good={governance.compliance_score > 90} color="#34d399" />
+        <KPI label="Total Violations" value={String(governance.violation_count)} sub="policy breaches detected" good={governance.violation_count === 0} color="#fb7185" />
+        <KPI label="Violation Rate" value={`${governance.violation_rate}%`} sub="violations per audit" good={governance.violation_rate < 10} color="#fbbf24" />
+        <KPI label="Audit Decisions" value={String(governance.audit_count)} sub="final gate passes" color="#67e8f9" />
+        <KPI label="High Severity" value={String(governance.severity_dist.high)} sub="critical risks" good={governance.severity_dist.high === 0} color="#fb7185" />
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+        <GlassCard>
+          <SectionTitle icon={Shield} label="Violation Severity Distribution" color="#fb7185" />
+          {severityData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={200}>
+              <PieChart>
+                <Pie data={severityData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} label>
+                  {severityData.map((d, i) => <Cell key={i} fill={d.color} />)}
+                </Pie>
+                <Tooltip content={<ChartTip />} />
+              </PieChart>
+            </ResponsiveContainer>
+          ) : <div style={{ color: 'rgba(255,255,255,0.3)', textAlign: 'center', padding: 40 }}>No violations detected. System is compliant.</div>}
+        </GlassCard>
+
+        <GlassCard>
+          <SectionTitle icon={AlertTriangle} label="Recent Policy Violations" color="#fbbf24" />
+          <div style={{ maxHeight: 200, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {loading ? <Skeleton h={40} /> : violations.length === 0 ? (
+              <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12 }}>No violations recorded.</div>
+            ) : violations.map(v => (
+              <div key={v.id} style={{ background: 'rgba(255,255,255,0.05)', padding: '10px 14px', borderRadius: 10, borderLeft: `3px solid ${v.severity === 'high' ? '#fb7185' : '#fbbf24'}` }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: '#fff' }}>{v.category.replace(/_/g, ' ')}</span>
+                  <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>{new Date(v.created_at).toLocaleDateString()}</span>
+                </div>
+                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>{v.details}</div>
+              </div>
+            ))}
+          </div>
+        </GlassCard>
+      </div>
+
+      <GlassCard>
+        <SectionTitle icon={Clock} label="Governance Auditor: Decision Rules" color="#67e8f9" />
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
+          <div>
+            <h4 style={{ color: '#fff', marginBottom: 10 }}>Active Policy Rules</h4>
+            <ul style={{ paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <li><strong>BUDGET_HARD_STOP_ADHERENCE:</strong> Blocks any invoice approval if the department has reached 100% utilisation.</li>
+              <li><strong>HIGH_RISK_EXPOSURE_CONTROL:</strong> Flags invoices > $5,000 for customers with 'High' risk level.</li>
+              <li><strong>CROSS_AGENT_CONSISTENCY:</strong> Detects contradictions between Credit and Cash agent forecasts.</li>
+            </ul>
+          </div>
+          <div style={{ background: 'rgba(103,232,249,0.05)', padding: 16, borderRadius: 12, border: '1px solid rgba(103,232,249,0.2)' }}>
+            <div style={{ fontWeight: 700, color: '#67e8f9', marginBottom: 8 }}>Auditor Logic</div>
+            <p style={{ lineHeight: 1.6, margin: 0 }}>
+              The Governance Agent performs a final "Safety Gate" check after all other agents have finished. It uses a structured LLM prompt to review the combined Reasoning Trace and identify any policy breaches or agent-to-agent conflicts.
+            </p>
+          </div>
+        </div>
+      </GlassCard>
+    </div>
+  )
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 //  CONFUSION MATRICES TAB
 // ══════════════════════════════════════════════════════════════════════════════
 function MatricesTab({ data }: { data: EvaluationMetrics }) {
@@ -747,8 +836,8 @@ function MatricesTab({ data }: { data: EvaluationMetrics }) {
   const recon_fp = Math.round(reconciliation.unmatched * 0.25)  // false alarms (human later matched)
   const recon_fn = Math.round(reconciliation.unmatched * 0.45)  // missed real matches
   const recon_tn = Math.round(reconciliation.matched * 0.98)    // correctly left unmatched
-  const recon_p  = recon_tp / Math.max(1, recon_tp + recon_fp) * 100
-  const recon_r  = recon_tp / Math.max(1, recon_tp + recon_fn) * 100
+  const recon_p = recon_tp / Math.max(1, recon_tp + recon_fp) * 100
+  const recon_r = recon_tp / Math.max(1, recon_tp + recon_fn) * 100
   const recon_f1 = 2 * recon_p * recon_r / Math.max(0.001, recon_p + recon_r)
 
   // Credit: risk classification (high risk correctly flagged vs missed)
@@ -756,8 +845,8 @@ function MatricesTab({ data }: { data: EvaluationMetrics }) {
   const cred_fn = Math.round(credit.medium_risk * 0.2)  // medium clients who should be high
   const cred_fp = Math.round(credit.high_risk * 0.08)   // falsely labelled high risk
   const cred_tn = credit.low_risk + Math.round(credit.medium_risk * 0.8)
-  const cred_p  = cred_tp / Math.max(1, cred_tp + cred_fp) * 100
-  const cred_r  = cred_tp / Math.max(1, cred_tp + cred_fn) * 100
+  const cred_p = cred_tp / Math.max(1, cred_tp + cred_fp) * 100
+  const cred_r = cred_tp / Math.max(1, cred_tp + cred_fn) * 100
   const cred_f1 = 2 * cred_p * cred_r / Math.max(0.001, cred_p + cred_r)
 
   const matrices = [
@@ -782,9 +871,9 @@ function MatricesTab({ data }: { data: EvaluationMetrics }) {
   ]
 
   const f1SummaryData = [
-    { agent: 'Invoice',        f1: invoice.f1,  color: AC.invoice },
-    { agent: 'Reconciliation', f1: recon_f1,    color: AC.reconciliation },
-    { agent: 'Credit',         f1: cred_f1,     color: AC.credit },
+    { agent: 'Invoice', f1: invoice.f1, color: AC.invoice },
+    { agent: 'Reconciliation', f1: recon_f1, color: AC.reconciliation },
+    { agent: 'Credit', f1: cred_f1, color: AC.credit },
     { agent: 'Budget (util)', f1: Math.max(0, 100 - Math.abs(data.budget.avg_utilization_pct - 80)), color: AC.budget },
     { agent: 'Cash (MAPE-inv)', f1: data.cash.cash_mape_pct != null ? Math.max(0, 100 - data.cash.cash_mape_pct * 5) : 90, color: AC.cash },
   ]
@@ -847,8 +936,8 @@ function CoordinationTab({ data }: { data: EvaluationMetrics }) {
   const perAgentDecisions = Object.entries(system.per_agent).map(([agent, info]) => ({
     agent: agent.charAt(0).toUpperCase() + agent.slice(1),
     decisions: info.count,
-    avgConf:   info.avg_confidence,
-    color:     AC[agent] || '#94a3b8',
+    avgConf: info.avg_confidence,
+    color: AC[agent] || '#94a3b8',
   }))
 
   const workflows = [
@@ -883,9 +972,9 @@ function CoordinationTab({ data }: { data: EvaluationMetrics }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       {/* System coordination KPIs */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14 }}>
-        <KPI label="Total Decisions"     value={system.total_decisions.toLocaleString()} sub="across all agents"              color="#34d399" />
-        <KPI label="Causal Links"        value={system.total_causal_links.toLocaleString()} sub="cross-agent propagations"   color="#34d399" />
-        <KPI label="Coordination Rate"   value={pct(system.coordination_rate_pct)}        sub="links per decision" good={system.coordination_rate_pct > 5} color="#34d399" />
+        <KPI label="Total Decisions" value={system.total_decisions.toLocaleString()} sub="across all agents" color="#34d399" />
+        <KPI label="Causal Links" value={system.total_causal_links.toLocaleString()} sub="cross-agent propagations" color="#34d399" />
+        <KPI label="Coordination Rate" value={pct(system.coordination_rate_pct)} sub="links per decision" good={system.coordination_rate_pct > 5} color="#34d399" />
       </div>
 
       {/* Causal link type distribution */}
@@ -915,13 +1004,13 @@ function CoordinationTab({ data }: { data: EvaluationMetrics }) {
           <BarChart data={perAgentDecisions} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
             <CartesianGrid stroke="rgba(255,255,255,0.05)" strokeDasharray="4 4" />
             <XAxis dataKey="agent" tick={{ fill: 'rgba(255,255,255,0.55)', fontSize: 12 }} />
-            <YAxis yAxisId="left"  tick={{ fill: 'rgba(255,255,255,0.45)', fontSize: 11 }} />
+            <YAxis yAxisId="left" tick={{ fill: 'rgba(255,255,255,0.45)', fontSize: 11 }} />
             <YAxis yAxisId="right" orientation="right" domain={[0, 100]}
               tick={{ fill: 'rgba(255,255,255,0.45)', fontSize: 11 }} tickFormatter={v => `${v}%`} />
             <Tooltip content={<ChartTip />} />
             <Legend />
-            <Bar yAxisId="left"  dataKey="decisions" name="Decisions"       radius={[6, 6, 0, 0]} fill="#67e8f9" fillOpacity={0.75} />
-            <Bar yAxisId="right" dataKey="avgConf"   name="Avg Confidence %" radius={[6, 6, 0, 0]} fill="#34d399" fillOpacity={0.75} />
+            <Bar yAxisId="left" dataKey="decisions" name="Decisions" radius={[6, 6, 0, 0]} fill="#67e8f9" fillOpacity={0.75} />
+            <Bar yAxisId="right" dataKey="avgConf" name="Avg Confidence %" radius={[6, 6, 0, 0]} fill="#34d399" fillOpacity={0.75} />
           </BarChart>
         </ResponsiveContainer>
       </GlassCard>
@@ -1013,9 +1102,9 @@ function BaselineTab({ data }: { data: EvaluationMetrics }) {
             <YAxis tick={{ fill: 'rgba(255,255,255,0.45)', fontSize: 11 }} />
             <Tooltip content={<ChartTip />} />
             <Legend />
-            <Bar dataKey="manual"    name="Manual (baseline)"     fill="#fb7185" fillOpacity={0.7} radius={[4, 4, 0, 0]} />
+            <Bar dataKey="manual" name="Manual (baseline)" fill="#fb7185" fillOpacity={0.7} radius={[4, 4, 0, 0]} />
             <Bar dataKey="rulesBased" name="Rule-Based (traditional)" fill="#fbbf24" fillOpacity={0.7} radius={[4, 4, 0, 0]} />
-            <Bar dataKey="fagenllm"  name="FAgentLLM (live)"     fill="#34d399" fillOpacity={0.85} radius={[4, 4, 0, 0]} />
+            <Bar dataKey="fagenllm" name="FAgentLLM (live)" fill="#34d399" fillOpacity={0.85} radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </GlassCard>
@@ -1028,18 +1117,22 @@ function BaselineTab({ data }: { data: EvaluationMetrics }) {
             <thead>
               <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.09)' }}>
                 {['Metric', 'Manual', 'Rule-Based', 'FAgentLLM (Live)', 'Delta'].map(h => (
-                  <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: 'rgba(255,255,255,0.45)',
-                    fontWeight: 600, fontSize: 11, textTransform: 'uppercase' }}>{h}</th>
+                  <th key={h} style={{
+                    padding: '10px 14px', textAlign: 'left', color: 'rgba(255,255,255,0.45)',
+                    fontWeight: 600, fontSize: 11, textTransform: 'uppercase'
+                  }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {compareData.map((row, i) => {
                 const delta = row.fagenllm - row.rulesBased
-                const good  = row.higher ? delta > 0 : delta < 0
+                const good = row.higher ? delta > 0 : delta < 0
                 return (
-                  <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)',
-                    background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)' }}>
+                  <tr key={i} style={{
+                    borderBottom: '1px solid rgba(255,255,255,0.05)',
+                    background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)'
+                  }}>
                     <td style={{ padding: '10px 14px', color: '#fff', fontWeight: 600 }}>{row.metric}</td>
                     <td style={{ padding: '10px 14px', color: '#fb7185' }}>{row.manual}{row.unit}</td>
                     <td style={{ padding: '10px 14px', color: '#fbbf24' }}>{row.rulesBased}{row.unit}</td>
@@ -1066,19 +1159,23 @@ function BaselineTab({ data }: { data: EvaluationMetrics }) {
         <SectionTitle icon={AlertTriangle} label="Limitations &amp; Improvement Opportunities" color="#fbbf24" />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {[
-            { sev: 'high',   title: 'LLM Rate Limits', detail: 'Qwen3-32B via Groq free-tier throttles under high concurrency. Under >20 req/min, E2E time increases 3×. Mitigation: async batching + GPT-OSS-20B fallback.' },
-            { sev: 'low',    title: 'Cognitive Architecture (V4)', detail: 'Self-reflection pass + Stage 10 Governance Auditor implemented. Multi-stage reasoning reduces logical contradictions by ~85%.' },
-            { sev: 'low',    title: 'Hybrid Vector Search (V4)', detail: 'TF-IDF now backed by pgvector + MiniLM-L6 embeddings in Supabase. Match rate for fuzzy descriptions improved to >90%.' },
-            { sev: 'low',    title: 'Causal Graph Coverage', detail: 'Multi-hop chains >3 agents are partially covered (est. 73%). Complex fiscal-year rollover scenarios not yet modelled.' },
-            { sev: 'low',    title: 'E-Invoice Format Coverage', detail: 'Some legacy SAP IDOC binary formats not yet parsed by the OCR pipeline. Affects ~8% of ERP integration scenarios.' },
+            { sev: 'high', title: 'LLM Rate Limits', detail: 'Qwen3-32B via Groq free-tier throttles under high concurrency. Under >20 req/min, E2E time increases 3×. Mitigation: async batching + GPT-OSS-20B fallback.' },
+            { sev: 'low', title: 'Cognitive Architecture (V4)', detail: 'Self-reflection pass + Stage 10 Governance Auditor implemented. Multi-stage reasoning reduces logical contradictions by ~85%.' },
+            { sev: 'low', title: 'Hybrid Vector Search (V4)', detail: 'TF-IDF now backed by pgvector + MiniLM-L6 embeddings in Supabase. Match rate for fuzzy descriptions improved to >90%.' },
+            { sev: 'low', title: 'Causal Graph Coverage', detail: 'Multi-hop chains >3 agents are partially covered (est. 73%). Complex fiscal-year rollover scenarios not yet modelled.' },
+            { sev: 'low', title: 'E-Invoice Format Coverage', detail: 'Some legacy SAP IDOC binary formats not yet parsed by the OCR pipeline. Affects ~8% of ERP integration scenarios.' },
           ].map((l, i) => {
             const col = { high: '#fb7185', medium: '#fbbf24', low: '#34d399' }[l.sev] as string
             return (
-              <div key={i} style={{ display: 'flex', gap: 14, padding: '12px 0',
-                borderBottom: i < 4 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
+              <div key={i} style={{
+                display: 'flex', gap: 14, padding: '12px 0',
+                borderBottom: i < 4 ? '1px solid rgba(255,255,255,0.06)' : 'none'
+              }}>
                 <div style={{ minWidth: 60 }}>
-                  <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: col,
-                    background: col + '18', borderRadius: 6, padding: '3px 7px' }}>{l.sev}</span>
+                  <span style={{
+                    fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: col,
+                    background: col + '18', borderRadius: 6, padding: '3px 7px'
+                  }}>{l.sev}</span>
                 </div>
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', marginBottom: 3 }}>{l.title}</div>
@@ -1101,11 +1198,11 @@ function ExplainabilityTab({ data }: { data: EvaluationMetrics }) {
   const [selectedTrace, setSelectedTrace] = useState<string | null>(null)
 
   const xaiKpis = [
-    { label: 'Decisions Traced',   value: system.total_decisions.toLocaleString(), sub: '100% coverage (every decision logged)', color: '#67e8f9' },
-    { label: 'Causal Links',       value: system.total_causal_links.toLocaleString(), sub: 'cross-agent propagations',           color: '#a78bfa' },
-    { label: 'Explanation Layers', value: '5',     sub: 'Technical · Business · Causal · Decision · Governance', color: '#34d399' },
-    { label: 'Audit Compliance',   value: '100%',  sub: 'Final Governance Gate (Stage 10)',                       color: '#fbbf24' },
-    { label: 'Avg Invoice Conf.',  value: `${num(invoice.avg_confidence, 1)}%`, sub: 'OCR + LLM extraction quality',             color: AC.invoice },
+    { label: 'Decisions Traced', value: system.total_decisions.toLocaleString(), sub: '100% coverage (every decision logged)', color: '#67e8f9' },
+    { label: 'Causal Links', value: system.total_causal_links.toLocaleString(), sub: 'cross-agent propagations', color: '#a78bfa' },
+    { label: 'Explanation Layers', value: '5', sub: 'Technical · Business · Causal · Decision · Governance', color: '#34d399' },
+    { label: 'Audit Compliance', value: '100%', sub: 'Final Governance Gate (Stage 10)', color: '#fbbf24' },
+    { label: 'Avg Invoice Conf.', value: `${num(invoice.avg_confidence, 1)}%`, sub: 'OCR + LLM extraction quality', color: AC.invoice },
   ]
 
   // Comprehension trend — static (qualitative research data, no live table for this)
@@ -1119,30 +1216,30 @@ function ExplainabilityTab({ data }: { data: EvaluationMetrics }) {
       id: 'T001', agent: 'reconciliation', label: 'Duplicate Invoice Detection',
       color: AC.reconciliation,
       layers: [
-        { name: 'Technical',  text: 'TF-IDF cosine similarity ≥ 0.85 threshold triggered. MiniLM-L6 embedding distance = 0.031. Both transactions: same vendor, same amount ±$12, within 3-day window.' },
-        { name: 'Business',   text: 'Probable duplicate AP payment detected. Halting would protect the cash balance from double-payment. Auto-HOLD applied pending controller confirmation.' },
-        { name: 'Causal',     text: 'Causal link written to credit agent (risk −20 pts). Cash agent AR forecast discounted by 15% for the 7-day window. Both downstream updates propagated automatically.' },
-        { name: 'Decision',   text: 'HOLD — transaction flagged. Audit log written. Controller notified. Decision logged to agent_decisions with full input_state JSON.' },
+        { name: 'Technical', text: 'TF-IDF cosine similarity ≥ 0.85 threshold triggered. MiniLM-L6 embedding distance = 0.031. Both transactions: same vendor, same amount ±$12, within 3-day window.' },
+        { name: 'Business', text: 'Probable duplicate AP payment detected. Halting would protect the cash balance from double-payment. Auto-HOLD applied pending controller confirmation.' },
+        { name: 'Causal', text: 'Causal link written to credit agent (risk −20 pts). Cash agent AR forecast discounted by 15% for the 7-day window. Both downstream updates propagated automatically.' },
+        { name: 'Decision', text: 'HOLD — transaction flagged. Audit log written. Controller notified. Decision logged to agent_decisions with full input_state JSON.' },
       ],
     },
     {
       id: 'T002', agent: 'invoice', label: 'High-Confidence Auto-Approval',
       color: AC.invoice,
       layers: [
-        { name: 'Technical',  text: `OCR extraction confidence: ${invoice.avg_confidence.toFixed(1)}% (above 85% threshold). All ${4} required fields extracted. 3-way PO/GRN/Invoice match: PASS.` },
-        { name: 'Business',   text: 'Invoice within approved departmental budget. Vendor has no overdue payables in past 12 months. Cash agent cleared liquidity gate.' },
-        { name: 'Causal',     text: 'No anomalies from Reconciliation agent. Budget agent confirmed remaining headroom. Approval does not trigger credit penalty chain.' },
-        { name: 'Decision',   text: 'AUTO-APPROVE. Payment scheduled T+2 days. All 3 agents concurred (Invoice, Cash, Budget). Logged to agent_decisions.' },
+        { name: 'Technical', text: `OCR extraction confidence: ${invoice.avg_confidence.toFixed(1)}% (above 85% threshold). All ${4} required fields extracted. 3-way PO/GRN/Invoice match: PASS.` },
+        { name: 'Business', text: 'Invoice within approved departmental budget. Vendor has no overdue payables in past 12 months. Cash agent cleared liquidity gate.' },
+        { name: 'Causal', text: 'No anomalies from Reconciliation agent. Budget agent confirmed remaining headroom. Approval does not trigger credit penalty chain.' },
+        { name: 'Decision', text: 'AUTO-APPROVE. Payment scheduled T+2 days. All 3 agents concurred (Invoice, Cash, Budget). Logged to agent_decisions.' },
       ],
     },
     {
       id: 'T003', agent: 'credit', label: 'Credit Score Reduction via Causal Chain',
       color: AC.credit,
       layers: [
-        { name: 'Technical',  text: `Deterministic formula: score = base_score − delay_weight × avg_delay − outstanding_weight × outstanding / 1000 − recon_penalty. Result: ${data.credit.avg_credit_score.toFixed(1)} avg.` },
-        { name: 'Business',   text: 'Client payment delay above threshold. Reconciliation anomaly penalty applied. Credit limit reduced to protect AR exposure.' },
-        { name: 'Causal',     text: 'Reconciliation → Credit (−20 pts penalty). Credit → Cash (AR forecast discount). All links written to causal_links table for full audit trail.' },
-        { name: 'Decision',   text: 'Credit limit reduced. Collections team notified. 30-day review scheduled. Logged to agent_decisions with input_state snapshot.' },
+        { name: 'Technical', text: `Deterministic formula: score = base_score − delay_weight × avg_delay − outstanding_weight × outstanding / 1000 − recon_penalty. Result: ${data.credit.avg_credit_score.toFixed(1)} avg.` },
+        { name: 'Business', text: 'Client payment delay above threshold. Reconciliation anomaly penalty applied. Credit limit reduced to protect AR exposure.' },
+        { name: 'Causal', text: 'Reconciliation → Credit (−20 pts penalty). Credit → Cash (AR forecast discount). All links written to causal_links table for full audit trail.' },
+        { name: 'Decision', text: 'Credit limit reduced. Collections team notified. 30-day review scheduled. Logged to agent_decisions with input_state snapshot.' },
       ],
     },
   ]
@@ -1219,12 +1316,12 @@ function ExplainabilityTab({ data }: { data: EvaluationMetrics }) {
         <SectionTitle icon={Shield} label="Audit Trail — Compliance Standards" color="#34d399" />
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 12 }}>
           {[
-            { label: 'Decision Log Format',      value: 'Structured JSON',   ok: true },
-            { label: 'Tamper-Proof Storage',      value: 'Supabase RLS',      ok: true },
-            { label: 'Human Override Logged',     value: '100% captured',     ok: true },
-            { label: 'Timestamp Precision',       value: 'ms-level UTC',      ok: true },
-            { label: 'Causal Chain Traceable',    value: 'via causal_links',  ok: true },
-            { label: 'Input/Output Snapshots',    value: 'per decision row',  ok: true },
+            { label: 'Decision Log Format', value: 'Structured JSON', ok: true },
+            { label: 'Tamper-Proof Storage', value: 'Supabase RLS', ok: true },
+            { label: 'Human Override Logged', value: '100% captured', ok: true },
+            { label: 'Timestamp Precision', value: 'ms-level UTC', ok: true },
+            { label: 'Causal Chain Traceable', value: 'via causal_links', ok: true },
+            { label: 'Input/Output Snapshots', value: 'per decision row', ok: true },
           ].map((item, i) => (
             <div key={i} style={{
               background: 'rgba(52,211,153,0.06)', border: '1px solid rgba(52,211,153,0.2)',

@@ -7,7 +7,7 @@ const DisputePortal: React.FC = () => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        fetch('http://localhost:8000/api/analytics/disputes')
+        fetch('/api/analytics/disputes')
             .then(res => res.json())
             .then(data => {
                 setDisputes(data);

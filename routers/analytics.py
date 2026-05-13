@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 from db.supabase_client import db
 from datetime import date
+import json
 from config import get_supabase
 
 router = APIRouter()
@@ -304,11 +305,11 @@ def get_evaluation_metrics():
     # ─── System / Agent-level metrics ─────────────────────────────────────────
     all_decisions = (
         client.table("agent_decisions")
-        .select("agent, confidence, decision_type, created_at")
+        .select("agent, confidence, decision_type, created_at, output_action")
         .execute()
         .data or []
     )
-    agents_list = ["invoice", "budget", "reconciliation", "credit", "cash"]
+    agents_list = ["invoice", "budget", "reconciliation", "credit", "cash", "governance"]
     per_agent = {}
     for ag in agents_list:
         ag_decs = [d for d in all_decisions if d.get("agent") == ag]
@@ -367,6 +368,24 @@ def get_evaluation_metrics():
         link_types[rt] = link_types.get(rt, 0) + 1
 
     coord_rate = total_links / max(1, total_decisions) * 100
+
+    # ─── Governance Agent ─────────────────────────────────────────────────────
+    violations = client.table("governance_violations").select("*").execute().data or []
+    gov_audits = [d for d in all_decisions if d.get("agent") == "governance"]
+    
+    avg_compliance = 0
+    if gov_audits:
+        scores = []
+        for a in gov_audits:
+            oa = a.get("output_action")
+            if isinstance(oa, dict):
+                scores.append(float(oa.get("compliance_score") or 0))
+            elif isinstance(oa, str):
+                try:
+                    scores.append(float(json.loads(oa).get("compliance_score") or 0))
+                except: pass
+        if scores:
+            avg_compliance = sum(scores) / len(scores)
 
     return {
         "generated_at": date.today().isoformat(),
@@ -430,4 +449,15 @@ def get_evaluation_metrics():
             "top_decision_types":     {ag: [{"type": t, "count": c} for t, c in items]
                                        for ag, items in top_decision_types.items()},
         },
+        "governance": {
+            "compliance_score": round(avg_compliance, 1),
+            "violation_count": len(violations),
+            "violation_rate": round((len(violations) / max(1, len(gov_audits))) * 100, 1),
+            "audit_count": len(gov_audits),
+            "severity_dist": {
+                "high": len([v for v in violations if v.get("severity") == "high"]),
+                "medium": len([v for v in violations if v.get("severity") == "medium"]),
+                "low": len([v for v in violations if v.get("severity") == "low"])
+            }
+        }
     }

@@ -9,6 +9,7 @@ from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from utils.auth import create_access_token
+from fastapi.responses import RedirectResponse
 import os
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
@@ -19,6 +20,11 @@ app = FastAPI(
     description="Multi-agent LLM financial automation system (V3)",
     version="0.3.0",
 )
+
+@app.get("/")
+async def root():
+    """Redirect root to /docs for easier navigation."""
+    return RedirectResponse(url="/docs")
 
 
 @app.on_event("startup")
@@ -57,7 +63,7 @@ def health():
     return {"status": "ok", "system": "FAgentLLM v3 (10/10 Architecture)"}
 
 # -- Routers --
-from routers import invoice, budget, cash, reconciliation, credit, payment, departments, analytics
+from routers import invoice, budget, cash, reconciliation, credit, payment, departments, analytics, governance
 
 app.include_router(invoice.router,        prefix="/api/invoice",        tags=["Invoice"])
 app.include_router(budget.router,         prefix="/api/budget",         tags=["Budget"])
@@ -68,3 +74,4 @@ app.include_router(payment.router,        prefix="/api/payment",        tags=["P
 
 app.include_router(departments.router,    prefix="/api/departments",    tags=["Departments"])
 app.include_router(analytics.router,      prefix="/api/analytics",      tags=["Analytics"])
+app.include_router(governance.router,     prefix="/api/governance",     tags=["Governance"])

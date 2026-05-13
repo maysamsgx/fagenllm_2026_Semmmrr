@@ -41,7 +41,7 @@ export default function App() {
           <div className="brand-icon">
             <img
               className="brand-logo-img"
-              src="/assets/brand-logo.png"
+              src="/assets/logo_FAgentLLM_m.png"
               alt="FAgentLLM Logo"
             />
           </div>
@@ -58,12 +58,12 @@ export default function App() {
               className={`nav-item ${tab === n.id ? 'active' : ''}`}
               onClick={() => setTab(n.id)}
             >
-              <span className="nav-icon" style={{ minWidth: '40px', minHeight: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span className="nav-icon" style={{ minWidth: '54px', minHeight: '54px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <img
                   className="nav-avatar"
                   src={getAgentAvatar(n.id)}
                   alt={`${n.label} avatar`}
-                  style={{ width: '40px', height: '40px', objectFit: 'contain' }}
+                  style={{ width: '54px', height: '54px', objectFit: 'contain' }}
                   onError={(e) => { e.currentTarget.src = getLegacyAgentAvatar(n.id) }}
                 />
               </span>

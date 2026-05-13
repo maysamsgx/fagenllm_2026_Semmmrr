@@ -322,6 +322,12 @@ export const analyticsApi = {
   reconciliation: () => req<any[]>('/analytics/reconciliation'),
 }
 
+export const governanceApi = {
+  violations: () => req<any[]>('/governance/violations'),
+  auditLog: () => req<any[]>('/governance/audit-log'),
+  stats: () => req<any>('/governance/stats'),
+}
+
 export interface EvaluationMetrics {
   generated_at: string
   invoice: {
@@ -378,6 +384,13 @@ export interface EvaluationMetrics {
     relationship_type_distribution: Record<string, number>
     decision_timeline: Record<string, number | string>[]
     top_decision_types: Record<string, { type: string; count: number }[]>
+  }
+  governance: {
+    compliance_score: number
+    violation_count: number
+    violation_rate: number
+    audit_count: number
+    severity_dist: { high: number; medium: number; low: number }
   }
 }
 

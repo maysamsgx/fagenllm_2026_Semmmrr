@@ -336,12 +336,8 @@ def qwen_structured_with_reflection(system_prompt: str, user_prompt: str, schema
     )
     
     reflection_user = f"""
-    Review this financial decision for errors:
+    Review this financial decision for logical errors, causal consistency, and proportionate action:
     {json.dumps(first_answer.model_dump(), indent=2)}
-    
-    Context:
-    System Prompt: {system_prompt}
-    User Request: {user_prompt}
     
     Does the causal explanation match the evidence? Is the decision proportionate?
     Return ONLY the final (corrected) JSON object matching the schema.
