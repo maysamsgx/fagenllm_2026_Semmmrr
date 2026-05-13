@@ -45,6 +45,7 @@ Return a JSON object with exactly these fields (use null if not found):
   "currency": "USD or detected currency code",
   "tax_amount": number_or_null,
   "subtotal": number_or_null,
+  "department_id": "engineering | marketing | sales | operations | finance | hr | it | rnd (classify based on vendor activity)",
   "line_items": [
     {{
       "description": "string",

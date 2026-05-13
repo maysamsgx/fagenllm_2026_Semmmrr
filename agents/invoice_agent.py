@@ -207,7 +207,8 @@ def _handle_new_invoice(state: FinancialState, invoice_id: str) -> FinancialStat
         confidence=confidence,
     )
     db.log_causal_link(ocr_id, extract_id, "enables_extraction",
-                       "OCR output enabled the structured field extraction.")
+                       "OCR output enabled the structured field extraction.",
+                       strength=ocr_confidence/100.0)
 
     # ── 3. Validation summary (vendor risk gate) ─────────────────────────
     # Persistent Agent Memory: Read historical context for this vendor
@@ -249,9 +250,13 @@ def _handle_new_invoice(state: FinancialState, invoice_id: str) -> FinancialStat
         confidence=confidence,
     )
     db.log_causal_link(extract_id, valid_id, "enables_validation",
-                       "Extracted fields enabled vendor-risk validation.")
+                       "Extracted fields enabled vendor-risk validation.",
+                       strength=confidence/100.0)
 
-    department_id = invoice.get("department_id") or "engineering"
+    # Use the department extracted by the LLM, with a smarter fallback logic (V4)
+    extracted_dept = extracted.get("department_id")
+    department_id = extracted_dept if extracted_dept in [d[0] for d in db.select("departments")] else (invoice.get("department_id") or "engineering")
+
     db.update("invoices", {"id": invoice_id}, {
         "status": "awaiting_approval",
         "department_id": department_id,
@@ -400,7 +405,8 @@ def _apply_routing_decision(
     if invoice_ctx.get("decision_id"):
         db.log_causal_link(invoice_ctx["decision_id"], route_id,
                            "enables_approval" if level != "rejected" else "blocks_approval",
-                           "Validation decision drove the final approval routing.")
+                           "Validation decision drove the final approval routing.",
+                           strength=confidence/100.0)
 
     if level == "auto" and invoice_ctx.get("amount"):
         try:

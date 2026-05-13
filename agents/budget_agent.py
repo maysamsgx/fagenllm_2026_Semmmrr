@@ -40,6 +40,7 @@ def budget_node(state: FinancialState) -> FinancialState:
 def _inv_perceive(state: FinancialState) -> dict:
     budget_ctx  = state.get("budget", {})
     invoice_ctx = state.get("invoice", {})
+    inv_id   = invoice_ctx.get("invoice_id", "system")
     dept_id  = budget_ctx.get("department_id") or invoice_ctx.get("department_id")
     if not dept_id:
         # Improved V4: Try to derive department from the invoice object in DB
@@ -51,7 +52,6 @@ def _inv_perceive(state: FinancialState) -> dict:
     # Final fallback if still missing
     dept_id = dept_id or "engineering" 
     period   = budget_ctx.get("period") or _current_period()
-    inv_id   = invoice_ctx.get("invoice_id", "system")
     amount   = float(invoice_ctx.get("amount", 0) or 0)
     budget   = db.get_budget(dept_id, period)
     return {
