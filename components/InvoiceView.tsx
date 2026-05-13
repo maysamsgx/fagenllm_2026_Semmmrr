@@ -13,6 +13,13 @@ const STAT_DEFS: { key: 'pending' | 'awaiting_approval' | 'approved' | 'rejected
   { key: 'rejected',          label: 'Rejected',          icon: XCircle,     tint: '#fb7185' },
 ]
 
+const GOV_COLOR: Record<string, string> = {
+  passed: '#34d399',
+  flagged: '#fbbf24',
+  blocked: '#fb7185',
+  pending: '#94a3b8'
+}
+
 export default function InvoiceView() {
   const [invoices, setInvoices]     = useState<Invoice[]>([])
   const [loading, setLoading]       = useState(true)
@@ -90,6 +97,22 @@ export default function InvoiceView() {
             </Card>
           )
         })}
+        <Card>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div className="stat-label">Audit Safety</div>
+            <div style={{
+              width: 28, height: 28, borderRadius: 8,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: 'rgba(52, 211, 153, 0.12)', color: '#34d399', border: '1px solid rgba(52, 211, 153, 0.3)',
+            }}>
+              <ShieldCheck size={14} strokeWidth={2.5} />
+            </div>
+          </div>
+          <div className="stat-value" style={{ color: '#34d399', marginTop: 6 }}>
+            {invoices.filter(i => i.governance_status === 'passed').length} / {invoices.length}
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--text-4)', marginTop: 4 }}>Compliance passed</div>
+        </Card>
       </div>
 
       {loading ? <Spinner /> : invoices.length === 0 ? (
@@ -105,6 +128,7 @@ export default function InvoiceView() {
                 <th>Status</th>
                 <th style={{ textAlign: 'center' }}>Cash</th>
                 <th style={{ textAlign: 'center' }}>Budget</th>
+                <th>Auditor</th>
                 <th>Confidence</th>
                 <th style={{ textAlign: 'right' }}>Actions</th>
               </tr>
@@ -156,6 +180,14 @@ export default function InvoiceView() {
                         : inv.budget_check_passed
                           ? <CheckCircle size={15} color="#34d399" style={{ filter: 'drop-shadow(0 0 4px rgba(52,211,153,.5))' }} />
                           : <XCircle size={15} color="#fb7185" style={{ filter: 'drop-shadow(0 0 4px rgba(251,113,133,.5))' }} />}
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <div style={{ width: 6, height: 6, borderRadius: '50%', background: GOV_COLOR[inv.governance_status || 'pending'] }} />
+                        <span style={{ fontSize: 11, fontWeight: 600, color: GOV_COLOR[inv.governance_status || 'pending'], textTransform: 'capitalize' }}>
+                          {inv.governance_status || 'pending'}
+                        </span>
+                      </div>
                     </td>
                     <td>
                       {conf != null ? (

@@ -157,7 +157,7 @@ def _perceive(state: FinancialState) -> dict:
     total_balance = sum(float(a.get("current_balance", 0) or 0) for a in accounts)
 
     inflows  = _projected_inflows(days=CASH.near_window_days)
-    outflows = _projected_outflows(days=CASH.near_window_days, exclude_id=invoice_id)
+    outflows = _projected_outflows(days=CASH.near_window_days, exclude_id=invoice_id, state=state)
 
     return {
         "invoice_ctx":    invoice_ctx,
@@ -193,7 +193,10 @@ def _decide(_state: FinancialState, percept: dict, _llm_out) -> dict:
 
     projected_next = tb + i - o
     balance_after  = projected_next - amt
-    can_approve    = balance_after > mb
+    
+    # Scenario 1, Step 4: Identify projected cash shortfall
+    is_shortfall = balance_after < mb
+    can_approve    = not is_shortfall
     headroom       = balance_after - mb
 
     return {
@@ -201,7 +204,8 @@ def _decide(_state: FinancialState, percept: dict, _llm_out) -> dict:
         "projected_next":  projected_next,
         "balance_after":   balance_after,
         "headroom":        headroom,
-        "verdict_word":    "headroom of" if can_approve else "shortfall of",
+        "is_shortfall":    is_shortfall,
+        "verdict_word":    "headroom of" if can_approve else "PROJECTED SHORTFALL of",
         "next_agent":      "budget",
     }
 
@@ -435,12 +439,25 @@ def _projected_inflows(days: int = 7) -> float:
     return (near_receivables * 0.4) + (wma * 0.6) + far_receivables
 
 
-def _projected_outflows(days: int = 7, exclude_id: str = "") -> float:
+def _projected_outflows(days: int = 7, exclude_id: str = "", state: FinancialState | None = None) -> float:
+    """
+    Scenario 3, Step 6: Cash Management Agent reflects anticipated spending controls
+    by revising the department’s short-term expenditure forecast.
+    """
     start = date.today().isoformat()
     end   = (date.today() + timedelta(days=days)).isoformat()
     rows  = db.select("invoices", {"status": "approved"})
-    return sum(
+    
+    # Check for budget breach in state to apply "spending controls"
+    budget_ctx = (state or {}).get("budget", {})
+    spending_multiplier = 1.0
+    if budget_ctx.get("budget_breach"):
+        # Apply a conservative 20% reduction to forecasted outflows to reflect tightening controls
+        spending_multiplier = 0.8
+    
+    base_outflow = sum(
         float(r.get("total_amount", 0))
         for r in rows
         if r["id"] != exclude_id and start <= (r.get("due_date") or "") <= end
     )
+    return base_outflow * spending_multiplier

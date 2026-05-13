@@ -155,7 +155,7 @@ def get_recon_causal_trace(report_id: str):
         next_frontier = []
         for dec_id in frontier:
             links = (supabase.table("causal_links")
-                     .select("*")
+                     .select("id, cause_decision_id, effect_decision_id, relationship_type, strength, explanation, created_at")
                      .or_(f"cause_decision_id.eq.{dec_id},effect_decision_id.eq.{dec_id}")
                      .execute().data) or []
             all_links.extend(links)

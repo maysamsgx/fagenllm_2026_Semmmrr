@@ -6,7 +6,7 @@ The shared "brain" of the system. This dict flows through all the agents.
 from typing import TypedDict, Literal, Any, List, Dict, Optional
 from enum import Enum
 
-AgentName = Literal["supervisor", "invoice", "budget", "reconciliation", "credit", "cash"]
+AgentName = Literal["supervisor", "invoice", "budget", "reconciliation", "credit", "cash", "governance"]
 AgentStatus = Literal["idle", "running", "done", "error"]
 
 class TriggerType(str, Enum):
@@ -75,6 +75,14 @@ class CashContext(TypedDict, total=False):
     liquidity_note: str
     decision_id: str
 
+class GovernanceContext(TypedDict, total=False):
+    """State populated by the Governance Auditor (Objective 10)."""
+    compliance_score: int          # 0-100
+    status: str                    # "passed", "flagged", "blocked"
+    findings: List[str]
+    is_audit_safe: bool
+    decision_id: str
+
 
 class FinancialState(TypedDict, total=False):
     # This is the big one. It holds everything from control flow to agent-specific data.
@@ -93,6 +101,7 @@ class FinancialState(TypedDict, total=False):
     reconciliation: ReconciliationContext
     credit: CreditContext
     cash: CashContext
+    governance: GovernanceContext
 
     # Causal Graph tracking
     # Mapping of agent name -> last decision ID in this run
@@ -118,6 +127,7 @@ def initial_state(trigger: str, entity_id: str) -> FinancialState:
         reconciliation={},
         credit={},
         cash={},
+        governance={},
         decision_ids={},
         reasoning_trace=[],
         error=None,

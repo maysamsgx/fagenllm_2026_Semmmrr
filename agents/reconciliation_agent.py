@@ -87,28 +87,39 @@ def _run_reconciliation(state: FinancialState) -> FinancialState:
         external_vectors = vectorizer.transform([tx_to_string(t) for t in bank_txs])
         sim_matrix       = cosine_similarity(internal_vectors, external_vectors)
 
-        # ── Stage 2: Semantic Matching (for low-confidence TF-IDF items) ─────
+        # ── Persistent Memory: Vector-DB-Backed Matching (Stage 2) ───────────────────
         model = get_sentence_model()
-        if model:
-            internal_emb = model.encode([tx_to_string(t) for t in internal_txs], convert_to_tensor=True)
-            external_emb = model.encode([tx_to_string(t) for t in bank_txs], convert_to_tensor=True)
-            from sentence_transformers.util import cos_sim
-            semantic_sim = cos_sim(internal_emb, external_emb).cpu().numpy()
-        else:
-            semantic_sim = None
-
+        
         for i, tx in enumerate(internal_txs):
-            tfidf_max = float(np.max(sim_matrix[i])) if sim_matrix.shape[1] > 0 else 0.0
+            # 1. Ensure embedding exists for internal tx
+            emb = tx.get("embedding")
+            if not emb and model:
+                emb = model.encode(tx_to_string(tx)).tolist()
+                db.update("transactions", {"id": tx["id"]}, {"embedding": emb})
+                tx["embedding"] = emb
             
-            # Combine scores: pick the best of TF-IDF or Semantic
-            semantic_max = float(np.max(semantic_sim[i])) if semantic_sim is not None and semantic_sim.shape[1] > 0 else 0.0
-            best_sim = max(tfidf_max, semantic_max)
+            # 2. Vector search in DB for best bank match
+            best_sim = 0.0
+            match_type = "tfidf"
+            
+            # Start with TF-IDF from the current batch (Stage 1)
+            tfidf_max = float(np.max(sim_matrix[i])) if sim_matrix.shape[1] > 0 else 0.0
+            best_sim = tfidf_max
+            
+            # If TF-IDF is weak, try Vector Search in the DB (Stage 2)
+            if best_sim < RECON.match_threshold and emb:
+                vector_matches = db.vector_search_transactions(emb, threshold=0.1, count=1, source="bank")
+                if vector_matches:
+                    v_match = vector_matches[0]
+                    if v_match["similarity"] > best_sim:
+                        best_sim = v_match["similarity"]
+                        match_type = "vector"
             
             tx["sim_score"] = best_sim
-            tx["match_type"] = "tfidf" if tfidf_max >= semantic_max else "semantic"
+            tx["match_type"] = match_type
             
-            # Use appropriate threshold based on match type
-            threshold = RECON.match_threshold if tx["match_type"] == "tfidf" else RECON.semantic_match_threshold
+            # Use appropriate threshold
+            threshold = RECON.match_threshold if match_type == "tfidf" else RECON.semantic_match_threshold
             
             if best_sim >= threshold:
                 tx["matched"] = True
@@ -126,7 +137,19 @@ def _run_reconciliation(state: FinancialState) -> FinancialState:
     from utils.llm import qwen_structured
     from utils.prompts import reconciliation_anomaly_prompt
 
+    # Persistent Agent Memory: Read semantic memories for context
+    past_anomalies_ctx = ""
+    potential_cids = _find_customers(anomalies)
+    for cid in potential_cids:
+        memories = db.get_recent_memories("reconciliation", cid, limit=1)
+        if memories:
+            m = memories[0]
+            past_anomalies_ctx += f" [Memory: In {m['content'].get('period')}, customer had {m['content'].get('anomaly_count')} anomalies. Note: {m['content'].get('summary')}]"
+
     base_system, user = reconciliation_anomaly_prompt(anomalies, period)
+    if past_anomalies_ctx:
+        user = "HISTORICAL CONTEXT: " + past_anomalies_ctx + "\n\n" + user
+        
     system            = inject_directive(base_system, "reconciliation")
     analysis          = qwen_structured(system, user, ReconciliationOutput)
 
@@ -232,6 +255,27 @@ def _run_reconciliation(state: FinancialState) -> FinancialState:
     # We find ALL customers involved in systematic anomalies
     affected_customer_ids = _find_customers(anomalies) if systematic else []
     
+    # Thesis Improvement: Dynamic Penalty Calculation
+    # We calculate the specific frequency of anomalies per customer to drive
+    # a more granular credit risk penalty.
+    customer_anomaly_counts = {}
+    if systematic:
+        for a in anomalies:
+            for cid in affected_customer_ids:
+                # Basic string matching check to attribute anomaly to customer
+                cust = next((c for c in db.select("customers") if c["id"] == cid), None)
+                if cust and (cust["name"].lower() in (a.get("description") or "").lower() or 
+                             cust["name"].lower() in (a.get("counterparty") or "").lower()):
+                    customer_anomaly_counts[cid] = customer_anomaly_counts.get(cid, 0) + 1
+
+        # Persistent Agent Memory: Record semantic memory for systematic anomalies
+        for cid, count in customer_anomaly_counts.items():
+            db.store_memory("reconciliation", {
+                "period": period,
+                "anomaly_count": count,
+                "summary": analysis.business_explanation
+            }, memory_type="semantic", entity_id=cid)
+
     # If multiple customers are affected, the graph currently only processes one at a time.
     # We'll pick the one with the most anomalies for this run.
     target_customer_id = affected_customer_ids[0] if affected_customer_ids else None
@@ -248,6 +292,7 @@ def _run_reconciliation(state: FinancialState) -> FinancialState:
             "decision_id":   decision_id,
             "anomaly_summary": analysis.business_explanation,
             "anomalous_customer_ids": affected_customer_ids,
+            "customer_anomaly_counts": customer_anomaly_counts, # V4: Granular metrics
         },
         "reasoning_trace": trace,
         "credit": {**state.get("credit", {}), "customer_id": target_customer_id or ""},

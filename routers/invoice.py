@@ -80,9 +80,27 @@ def list_invoices(status: str = None, department_id: str = None):
     if status: query = query.eq("status", status)
     if department_id: query = query.eq("department_id", department_id)
     data = query.execute().data
-    for item in data:
-        item["vendor_name"] = item.get("vendors", {}).get("name") if item.get("vendors") else None
-        item["department"] = item.get("department_id")
+    
+    # Enrich with latest governance status
+    invoice_ids = [i["id"] for i in data]
+    if invoice_ids:
+        # Fetch latest governance decisions for these invoices
+        # We look for agent='governance' and entity_id in our list
+        audit_decisions = (supabase.table("agent_decisions")
+                          .select("entity_id, output_action")
+                          .eq("agent", "governance")
+                          .in_("entity_id", invoice_ids)
+                          .order("created_at", desc=True)
+                          .execute().data)
+        
+        # Create a mapping
+        audit_map = {d["entity_id"]: d["output_action"].get("status", "pending") for d in audit_decisions}
+        
+        for item in data:
+            item["governance_status"] = audit_map.get(item["id"], "pending")
+            item["vendor_name"] = item.get("vendors", {}).get("name") if item.get("vendors") else None
+            item["department"] = item.get("department_id")
+    
     return data
 
 @router.post("/{invoice_id}/approve")
@@ -92,6 +110,16 @@ def approve_invoice(invoice_id: str, body: ApproveRequest):
     
     db.update("invoices", {"id": invoice_id}, {"status": "approved"})
     db.log_agent_decision("invoice", "manually_approved", "invoices", invoice_id, f"Approved by {body.approver_id}. {body.notes}")
+    
+    # Scenario 1, Step 7: Update cash flow forecast to reflect the newly committed liability
+    try:
+        from agents.graph import graph
+        from agents.state import initial_state
+        state = initial_state("cash_position_refresh", invoice_id)
+        graph.invoke(state)
+    except Exception:
+        pass
+
     return {"status": "approved"}
 
 @router.get("/{invoice_id}/causal-trace")
@@ -118,7 +146,7 @@ def get_causal_trace(invoice_id: str):
     if dec_ids:
         in_list = ",".join(dec_ids)
         links = (supabase.table("causal_links")
-                 .select("*")
+                 .select("id, cause_decision_id, effect_decision_id, relationship_type, strength, explanation, created_at")
                  .or_(f"cause_decision_id.in.({in_list}),effect_decision_id.in.({in_list})")
                  .execute().data) or []
 

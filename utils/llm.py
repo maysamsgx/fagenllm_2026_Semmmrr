@@ -320,6 +320,36 @@ def qwen_structured(system_prompt: str, user_prompt: str, schema: Type[T]) -> T:
     raise ValueError("Qwen3 returned non-JSON output even after corrective retry.")
 
 
+def qwen_structured_with_reflection(system_prompt: str, user_prompt: str, schema: Type[T]) -> T:
+    """
+    Cognitive Architecture: Reflection Pass (Persistent Memory Pattern).
+    First calls qwen_structured, then asks the model to review its own reasoning.
+    """
+    # 1. Initial reasoning pass
+    first_answer = qwen_structured(system_prompt, user_prompt, schema)
+    
+    # 2. Self-reflection pass
+    reflection_system = (
+        "You are a senior financial auditor. Review the following decision for logical errors, "
+        "causal consistency, and proportionate action. If the reasoning is sound, return the same JSON. "
+        "If you find errors, return a corrected JSON object."
+    )
+    
+    reflection_user = f"""
+    Review this financial decision for errors:
+    {json.dumps(first_answer.model_dump(), indent=2)}
+    
+    Context:
+    System Prompt: {system_prompt}
+    User Request: {user_prompt}
+    
+    Does the causal explanation match the evidence? Is the decision proportionate?
+    Return ONLY the final (corrected) JSON object matching the schema.
+    """
+    
+    return qwen_structured(reflection_system, reflection_user, schema)
+
+
 def qwen_explain(context: str, question: str) -> str:
     system = (
         "You are a financial AI assistant. Explain financial decisions clearly "

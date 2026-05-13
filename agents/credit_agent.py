@@ -36,6 +36,33 @@ def calculate_penalty(risk_level: str | None, delay_days: float) -> float:
     return 0.0
 
 
+def calculate_dynamic_penalty(anomaly_count: int, avg_variance: float = 0.0) -> float:
+    """
+    Thesis Improvement: Dynamic, severity-weighted reconciliation penalty.
+
+    Replaces the legacy flat 20pt penalty with a graduated formula:
+      - Base hit: 15 pts for any reconciliation anomaly
+      - +5 pts per additional recurring anomaly beyond the first
+      - +0.1 pts per unit of average variance (forensic severity multiplier)
+      - Hard cap: 50 pts to prevent runaway score destruction
+
+    Args:
+        anomaly_count:  Number of unmatched/anomalous transactions attributed to
+                        this customer in the current reconciliation run.
+        avg_variance:   Mean absolute dollar variance across those anomalies.
+                        Pass 0.0 if not available (legacy path).
+
+    Returns:
+        Penalty points to subtract from the credit score (0–50).
+    """
+    if anomaly_count <= 0:
+        return 0.0
+    base    = 15.0
+    freq    = 5.0 * max(0, anomaly_count - 1)   # +5 per additional anomaly
+    severity = min(10.0, 0.1 * avg_variance)      # +0.1/variance unit, capped at 10
+    return min(50.0, base + freq + severity)
+
+
 def credit_node(state: FinancialState) -> FinancialState:
     trigger = state.get("trigger", "customer_payment_check")
     if trigger in ("customer_payment_check", "daily_reconciliation"):
@@ -56,21 +83,33 @@ def _assess_customer(state: FinancialState) -> FinancialState:
         return {**state, "next_agent": END, "error": "Customer not found"}
 
     from utils.contracts import DecisionOutput
-    from utils.llm import qwen_structured
+    from utils.llm import qwen_structured_with_reflection as qwen_structured
 
-    # ── Deterministic scoring (Decision module) ───────────────────────────────
+    # ── Cognitive Architecture: Memory (Persistent Memory Pattern) ──────────────────
+    # Fetch last 3 risk assessments for this customer to provide historical context
+    past_memories = db.get_recent_memories("credit", customer_id, limit=3)
+    history_ctx = ""
+    if past_memories:
+        history_ctx = "\nHISTORICAL CONTEXT (Past Decisions):\n"
+        for m in past_memories:
+            c = m.get("content", {})
+            history_ctx += f"- {m.get('created_at')[:10]}: Score {c.get('score')}, Risk {c.get('risk_level')}. Decision: {c.get('decision')}\n"
     f1 = float(customer.get("payment_delay_avg", 5.0))
     f2 = float(customer.get("total_outstanding", 5000.0)) / 1000.0
     
-    # V3: Add reconciliation penalty (f3) if systematic issues were found for this customer
+    # V3: Add dynamic reconciliation penalty (f3) if systematic issues were found
     f3 = 0.0
+    anomaly_count = 0
     recon_summary = None
     if recon_ctx.get("decision_id") and customer_id in recon_ctx.get("anomalous_customer_ids", []):
-        # We apply the penalty logic based on current state
-        f3 = calculate_penalty(customer.get("risk_level"), f1)
-        # Ensure a minimum 20pt penalty if it's systematic
-        f3 = max(f3, 20.0) 
+        # Thesis Improvement: Granular Forensic Penalty.
+        # Use calculate_dynamic_penalty() — single source of truth for the formula.
+        anomaly_count = recon_ctx.get("customer_anomaly_counts", {}).get(customer_id, 1)
+        f3 = calculate_dynamic_penalty(anomaly_count)
+
         recon_summary = recon_ctx.get("anomaly_summary")
+        if anomaly_count > 1:
+            recon_summary = f"{recon_summary} (Detected {anomaly_count} recurring anomalies for this customer; dynamic penalty: {f3:.1f}pt)"
 
     score = max(0.0, min(100.0,
         CREDIT.base_score + (-CREDIT.delay_weight * f1) + (-CREDIT.outstanding_weight * f2) - f3
@@ -117,20 +156,37 @@ def _assess_customer(state: FinancialState) -> FinancialState:
         pass  # graceful degradation
 
     base_system, user = _crp(customer, payment_history, score, recon_summary, f1, f2, f3)
+    # Inject historical memory context into the user prompt
+    if history_ctx:
+        user = history_ctx + "\n" + user
+        
     system = inject_directive(base_system, "credit")
     assessment = qwen_structured(system, user, DecisionOutput)
+
+    # Store this assessment in memory for future runs (Episodic Memory)
+    db.store_memory("credit", {
+        "score": round(score, 2),
+        "risk_level": risk_level,
+        "decision": assessment.decision
+    }, memory_type="episodic", entity_id=customer_id)
 
     input_state = {
         "current_score": score,
         "interpretable_model": {
-            "formula": "R = min(100, max(0, base - delay_weight×f1 - outstanding_weight×f2 - recon_penalty))",
+            "formula": "R = min(100, max(0, base - delay_weight×f1 - outstanding_weight×f2 - dynamic_recon_penalty))",
             "base_score": CREDIT.base_score,
             "weights": {
-                "delay_weight":       CREDIT.delay_weight,
-                "outstanding_weight": CREDIT.outstanding_weight,
-                "recon_penalty_flat": 20.0 if f3 > 0 else 0.0,
+                "delay_weight":         CREDIT.delay_weight,
+                "outstanding_weight":   CREDIT.outstanding_weight,
+                # Dynamic penalty — accurately reflects the graduated formula
+                "recon_penalty_dynamic": round(f3, 2),
             },
-            "factors": {"f1_delay_days": f1, "f2_outstanding_k": f2, "f3_recon_issue": f3 > 0},
+            "factors": {
+                "f1_delay_days":    f1,
+                "f2_outstanding_k": f2,
+                "f3_recon_penalty": round(f3, 2),
+                "anomaly_count":    anomaly_count,
+            },
         }
     }
 
@@ -152,11 +208,16 @@ def _assess_customer(state: FinancialState) -> FinancialState:
     if recon_ctx.get("decision_id"):
         link_explanation = f"Systematic reconciliation anomalies for {customer.get('name')} triggered forensic risk reassessment."
         if f3 > 0:
-            link_explanation = f"Cross-domain anomaly signal detected: 20pt risk penalty applied to {customer.get('name')} due to systematic settlement delays."
-        
+            link_explanation = (
+                f"Cross-domain anomaly signal: {anomaly_count} reconciliation anomaly(ies) detected for "
+                f"'{customer.get('name')}'. Dynamic penalty of {f3:.1f}pt applied via "
+                f"calculate_dynamic_penalty(anomaly_count={anomaly_count}) — "
+                f"formula: 15 base + 5×(n-1) recurring hits, capped at 50."
+            )
+
         db.log_causal_link(
-            recon_ctx["decision_id"], 
-            decision_id, 
+            recon_ctx["decision_id"],
+            decision_id,
             "elevates_risk",
             link_explanation
         )

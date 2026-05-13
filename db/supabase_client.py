@@ -21,6 +21,20 @@ class SupabaseDB:
         result = self._ensure_client().table("invoices").select("*, vendors(name)").eq("id", invoice_id).execute()
         return result.data[0] if result.data else None
 
+    def find_duplicate_invoice(self, vendor_id: str, invoice_number: str) -> Optional[Dict[str, Any]]:
+        """
+        Thesis Improvement: Fraud Prevention Layer.
+        Checks for an existing invoice with the same vendor and number to prevent double-payment.
+        We check for any status that indicates the invoice is being or has been processed.
+        """
+        res = self._ensure_client().table("invoices") \
+            .select("*") \
+            .eq("vendor_id", vendor_id) \
+            .eq("invoice_number", invoice_number) \
+            .in_("status", ["approved", "paid", "awaiting_approval"]) \
+            .execute()
+        return res.data[0] if res.data else None
+
     def update_invoice_status(self, invoice_id: str, status: str, extra_data: Dict[str, Any] | None = None):
         update_data = {"status": status}
         if extra_data:
@@ -161,6 +175,7 @@ class SupabaseDB:
         return res.data[0]["id"]
 
     def log_causal_link(self, cause_id: str, effect_id: str, rel_type: str, explanation: str, strength: float = 1.0):
+        """Records a directed edge between two agent decisions."""
         link_data = {
             "cause_decision_id": cause_id,
             "effect_decision_id": effect_id,
@@ -169,6 +184,44 @@ class SupabaseDB:
             "strength": strength
         }
         return self._ensure_client().table("causal_links").insert(link_data).execute()
+    
+    # -- Persistent Agent Memory & Vector Patterns (V4) --
+
+    def store_memory(self, agent: str, content: Dict[str, Any], memory_type: str = "episodic", entity_id: str | None = None):
+        data = {
+            "agent": agent,
+            "content": content,
+            "memory_type": memory_type,
+            "entity_id": entity_id
+        }
+        try:
+            return self.insert("agent_memory", data)
+        except Exception as e:
+            import logging
+            logging.getLogger("fagentllm").warning(f"Could not store memory: {e}")
+            return None
+
+    def get_recent_memories(self, agent: str, entity_id: str | None = None, limit: int = 5) -> List[Dict[str, Any]]:
+        try:
+            query = self._ensure_client().table("agent_memory").select("*").eq("agent", agent)
+            if entity_id:
+                query = query.eq("entity_id", entity_id)
+            res = query.order("created_at", desc=True).limit(limit).execute()
+            return res.data
+        except Exception as e:
+            import logging
+            logging.getLogger("fagentllm").warning(f"Could not fetch memories: {e}")
+            return []
+
+    def vector_search_transactions(self, embedding: List[float], threshold: float = 0.7, count: int = 5, source: str = "bank") -> List[Dict[str, Any]]:
+        params = {
+            "query_embedding": embedding,
+            "match_threshold": threshold,
+            "match_count": count,
+            "p_source": source
+        }
+        res = self._ensure_client().rpc("match_transactions", params).execute()
+        return res.data
 
     def get_latest_snapshot(self) -> Optional[Dict[str, Any]]:
         res = self._ensure_client().table("financial_state_snapshots") \

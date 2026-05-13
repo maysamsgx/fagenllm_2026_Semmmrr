@@ -31,6 +31,7 @@ from agents.budget_agent import budget_node
 from agents.reconciliation_agent import reconciliation_node
 from agents.credit_agent import credit_node
 from agents.cash_agent import cash_node
+from agents.governance_agent import governance_node
 
 # Mapping the short names we use in the code to the actual node names in the graph.
 NODE_MAP = {
@@ -40,6 +41,7 @@ NODE_MAP = {
     "reconciliation": "agent_reconciliation",
     "credit":         "agent_credit",
     "cash":           "agent_cash",
+    "governance":     "agent_governance",
 }
 
 
@@ -50,7 +52,14 @@ def route(state: FinancialState) -> str:
         return END
 
     next_agent = state.get("next_agent", "")
-    return next_agent if next_agent in NODE_MAP else END
+    if next_agent in NODE_MAP:
+        return next_agent
+        
+    # If finishing, run the final governance audit (Stage 10 Defense)
+    if state.get("current_agent") != "governance":
+        return "governance"
+
+    return END
 
 
 def build_graph() -> StateGraph:
@@ -64,6 +73,7 @@ def build_graph() -> StateGraph:
     builder.add_node("agent_reconciliation", reconciliation_node)
     builder.add_node("agent_credit",         credit_node)
     builder.add_node("agent_cash",           cash_node)
+    builder.add_node("agent_governance",     governance_node)
 
     # ── Entry point ───────────────────────────────────────────────────────────
     builder.set_entry_point("agent_supervisor")

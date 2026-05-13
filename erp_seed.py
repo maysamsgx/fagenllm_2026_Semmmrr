@@ -11,7 +11,7 @@ What it does NOT seed (by design - our agents must generate these):
   - budget_alerts
   - reconciliation_reports
 
-Engineered scenarios (so you have testable cases):
+Engineered scenarios:
   S1: Clean approvals (~60% of AP invoices)
   S2: Budget-breach invoices (~15%) - push departments past 90% threshold
   S3: Cash-tight large invoices (~5%)

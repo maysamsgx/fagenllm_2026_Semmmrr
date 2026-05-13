@@ -87,6 +87,7 @@ export interface Invoice {
   status: InvoiceStatus
   cash_check_passed: boolean | null
   budget_check_passed: boolean | null
+  governance_status?: 'passed' | 'flagged' | 'blocked' | 'pending'
   extraction_confidence: number | null
   created_at: string
 }
@@ -224,6 +225,7 @@ export const budgetApi = {
     if (period) qs.set('period', period)
     return req<WhatIfResult>(`/budget/whatif?${qs.toString()}`, { method: 'POST' })
   },
+  forecast: (period?: string) => req<any[]>(`/budget/forecast${period ? `?period=${encodeURIComponent(period)}` : ''}`),
   resetCommitted: (period: string) =>
     req<{ reset: boolean; period: string }>(`/budget/reset-committed?period=${encodeURIComponent(period)}`, { method: 'POST' }),
 }
@@ -373,7 +375,7 @@ export interface EvaluationMetrics {
     total_causal_links: number
     coordination_rate_pct: number
     per_agent: Record<string, { count: number; avg_confidence: number }>
-    link_type_distribution: Record<string, number>
+    relationship_type_distribution: Record<string, number>
     decision_timeline: Record<string, number | string>[]
     top_decision_types: Record<string, { type: string; count: number }[]>
   }

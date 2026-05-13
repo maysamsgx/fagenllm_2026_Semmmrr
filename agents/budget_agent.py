@@ -228,6 +228,7 @@ def _inv_communicate(state: FinancialState, percept: dict, verdict: dict) -> Fin
             **budget_ctx,
             "department_id":   dept_id,
             "utilisation_pct": round(verdict.get("utilisation_pct", 0), 2),
+            "variance_amount": round(verdict.get("allocated", 0) - verdict.get("total_committed", 0), 2),
             "budget_breach":   verdict.get("breach", False),
             "hard_stop":       verdict.get("hard_stop", False),
             "decision_id":     did,
@@ -275,6 +276,7 @@ def _rev_reason(_state: FinancialState, percept: dict):
         return None
 
     at_risk = []
+    surplus = []
     for b in budgets:
         alloc   = float(b.get("allocated") or 0)
         spent   = float(b.get("spent") or 0)
@@ -289,17 +291,39 @@ def _rev_reason(_state: FinancialState, percept: dict):
                 "committed": committed,
                 "remaining": round(max(0, alloc - spent - committed), 2),
             })
+        elif util < 50.0:
+            surplus.append({
+                "department": b.get("department_id"),
+                "utilisation_pct": round(util, 1),
+                "surplus_amount": round(alloc - spent - committed, 2)
+            })
 
     if not at_risk:
         return {"at_risk": [], "narrative": "All departments within budget thresholds.", "recommendations": []}
 
     directive = load_directive("budget")
+    
+    # Persistent Agent Memory: Fetch history for at-risk departments
+    memory_context = ""
+    for r in at_risk:
+        dept = r["department"]
+        past_breaches = db.get_recent_memories("budget", dept, limit=2)
+        if past_breaches:
+            memory_context += f" [Memory for {dept}: "
+            for m in past_breaches:
+                c = m.get("content", {})
+                memory_context += f"In {c.get('period')}, utilisation reached {c.get('utilisation_pct')}%. "
+            memory_context += "] "
+            
     return qwen_json(
         f"## Policy\n{directive}\nYou are a CFO assistant. Respond with valid JSON only.",
         f"Period: {percept['period']}. At-risk departments (utilisation ≥ {BUDGET.auto_approve_below:.0f}%): "
-        f"{at_risk}. "
+        f"{at_risk}. {memory_context}"
+        f"Surplus departments (utilisation < 50%): {surplus}. "
         f"Provide JSON: narrative (2-sentence summary), "
-        f"recommendations (list of action strings per department), at_risk (list back as-is).",
+        f"recommendations (list of action strings per department), at_risk (list back as-is), "
+        f"forecast (string: predicted spend velocity for the next 30 days), "
+        f"reallocations (list of objects with 'from_dept', 'to_dept', 'suggested_amount', 'reason').",
     )
 
 
@@ -329,12 +353,30 @@ def _rev_explain(state: FinancialState, percept: dict, verdict: dict) -> str:
 
     first_id = budgets[0]["id"] if budgets else "00000000-0000-0000-0000-000000000000"
 
+    reallocations = llm.get("reallocations") or []
+    realloc_note = (
+        f" Cross-agent reallocation advisor identified {len(reallocations)} potential "
+        f"budget transfer(s) from surplus departments to cover at-risk breaches."
+        if reallocations else ""
+    )
+
     technical = (
         f"Scanned {verdict['budgets_scanned']} budgets for period {period}. "
         f"{verdict['alerts_fired']} departments at/above alert threshold."
+        f"{realloc_note}"
     )
     business = llm.get("narrative", "Budget review completed.")
-    causal   = "Proactive review — no invoice trigger. Alerts emitted for at-risk departments."
+    causal = (
+        "Proactive review — no invoice trigger. Alerts emitted for at-risk departments."
+        + (
+            f" Reallocation suggestions generated: "
+            + "; ".join(
+                f"{r.get('suggested_amount', '?')} from '{r.get('from_dept')}' → '{r.get('to_dept')}'"
+                for r in reallocations
+            )
+            if reallocations else ""
+        )
+    )
 
     return db.log_agent_decision(
         agent="budget", decision_type="budget_review",
@@ -343,8 +385,12 @@ def _rev_explain(state: FinancialState, percept: dict, verdict: dict) -> str:
         business_explanation=business,
         causal_explanation=causal,
         input_state={"period": period, "dept_id": percept["dept_id"]},
-        output_action={"budgets_scanned": verdict["budgets_scanned"],
-                       "alerts_fired": verdict["alerts_fired"]},
+        output_action={
+            "budgets_scanned":  verdict["budgets_scanned"],
+            "alerts_fired":     verdict["alerts_fired"],
+            "reallocations":    reallocations,
+            "forecast":         llm.get("forecast", ""),
+        },
     )
 
 
@@ -358,10 +404,19 @@ def _rev_execute(_state: FinancialState, percept: dict, verdict: dict) -> None:
         util = (spent + committed) / alloc * 100 if alloc > 0 else 0
         if util >= BUDGET.alert_threshold:
             dept = b.get("department_id", "unknown")
+            
+            # Persistent Agent Memory: Record the breach
+            db.store_memory("budget", {
+                "period": period,
+                "utilisation_pct": round(util, 2),
+                "allocated": alloc,
+                "total_committed": spent + committed
+            }, memory_type="temporal", entity_id=dept)
+            
             db.insert("budget_alerts", {
                 "budget_id":      b["id"],
                 "utilisation_pct": round(util, 2),
-                "alert_type":     "proactive_review",
+                "alert_type":     "threshold_breach",
                 "message": (
                     f"[Budget Review {period}] Dept '{dept}' at {util:.1f}% utilisation."
                 ),
@@ -371,15 +426,27 @@ def _rev_execute(_state: FinancialState, percept: dict, verdict: dict) -> None:
 
 def _rev_communicate(state: FinancialState, percept: dict, verdict: dict) -> FinancialState:
     llm = verdict.get("llm_summary") or {}
+    reallocations = llm.get("reallocations") or []
+    realloc_note = (
+        f" Reallocation advisor: {len(reallocations)} cross-department transfer(s) suggested."
+        if reallocations else ""
+    )
     trace = state.get("reasoning_trace", []) + [{
         "agent": "budget",
         "step":  "Budget Review",
         "technical_explanation": (
             f"Scanned {verdict['budgets_scanned']} budgets; "
-            f"{verdict['alerts_fired']} alerts fired."
+            f"{verdict['alerts_fired']} alerts fired.{realloc_note}"
         ),
         "business_explanation": llm.get("narrative", "Review complete."),
-        "causal_explanation":   "Proactive review — no invoice trigger.",
+        "causal_explanation": (
+            "Proactive review — no invoice trigger."
+            + (
+                " Budget Reallocation Advisor identified surplus capacity in donor departments "
+                "that can cover at-risk department overruns without budget exceptions."
+                if reallocations else ""
+            )
+        ),
     }]
     return {
         **state,
@@ -392,6 +459,9 @@ def _rev_communicate(state: FinancialState, percept: dict, verdict: dict) -> Fin
             "budgets_scanned": verdict["budgets_scanned"],
             "alerts_fired":    verdict["alerts_fired"],
             "llm_summary":     llm,
+            # Surface reallocation suggestions at the top level for easy UI access
+            "reallocation_suggestions": reallocations,
+            "spend_forecast":           llm.get("forecast", ""),
         },
     }
 

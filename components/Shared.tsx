@@ -62,6 +62,7 @@ export const AGENT_COLOR: Record<string, string> = {
   budget: '#a78bfa',
   reconciliation: '#fbbf24',
   credit: '#fb7185',
+  governance: '#34d399',
   intelligence: '#67e8f9',
   supervisor: '#94a3b8',
 }
@@ -82,6 +83,9 @@ export const AGENT_AVATAR: Record<string, string> = {
   credit: '/assets/agents/credit.png',
   credit_agent: '/assets/agents/credit.png',
   intelligence: '/assets/image-removebg-preview (22).png',
+  evaluation: '/assets/image-removebg-preview (24).png',
+  governance: '/assets/agents/GovernanceAgent_Auditor.png',
+  governance_agent: '/assets/agents/GovernanceAgent_Auditor.png',
 }
 
 export const LEGACY_AGENT_AVATAR: Record<string, string> = {
@@ -96,27 +100,34 @@ export const LEGACY_AGENT_AVATAR: Record<string, string> = {
   reconciliation_agent: '/agents/reconciliation.png',
   credit: '/agents/credit.png',
   credit_agent: '/agents/credit.png',
+  evaluation: '/assets/image-removebg-preview (24).png',
+  governance: '/assets/agents/GovernanceAgent_Auditor.png',
+  governance_agent: '/assets/agents/GovernanceAgent_Auditor.png',
 }
 
 export function getAgentAvatar(agent: string) {
   const key = (agent || '').toLowerCase()
   if (AGENT_AVATAR[key]) return AGENT_AVATAR[key]
+  if (key.includes('evaluation')) return AGENT_AVATAR.evaluation
   if (key.includes('invoice')) return AGENT_AVATAR.invoice
   if (key.includes('cash')) return AGENT_AVATAR.cash
   if (key.includes('budget')) return AGENT_AVATAR.budget
   if (key.includes('reconciliation')) return AGENT_AVATAR.reconciliation
   if (key.includes('credit')) return AGENT_AVATAR.credit
+  if (key.includes('governance')) return AGENT_AVATAR.governance
   return BRAND_LOGO
 }
 
 export function getLegacyAgentAvatar(agent: string) {
   const key = (agent || '').toLowerCase()
   if (LEGACY_AGENT_AVATAR[key]) return LEGACY_AGENT_AVATAR[key]
+  if (key.includes('evaluation')) return LEGACY_AGENT_AVATAR.evaluation
   if (key.includes('invoice')) return LEGACY_AGENT_AVATAR.invoice
   if (key.includes('cash')) return LEGACY_AGENT_AVATAR.cash
   if (key.includes('budget')) return LEGACY_AGENT_AVATAR.budget
   if (key.includes('reconciliation')) return LEGACY_AGENT_AVATAR.reconciliation
   if (key.includes('credit')) return LEGACY_AGENT_AVATAR.credit
+  if (key.includes('governance')) return LEGACY_AGENT_AVATAR.governance
   return LEGACY_BRAND_LOGO
 }
 

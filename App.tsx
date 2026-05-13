@@ -9,11 +9,12 @@ import ReconciliationView from './components/ReconciliationView'
 import CreditView from './components/CreditView'
 import OverviewView from './components/OverviewView'
 import EvaluationView from './components/EvaluationView'
+import GovernanceView from './components/GovernanceView'
 import VideoBackground from './components/VideoBackground'
 import { getAgentAvatar, getLegacyAgentAvatar } from './components/Shared'
 import './index.css'
 
-type Tab = 'overview' | 'invoice' | 'cash' | 'budget' | 'reconciliation' | 'credit' | 'evaluation'
+type Tab = 'overview' | 'invoice' | 'cash' | 'budget' | 'reconciliation' | 'credit' | 'evaluation' | 'governance'
 
 const NAV: { id: Tab; label: string; desc: string }[] = [
   { id: 'overview',       label: 'Overview',       desc: 'System status' },
@@ -22,6 +23,7 @@ const NAV: { id: Tab; label: string; desc: string }[] = [
   { id: 'budget',         label: 'Budget',         desc: 'Spend control' },
   { id: 'reconciliation', label: 'Reconciliation', desc: 'TX matching' },
   { id: 'credit',         label: 'Credit',         desc: 'Risk scoring' },
+  { id: 'governance',     label: 'Governance',     desc: 'Compliance audit' },
   { id: 'evaluation',     label: 'Evaluation',     desc: 'Metrics & eval' },
 ]
 
@@ -87,6 +89,7 @@ export default function App() {
         {tab === 'budget'         && <BudgetView />}
         {tab === 'reconciliation' && <ReconciliationView />}
         {tab === 'credit'         && <CreditView />}
+        {tab === 'governance'     && <GovernanceView />}
         {tab === 'evaluation'     && <EvaluationView />}
       </main>
     </div>

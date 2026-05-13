@@ -4,7 +4,7 @@ Strict Pydantic models for Agent JSON Contracts.
 """
 
 from pydantic import BaseModel, Field
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 
 class DecisionOutput(BaseModel):
@@ -25,3 +25,8 @@ class ReconciliationOutput(DecisionOutput):
             "False if the anomalies appear isolated or random."
         )
     )
+
+class GovernanceOutput(DecisionOutput):
+    compliance_score: int = Field(description="Score from 0 to 100 on how well the decisions align with fiscal policy.")
+    is_audit_safe: bool = Field(description="True if the audit trail is complete and no policy violations were found.")
+    findings: List[str] = Field(description="List of specific governance findings or flags.")

@@ -133,6 +133,35 @@ def _handle_new_invoice(state: FinancialState, invoice_id: str) -> FinancialStat
     if extracted.get("currency"):
         update_data["currency"] = extracted["currency"]
     db.update("invoices", {"id": invoice_id}, update_data)
+    
+    # ── 2.2 Duplicate Detection (Thesis Improvement: Fraud Prevention) ──
+    # We check if this vendor has already submitted an invoice with the same number
+    # that is currently in-flight or already settled.
+    if update_data.get("invoice_number") and vendor_id:
+        duplicate = db.find_duplicate_invoice(vendor_id, update_data["invoice_number"])
+        if duplicate and str(duplicate["id"]) != str(invoice_id):
+            db.update_invoice_status(invoice_id, "rejected", {
+                "rejection_reason": f"Fraud Prevention: Duplicate invoice number '{update_data['invoice_number']}' already exists for this vendor."
+            })
+            
+            # Persistent Agent Memory: Record this fraud attempt
+            db.store_memory("invoice", {
+                "fraud_type": "duplicate_invoice",
+                "invoice_number": update_data["invoice_number"],
+                "duplicate_of_id": str(duplicate["id"])
+            }, memory_type="episodic", entity_id=vendor_id)
+            
+            db.log_agent_decision(
+                agent="invoice", decision_type="duplicate_detected",
+                entity_table="invoices", entity_id=invoice_id,
+                technical_explanation=f"Identity collision: invoice_id {duplicate['id']} already exists with the same vendor/number.",
+                business_explanation=f"This invoice is a duplicate of {update_data['invoice_number']} which is already in our records.",
+                causal_explanation="Deterministic rejection to prevent double-payment fraud; blocks cash and budget workflows.",
+                input_state={"invoice_number": update_data["invoice_number"], "vendor_id": vendor_id},
+                output_action={"status": "rejected", "duplicate_id": str(duplicate["id"])},
+                confidence=100.0,
+            )
+            return _error(state, f"Duplicate invoice detected: {update_data['invoice_number']}")
 
     # ── 2.5 Math validation ──────────────────────────────────────────────
     # Verify: Subtotal + Tax == Total (Rubric requirement)
@@ -181,6 +210,13 @@ def _handle_new_invoice(state: FinancialState, invoice_id: str) -> FinancialStat
                        "OCR output enabled the structured field extraction.")
 
     # ── 3. Validation summary (vendor risk gate) ─────────────────────────
+    # Persistent Agent Memory: Read historical context for this vendor
+    past_fraud = db.get_recent_memories("invoice", vendor_id, limit=3)
+    memory_note = ""
+    if past_fraud:
+        memory_note = " [MEMORY: Vendor has past flagged invoices (e.g. duplicates) on record.]"
+        confidence = max(0.0, confidence - 20.0) # Apply penalty for past memory
+
     risk_score_raw = vendor_risk.get("risk_score")
     try:
         risk_score = float(risk_score_raw) if risk_score_raw is not None else 50.0
@@ -189,10 +225,12 @@ def _handle_new_invoice(state: FinancialState, invoice_id: str) -> FinancialStat
     risk_level = vendor_risk.get("risk_level") or ("high" if risk_score >= 70 else "medium" if risk_score >= 40 else "low")
     is_new_vendor = not vendor_risk or (vendor_risk.get("factors") or {}).get("reason") == "new_vendor_no_history"
     risk_descriptor = "baseline (new vendor, no payment history)" if is_new_vendor else f"{risk_level} risk tier"
-    val_reason = f"Vendor risk score {risk_score:.0f}/100 — {risk_descriptor}."
-    needs_human = risk_level == "high"
+    val_reason = f"Vendor risk score {risk_score:.0f}/100 — {risk_descriptor}.{memory_note}"
+    
+    # If there is past fraud memory, force human review regardless of risk score
+    needs_human = risk_level == "high" or bool(past_fraud)
     business_msg = (
-        "High-risk vendor detected — invoice flagged for manual review."
+        f"High-risk vendor or past fraud detected — invoice flagged for manual review.{memory_note}"
         if needs_human else
         f"Vendor profile within tolerance ({risk_level}); cleared for liquidity and budget checks."
     )
@@ -289,7 +327,7 @@ def _handle_approval_routing(state: FinancialState, invoice_id: str, invoice_ctx
 
     # ── LLM routing for non-hard-stop cases ──────────────────────────────────
     from utils.contracts import DecisionOutput
-    from utils.llm import qwen_structured
+    from utils.llm import qwen_structured_with_reflection as qwen_structured
 
     ap_system, ap_user = invoice_approval_routing_prompt(
         invoice_ctx, cash_ok, budget_ok, utilisation_pct

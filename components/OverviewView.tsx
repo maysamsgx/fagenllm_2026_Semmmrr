@@ -6,6 +6,7 @@ const AGENTS = [
   { id: 'budget', label: 'Budget Agent', desc: 'A real-time financial gatekeeper. Blocks excess spend and analyzes variance before cash leaves the system.', color: '#a78bfa', icon: '/assets/agents/budget.png' },
   { id: 'reconciliation', label: 'Reconciliation Agent', desc: 'Forensic anomaly detection. Maps transactional patterns to find root causes of cross-ledger discrepancies.', color: '#fbbf24', icon: '/assets/agents/reconciliation.png' },
   { id: 'credit', label: 'Credit Agent', desc: 'Dynamic risk evaluation. Adjusts credit limits based on behavioral aging and cross-domain reconciliation penalties.', color: '#fb7185', icon: '/assets/agents/credit.png' },
+  { id: 'governance', label: 'Auditor Agent', desc: 'The final safety gate. Cross-checks every decision against fiscal policy to ensure 100% compliance and audit readiness.', color: '#34d399', icon: '/assets/agents/GovernanceAgent_Auditor.png' },
 ]
 
 const UPDATES = [
@@ -40,7 +41,8 @@ function TiltCard({ agent, index, onNavigate }: { agent: typeof AGENTS[0], index
   const btnText = agent.id === 'invoice' ? 'Inspect Pipeline' :
     agent.id === 'cash' ? 'Analyze Liquidity' :
       agent.id === 'budget' ? 'Manage Caps' :
-        agent.id === 'reconciliation' ? 'Audit Ledgers' : 'Review Risk';
+        agent.id === 'reconciliation' ? 'Audit Ledgers' :
+          agent.id === 'credit' ? 'Review Risk' : 'Audit Compliance';
 
   return (
     <div
@@ -200,7 +202,7 @@ export default function OverviewView({ onNavigate }: { onNavigate?: (id: string)
           fontStyle: 'italic', color: 'var(--text-2)', letterSpacing: '0.01em',
           lineHeight: 1.4, maxWidth: '650px', margin: '0 auto 28px',
         }}>
-          Five Agents, One Vision:<br />
+          Five + One Agents, One Vision:<br />
           <span style={{ color: '#67e8f9', textShadow: '0 0 20px rgba(103,232,249,.3)' }}>Smarter Finance, Better Decisions.</span>
         </p>
         <p style={{ fontSize: '14px', color: 'var(--text-3)', maxWidth: '580px', margin: '0 auto', lineHeight: 1.8, fontWeight: 400 }}>

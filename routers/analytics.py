@@ -188,7 +188,7 @@ def get_evaluation_metrics():
     # ─── Credit Agent ─────────────────────────────────────────────────────────
     customers = (
         client.table("customers")
-        .select("credit_score, risk_level, payment_delay_avg, total_outstanding")
+        .select("credit_score, risk_level, total_outstanding")
         .execute()
         .data or []
     )
@@ -197,7 +197,6 @@ def get_evaluation_metrics():
     med_risk  = sum(1 for c in customers if c.get("risk_level") == "medium")
     low_risk  = sum(1 for c in customers if c.get("risk_level") == "low")
     avg_score = sum(c.get("credit_score") or 0 for c in customers) / n_cust
-    avg_delay = sum(c.get("payment_delay_avg") or 0 for c in customers) / n_cust
 
     # Credit score histogram (bins of 20)
     score_bins = {"0-20": 0, "21-40": 0, "41-60": 0, "61-80": 0, "81-100": 0}
@@ -210,7 +209,8 @@ def get_evaluation_metrics():
         else:          score_bins["81-100"] += 1
 
     # DSO & recovery rate from receivables
-    all_recv  = client.table("receivables").select("amount, status").execute().data or []
+    all_recv  = client.table("receivables").select("amount, status, days_overdue").execute().data or []
+    avg_delay = sum(float(r.get("days_overdue") or 0) for r in all_recv) / max(1, len(all_recv))
     open_recv = [r for r in all_recv if r.get("status") in ("open", "partial")]
     paid_recv = [r for r in all_recv if r.get("status") == "paid"]
     total_open_amt = sum(float(r.get("amount") or 0) for r in open_recv)
@@ -425,7 +425,7 @@ def get_evaluation_metrics():
             "total_causal_links":    total_links,
             "coordination_rate_pct": round(coord_rate, 1),
             "per_agent":             per_agent,
-            "link_type_distribution": link_types,
+            "relationship_type_distribution": link_types,
             "decision_timeline":      decision_timeline,
             "top_decision_types":     {ag: [{"type": t, "count": c} for t, c in items]
                                        for ag, items in top_decision_types.items()},

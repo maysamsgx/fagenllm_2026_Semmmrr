@@ -9,6 +9,8 @@
 -- =============================================================
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS vector;
+
 
 -- =============================================================
 -- LOOKUPS
@@ -169,6 +171,7 @@ CREATE TABLE IF NOT EXISTS transactions (
     matched          BOOLEAN DEFAULT FALSE,
     matched_to       UUID REFERENCES transactions(id),
     match_score      NUMERIC(5, 4),
+    embedding        vector(384),                      -- V4: MiniLM Embeddings
     discrepancy_flag BOOLEAN DEFAULT FALSE,
     discrepancy_type TEXT CHECK (discrepancy_type IN
                       ('amount_variance','timing','duplicate','missing')),
@@ -279,6 +282,52 @@ CREATE TABLE IF NOT EXISTS causal_links (
     explanation         TEXT,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- V4: Persistent Agent Memory (Persistent Memory Pattern)
+CREATE TABLE IF NOT EXISTS agent_memory (
+    id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    agent           TEXT NOT NULL,
+    entity_id       UUID,                   -- Optional link to customer/vendor
+    memory_type     TEXT CHECK (memory_type IN ('episodic', 'semantic', 'procedural', 'temporal', 'associative')),
+    content         JSONB NOT NULL,
+    importance      NUMERIC(3, 2) DEFAULT 0.5,
+    created_at      TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- V4: Vector Similarity Search RPC
+CREATE OR REPLACE FUNCTION match_transactions (
+  query_embedding vector(384),
+  match_threshold float,
+  match_count int,
+  p_source text
+)
+RETURNS TABLE (
+  id UUID,
+  description TEXT,
+  amount NUMERIC(14, 2),
+  transaction_date DATE,
+  counterparty TEXT,
+  similarity float
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    t.id,
+    t.description,
+    t.amount,
+    t.transaction_date,
+    t.counterparty,
+    1 - (t.embedding <=> query_embedding) AS similarity
+  FROM transactions t
+  WHERE t.matched = false
+    AND t.source = p_source
+    AND 1 - (t.embedding <=> query_embedding) > match_threshold
+  ORDER BY t.embedding <=> query_embedding
+  LIMIT match_count;
+END;
+$$;
 
 -- =============================================================
 -- TRIGGER - auto-snapshot on key state changes

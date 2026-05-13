@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { AlertTriangle, RefreshCw, ChevronDown, ChevronUp, FlaskConical } from 'lucide-react'
+import { RefreshCw, AlertTriangle, ChevronDown, ChevronUp, FlaskConical, TrendingUp } from 'lucide-react'
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell, ReferenceLine } from 'recharts'
 import { budgetApi, Budget, BudgetAlert, WhatIfResult } from '../lib/api'
 import { Card, Badge, Spinner, fmt, pct, AgentAvatar } from './Shared'
 import { useRealtime } from '../lib/useRealtime'
@@ -20,6 +21,7 @@ export default function BudgetView() {
   const [wiLoading, setWiLoading] = useState(false)
   const [wiResult, setWiResult]   = useState<WhatIfResult | null>(null)
   const [wiError, setWiError]     = useState('')
+  const [forecasts, setForecasts] = useState<any[]>([])
 
   useEffect(() => {
     budgetApi.periods().then(({ periods, current }) => {
@@ -33,6 +35,7 @@ export default function BudgetView() {
     if (!period) return
     budgetApi.list(period).then(setBudgets).catch(() => {})
     budgetApi.alerts().then(setAlerts).catch(() => {})
+    budgetApi.forecast(period).then(setForecasts).catch(() => {})
   }
 
   useEffect(() => { if (!period) return; load() }, [period])
@@ -151,6 +154,82 @@ export default function BudgetView() {
           )
         })}
       </div>
+
+      {/* --- PROACTIVE FORECASTING (Requirement) --- */}
+      <Card style={{ marginTop: 24, padding: '20px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <div>
+            <h3 style={{ margin: 0, fontSize: 15, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <TrendingUp size={16} color="#a78bfa" />
+              30-Day Budget Velocity Forecast
+            </h3>
+            <p style={{ fontSize: 11, color: 'var(--text-4)', margin: '4px 0 0' }}>Linear projection based on current-quarter spending cadence</p>
+          </div>
+          <div style={{ display: 'flex', gap: 14, fontSize: 10.5, color: 'var(--text-3)' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <div style={{ width: 10, height: 10, background: '#a78bfa', borderRadius: 2 }} /> Current Usage
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <div style={{ width: 10, height: 10, background: 'rgba(255,255,255,0.15)', borderRadius: 2 }} /> Allocated Limit
+            </span>
+          </div>
+        </div>
+
+        {forecasts.length === 0 ? (
+          <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-4)', fontSize: 12 }}>
+            Awaiting velocity metrics…
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height={240}>
+            <BarChart 
+              data={forecasts} 
+              layout="vertical" 
+              margin={{ top: 5, right: 30, left: 40, bottom: 5 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="rgba(255,255,255,0.05)" />
+              <XAxis type="number" hide />
+              <YAxis 
+                dataKey="department" 
+                type="category" 
+                tick={{ fontSize: 11, fill: 'var(--text-3)', fontWeight: 500 }} 
+                width={80}
+                axisLine={false}
+                tickLine={false}
+              />
+              <Tooltip 
+                cursor={{ fill: 'rgba(255,255,255,0.03)' }}
+                contentStyle={{ background: '#0d1226', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }}
+                formatter={(v: number, name: string) => [fmt(v), name === 'projected_30d' ? '30d Forecast' : 'Current Usage']}
+              />
+              
+              {/* Allocated Limit Background */}
+              <Bar dataKey="allocated" fill="rgba(255,255,255,0.08)" radius={[0, 4, 4, 0]} barSize={16} isAnimationActive={false} />
+              
+              {/* Current Spend */}
+              <Bar dataKey="current_total" fill="#a78bfa" radius={[0, 4, 4, 0]} barSize={16} />
+              
+              {/* Projected Spend - Error Indicator if it exceeds allocation */}
+              <Bar dataKey="projected_30d" barSize={4} radius={[0, 4, 4, 0]}>
+                {forecasts.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.is_risk ? '#fb7185' : '#34d399'} fillOpacity={0.6} />
+                ))}
+              </Bar>
+              
+              {/* Visual "Target" lines at the allocation limit */}
+              <ReferenceLine x={0} stroke="rgba(255,255,255,0.1)" />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+        
+        <div style={{ marginTop: 15, padding: '12px', background: 'rgba(251,113,133,0.05)', borderRadius: 8, border: '1px solid rgba(251,113,133,0.1)' }}>
+          <p style={{ margin: 0, fontSize: 11.5, color: '#fb7185', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <AlertTriangle size={13} />
+            {forecasts.filter(f => f.is_risk).length > 0 
+              ? `${forecasts.filter(f => f.is_risk).length} departments are projected to exceed their quarterly allocation within 30 days.`
+              : "All departments are currently trending within their allocated limits for the next 30 days."}
+          </p>
+        </div>
+      </Card>
 
       {/* What-If Scenario */}
       <div style={{ marginTop: 24, border: '1px solid rgba(255,255,255,.08)', borderRadius: 12, overflow: 'hidden' }}>
