@@ -307,7 +307,8 @@ def _rev_reason(_state: FinancialState, percept: dict):
     memory_context = ""
     for r in at_risk:
         dept = r["department"]
-        past_breaches = db.get_recent_memories("budget", dept, limit=2)
+        dept_uuid = db.get_department_uuid(dept)
+        past_breaches = db.get_recent_memories("budget", dept_uuid, limit=2)
         if past_breaches:
             memory_context += f" [Memory for {dept}: "
             for m in past_breaches:
@@ -405,13 +406,14 @@ def _rev_execute(_state: FinancialState, percept: dict, verdict: dict) -> None:
         if util >= BUDGET.alert_threshold:
             dept = b.get("department_id", "unknown")
             
-            # Persistent Agent Memory: Record the breach
+            # Persistent Agent Memory: Record the breach with a proper UUID entity_id
+            dept_uuid = db.get_department_uuid(dept)
             db.store_memory("budget", {
                 "period": period,
                 "utilisation_pct": round(util, 2),
                 "allocated": alloc,
                 "total_committed": spent + committed
-            }, memory_type="temporal", entity_id=dept)
+            }, memory_type="temporal", entity_id=dept_uuid)
             
             db.insert("budget_alerts", {
                 "budget_id":      b["id"],

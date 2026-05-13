@@ -1,5 +1,15 @@
 from typing import Any, Dict, List, Optional
+import uuid as _uuid_lib
 from config import get_supabase
+
+# ── Deterministic UUID namespace — must match erp_seed.py ────────────────────
+# uuid5(NAMESPACE_DNS, 'fagent-llm.enterprise.seed') is the same namespace used
+# by the seeder so that department UUIDs stay stable across runs.
+_SEED_NAMESPACE = _uuid_lib.uuid5(_uuid_lib.NAMESPACE_DNS, 'fagent-llm.enterprise.seed')
+
+def _slug_to_uuid(slug: str) -> str:
+    """Derive a stable UUID from a department/entity slug, matching the seeder logic."""
+    return str(_uuid_lib.uuid5(_SEED_NAMESPACE, f"dept-{slug}"))
 
 class SupabaseDB:
     """
@@ -9,11 +19,29 @@ class SupabaseDB:
 
     def __init__(self):
         self.supabase = None
+        self._dept_uuid_cache: Dict[str, str] = {}  # slug -> UUID string
 
     def _ensure_client(self):
         if self.supabase is None:
             self.supabase = get_supabase()
         return self.supabase
+
+    def get_department_uuid(self, dept_slug: str) -> str:
+        """Translate a department slug (e.g. 'marketing') to a stable UUID.
+
+        The departments table uses short string IDs (e.g. 'marketing') as its
+        primary key, not UUIDs.  But agent_memory.entity_id is a UUID column,
+        so we derive a deterministic UUID from the slug via the same uuid5
+        namespace used by erp_seed.py — guaranteeing stability across runs.
+
+        Results are cached so the DB is queried at most once per process.
+        """
+        if dept_slug in self._dept_uuid_cache:
+            return self._dept_uuid_cache[dept_slug]
+        # Derive stable UUID from the slug (same formula as seeder's gen_uuid)
+        dept_uuid = _slug_to_uuid(dept_slug)
+        self._dept_uuid_cache[dept_slug] = dept_uuid
+        return dept_uuid
 
     # -- Entity Helpers --
     
@@ -188,11 +216,16 @@ class SupabaseDB:
     # -- Persistent Agent Memory & Vector Patterns (V4) --
 
     def store_memory(self, agent: str, content: Dict[str, Any], memory_type: str = "episodic", entity_id: str | None = None):
+        """Persist an episodic/temporal memory entry.
+
+        entity_id MUST be a valid UUID — callers that hold a department slug
+        should call get_department_uuid(slug) first.
+        """
         data = {
             "agent": agent,
             "content": content,
             "memory_type": memory_type,
-            "entity_id": entity_id
+            "entity_id": entity_id,
         }
         try:
             return self.insert("agent_memory", data)
@@ -202,6 +235,11 @@ class SupabaseDB:
             return None
 
     def get_recent_memories(self, agent: str, entity_id: str | None = None, limit: int = 5) -> List[Dict[str, Any]]:
+        """Fetch the most-recent memory entries for an agent.
+
+        entity_id MUST be a valid UUID — callers that hold a department slug
+        should call get_department_uuid(slug) first.
+        """
         try:
             query = self._ensure_client().table("agent_memory").select("*").eq("agent", agent)
             if entity_id:

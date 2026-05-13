@@ -44,3 +44,7 @@ matplotlib==3.9.2
 seaborn==0.13.2
 sentence-transformers==3.1.0
 torch==2.4.1 --index-url https://download.pytorch.org/whl/cpu
+
+# Missing explicitly imported packages
+openai==1.55.0
+pytest==8.3.3
