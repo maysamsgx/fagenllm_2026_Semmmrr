@@ -96,7 +96,8 @@ def get_reconciliation_analytics():
         if dec_id:
             decision = db.select("agent_decisions", {"id": dec_id})
             if decision:
-                main_narrative = decision[0].get("causal_explanation") or decision[0].get("business_explanation")
+                main_narrative = (decision[0].get("causal_explanation") or 
+                                  decision[0].get("business_explanation") or "")
                 r["narrative"] = main_narrative
                 
                 # V3 Causal Enrichment: Find downstream effects (e.g. Credit/Budget hits)
@@ -107,8 +108,14 @@ def get_reconciliation_analytics():
                         if effect_dec:
                             ed = effect_dec[0]
                             # Append the cross-domain signal to the narrative
-                            signal = f"\n\n[Cross-Domain Signal: {ed['agent'].upper()}] {ed.get('business_explanation')}"
-                            r["narrative"] += signal
+                            # Safely handle potential None in ed['agent']
+                            agent_name = (ed.get('agent') or 'unknown').upper()
+                            signal = f"\n\n[Cross-Domain Signal: {agent_name}] {ed.get('business_explanation') or ''}"
+                            # Ensure r["narrative"] is a string before appending
+                            if r.get("narrative") is None:
+                                r["narrative"] = signal
+                            else:
+                                r["narrative"] += signal
                 
     return sorted_reports
 

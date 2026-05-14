@@ -73,7 +73,7 @@ def _run_reconciliation(state: FinancialState) -> FinancialState:
     if bank_txs:
         def tx_to_string(tx: dict) -> str:
             parts = [
-                str(abs(float(tx.get("amount", 0)))),
+                str(abs(float(tx.get("amount") or 0))),
                 str(tx.get("transaction_date", "")),
                 str(tx.get("counterparty", "")),
                 str(tx.get("description", ""))
@@ -108,9 +108,9 @@ def _run_reconciliation(state: FinancialState) -> FinancialState:
                     p_data.get("type") == "fixed_delta"):
                     # Check if bank has a match with the expected delta
                     delta = p_data.get("delta", 0)
-                    target_amt = float(tx["amount"]) + delta
+                    target_amt = float(tx.get("amount") or 0) + delta
                     for btx in bank_txs:
-                        if abs(float(btx["amount"]) - target_amt) < 0.01:
+                        if abs(float(btx.get("amount") or 0) - target_amt) < 0.01:
                             tx["matched"] = True
                             tx["sim_score"] = 1.0
                             tx["match_type"] = f"pattern_{p_data.get('reason', 'rule')}"
@@ -161,8 +161,8 @@ def _run_reconciliation(state: FinancialState) -> FinancialState:
                 # Stage 3: FX Variance Check
                 # If we have a strong semantic candidate but the amount is off by < 2%
                 if best_candidate and best_sim >= 0.6: # Moderate semantic match
-                    internal_amt = abs(float(tx["amount"]))
-                    bank_amt = abs(float(best_candidate.get("amount", 0)))
+                    internal_amt = abs(float(tx.get("amount") or 0))
+                    bank_amt = abs(float(best_candidate.get("amount") or 0))
                     variance = abs(internal_amt - bank_amt) / max(1, internal_amt)
                     if variance <= RECON.fx_tolerance:
                         tx["matched"] = True
@@ -202,7 +202,7 @@ def _run_reconciliation(state: FinancialState) -> FinancialState:
             past_anomalies_ctx += f" [Memory: {m['content'].get('period')} customer had {m['content'].get('anomaly_count')} anomalies]"
 
     # Cap anomalies to 5 for LLM analysis to avoid Rate Limit (TPM) issues
-    analysis_pool = sorted(anomalies, key=lambda x: abs(float(x.get('amount', 0))), reverse=True)[:5]
+    analysis_pool = sorted(anomalies, key=lambda x: abs(float(x.get('amount') or 0)), reverse=True)[:5]
     
     base_system, user = reconciliation_anomaly_prompt(analysis_pool, period)
     if past_anomalies_ctx:

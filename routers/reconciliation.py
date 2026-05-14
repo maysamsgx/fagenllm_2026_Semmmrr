@@ -174,21 +174,21 @@ def get_recon_causal_trace(report_id: str):
         if not frontier:
             break
 
-    decisions = sorted(decisions, key=lambda d: d["created_at"])
+    decisions = sorted(decisions, key=lambda d: d.get("created_at") or "")
     
     trace = [
         {
-            "agent": d.get("agent"),
-            "event_type": d.get("decision_type"),
+            "agent": d.get("agent") or "unknown",
+            "event_type": d.get("decision_type") or "unknown",
             "timestamp": d.get("created_at"),
             "reasoning": d.get("technical_explanation") or d.get("reasoning") or "",
-            "technical_explanation": d.get("technical_explanation"),
-            "business_explanation": d.get("business_explanation"),
-            "causal_explanation": d.get("causal_explanation"),
+            "technical_explanation": d.get("technical_explanation") or "",
+            "business_explanation": d.get("business_explanation") or "",
+            "causal_explanation": d.get("causal_explanation") or "",
             "details": {
                 "input": d.get("input_state") or {},
                 "output": d.get("output_action") or {},
-                "confidence": d.get("confidence"),
+                "confidence": d.get("confidence") or 0.0,
             },
         }
         for d in decisions
