@@ -63,7 +63,9 @@ The system uses LangGraph to manage deterministic flow between specialised agent
 4.  **Vendor Risk Gate & Approval Routing:**
     *   Vendor risk score is loaded from `vendor_risk_scores`. New vendors receive a neutral baseline (50/100, `medium`).
     *   **Persistent Memory Check:** Past fraud memories for this vendor lower confidence by 20 pts and force human review regardless of risk score.
+    *   **Risk Reasoning Enrichment (V4+):** The system now generates qualitative explanations for risk scores (e.g., citing long-term stability or identity verification needs) to aid human auditors.
     *   A **deterministic hard-stop gate** (budget utilisation ≥ 100%) runs before any LLM routing call.
+    *   **Strategic Insights (V4+):** The approval prompt now requires the LLM to provide a forward-looking "Strategic Insight" in the business explanation, forecasting whether the department will stay under budget for the quarter based on current spend velocity.
     *   For all other cases, Qwen3 (`qwen_structured_with_reflection`) produces a `DecisionOutput` with `auto_approve`, `manager_review`, or `reject`. This **Reflection Pass** uses the Reasoning Tier (Qwen3) to audit the initial Workhorse Tier (Llama) decision.
     *   On auto-approval, a payment is immediately recorded via `db.record_payment()` (wire transfer).
 

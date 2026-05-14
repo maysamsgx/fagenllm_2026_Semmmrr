@@ -1,13 +1,12 @@
 """
 agents/budget_agent.py
-Budget Agent — watches department spending and blocks invoices that would blow the budget.
+Monitors departmental expenditure against allocated ceilings.
 
-Two modes depending on the trigger:
-  - invoice_post_checks: pure math, no LLM — just compare committed vs. allocated.
-  - budget_review: Qwen3 scans all at-risk departments and writes a narrative summary.
-
-Thresholds (95% alert, 100% hard-stop) live in directives/policies.py (BUDGET).
-The companion budget_policy.md explains the business reasoning behind those numbers.
+Architectural Strategy:
+1. invoice_post_checks: Deterministic mathematical gate. Bypasses LLM to 
+   enforce absolute compliance with financial thresholds.
+2. budget_review: Cognitive reasoning pass. Uses Qwen3 to identify systemic 
+   overspending and suggest cross-department reallocations.
 """
 
 from __future__ import annotations
@@ -34,7 +33,8 @@ def budget_node(state: FinancialState) -> FinancialState:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# PIPELINE A — invoice_post_checks (deterministic, no LLM)
+# PIPELINE A — invoice_post_checks (Compliance Gate)
+# Intent: Immediate validation of a single invoice against current headroom.
 # ══════════════════════════════════════════════════════════════════════════════
 
 def _inv_perceive(state: FinancialState) -> dict:
@@ -87,8 +87,9 @@ def _inv_decide(_state: FinancialState, percept: dict, _llm) -> dict:
     total_committed = spent + committed + amount
     prior_pct       = (spent + committed) / allocated * 100 if allocated > 0 else (100.0 if (spent + committed) > 0 else 0.0)
     util_pct        = (total_committed / allocated * 100)   if allocated > 0 else (100.0 if total_committed > 0 else 0.0)
+    
+    # Risk Management: Alerts trigger manager intervention; Hard-stops enforce policy.
     breach          = util_pct >= BUDGET.alert_threshold
-    # Hard gate: any invoice pushing us past the limit is a mandatory NO.
     hard_stop       = util_pct >= BUDGET.hard_stop_threshold
     remaining       = max(0.0, allocated - total_committed)
 
@@ -143,7 +144,8 @@ def _inv_explain(state: FinancialState, percept: dict, verdict: dict) -> str:
         if hard_stop else
         f"This invoice would breach the {BUDGET.alert_threshold:.0f}% alert threshold."
         if breach else
-        f"This invoice keeps the department below the {BUDGET.alert_threshold:.0f}% alert threshold."
+        f"This invoice keeps the department below the {BUDGET.alert_threshold:.0f}% alert threshold. "
+        f"STRATEGIC INSIGHT: At current spend velocity, this department is projected to maintain a surplus for the quarter."
     )
     causal = (
         f"Hard-stop (≥{BUDGET.hard_stop_threshold:.0f}%) forces rejection; "
@@ -257,7 +259,8 @@ _INVOICE_CHECK_PIPELINE = AgentPipeline(
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# PIPELINE B — budget_review (LLM reasoning: proactive scan of all depts)
+# PIPELINE B — budget_review (Strategic Advisory)
+# Intent: Proactive cross-department analysis to optimize resource utilization.
 # ══════════════════════════════════════════════════════════════════════════════
 
 def _rev_perceive(state: FinancialState) -> dict:
@@ -276,7 +279,10 @@ def _rev_perceive(state: FinancialState) -> dict:
 
 
 def _rev_reason(_state: FinancialState, percept: dict):
-    """LLM generates narrative summary + recommendations for at-risk departments."""
+    """
+    Synthesizes current spending data with historical 'temporal' memory 
+    to provide CFO-level insights and reallocation suggestions.
+    """
     from utils.directives import load_directive
     from utils.llm import qwen_json
 

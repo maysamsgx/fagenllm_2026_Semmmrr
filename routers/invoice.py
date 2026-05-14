@@ -76,7 +76,8 @@ def get_invoice(invoice_id: str):
 @router.get("/")
 def list_invoices(status: str = None, department_id: str = None):
     supabase = get_supabase()
-    query = supabase.table("invoices").select("*, vendors(name)").order("created_at", desc=True)
+    # Thesis V4 Improvement: Limit result set to avoid PostgREST 'IN' clause URL length limits.
+    query = supabase.table("invoices").select("*, vendors(name)").order("created_at", desc=True).limit(50)
     if status: query = query.eq("status", status)
     if department_id: query = query.eq("department_id", department_id)
     data = query.execute().data
@@ -85,7 +86,6 @@ def list_invoices(status: str = None, department_id: str = None):
     invoice_ids = [i["id"] for i in data]
     if invoice_ids:
         # Fetch latest governance decisions for these invoices
-        # We look for agent='governance' and entity_id in our list
         audit_decisions = (supabase.table("agent_decisions")
                           .select("entity_id, output_action")
                           .eq("agent", "governance")
@@ -93,8 +93,16 @@ def list_invoices(status: str = None, department_id: str = None):
                           .order("created_at", desc=True)
                           .execute().data)
         
-        # Create a mapping
-        audit_map = {d["entity_id"]: d["output_action"].get("status", "pending") for d in audit_decisions}
+        # Create a mapping (Safe access to output_action)
+        audit_map = {}
+        for d in audit_decisions:
+            eid = d.get("entity_id")
+            oa = d.get("output_action")
+            if eid and isinstance(oa, dict):
+                # Only keep the latest decision per entity (query is ordered by created_at)
+                if eid not in audit_map:
+                    status = oa.get("status", "pending")
+                    audit_map[eid] = status.lower() if isinstance(status, str) else "pending"
         
         for item in data:
             item["governance_status"] = audit_map.get(item["id"], "pending")

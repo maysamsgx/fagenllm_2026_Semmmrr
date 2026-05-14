@@ -23,6 +23,7 @@ def mock_db(monkeypatch):
     monkeypatch.setattr(db, "update_credit_limit", lambda *a, **kw: None, raising=False)
     monkeypatch.setattr(db, "log_agent_decision", lambda *a, **kw: str(uuid.uuid4()), raising=False)
     monkeypatch.setattr(db, "log_causal_link", lambda *a, **kw: None, raising=False)
+    monkeypatch.setattr(db, "find_duplicate_invoice", lambda *a, **kw: None, raising=False)
     monkeypatch.setattr(db, "get_reconciliation_anomalies", lambda *a, **kw: [], raising=False)
     monkeypatch.setattr(db, "get_all_departments", lambda *a, **kw: [{"id": "engineering"}], raising=False)
     monkeypatch.setattr(db, "insert_reconciliation_report_items", lambda *a, **kw: None, raising=False)
@@ -53,6 +54,18 @@ def mock_db(monkeypatch):
         risk_segment = "low"
         recommended_limit = 50000
         cross_domain_signals = {}
+        findings = []
+        is_audit_safe = True
+        compliance_score = 100.0
+        
+        def model_dump(self):
+            return {k: v for k, v in self.__class__.__dict__.items() if not k.startswith('_') and not callable(v)}
+        
+        def __getitem__(self, key):
+            return getattr(self, key)
+        
+        def get(self, key, default=None):
+            return getattr(self, key, default)
         
     # Patch utils.llm directly — agents that use local `from utils.llm import ...`
     # inside function bodies bypass module-level attribute patches on the agent namespace.
@@ -98,6 +111,7 @@ def mock_db(monkeypatch):
         def select(self, *a, **kw): return self
         def eq(self, *a): return self
         def gte(self, *a): return self
+        def in_(self, *a): return self
         def insert(self, *a): return self
         def upsert(self, *a): return self
         def update(self, *a): return self

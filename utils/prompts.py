@@ -125,30 +125,30 @@ Return ONLY valid JSON with these keys:
 
     amount = float(invoice.get('amount') or 0)
     amount_known = amount > 0
-    amount_display = f"${amount:,.2f}" if amount_known else "not resolved during extraction"
+    amount_display = f"${amount:,.2f}" if amount_known else "unknown"
     currency = invoice.get('currency', 'USD')
+    needs_human = invoice.get('needs_human', False)
 
-    user = f"""Determine the correct approval routing for this invoice (Scenario 1 & 3 alignment).
+    user = f"""Determine the correct approval routing.
+    
+INVOICE DATA:
+- Amount: {amount:.2f}
+- Flagged by validation: {'YES' if needs_human else 'NO'}
 
-Invoice details:
-- Amount: {amount_display} {currency}
-- Vendor: {invoice.get('vendor_name', 'unknown')}
-- Department: {invoice.get('department_id', 'unknown')}
+SYSTEM CONSTRAINTS:
+- Cash liquidity: {'PASSED' if cash_ok else 'FAILED'}
+- Budget utilisation: {budget_utilisation:.1f}%
 
-System constraint results:
-- Cash liquidity check: {'PASSED' if cash_ok else 'FAILED — projected cash shortfall during payment window'}
-- Budget utilisation: {budget_utilisation:.1f}% ({'WITHIN LIMIT' if budget_ok else 'THRESHOLD BREACH DETECTED'})
+STRICT ROUTING RULES:
+1. REJECT if budget utilisation >= {BUDGET.hard_stop_threshold:.0f}
+2. SENIOR MANAGER if amount > {INVOICE.manager_max:.0f} OR liquidity is FAILED OR budget utilisation >= {BUDGET.alert_threshold:.0f}
+3. MANAGER if Flagged by validation is YES OR amount >= {INVOICE.auto_approve_max:.0f} OR budget utilisation >= {BUDGET.auto_approve_below:.0f}
+4. AUTO-APPROVE ONLY if none of the above are true.
 
-Approval decision rules (Scenario-driven):
-1. REJECT         → budget utilisation >= {BUDGET.hard_stop_threshold:.0f}% (Hard Stop: Fiscal policy breach)
-2. SENIOR MANAGER → amount > {INVOICE.manager_max:,.0f} OR liquidity check FAILED OR budget utilisation >= {BUDGET.alert_threshold:.0f}% (95%+ Breach)
-3. MANAGER        → amount {INVOICE.auto_approve_max:,.0f}–{INVOICE.manager_max:,.0f} OR budget utilisation >= {BUDGET.auto_approve_below:.0f}%
-4. AUTO-APPROVE   → amount < {INVOICE.auto_approve_max:,.0f} AND cash PASSED AND budget utilisation < {BUDGET.auto_approve_below:.0f}%
-
-Note: If cash liquidity failed, you MUST explicitly highlight the 'identified liquidity risk' in your business explanation.
-If budget utilisation > 95%, explicitly state that approval rules have been updated due to the 'budget threshold breach'.
-
-Provide technical, business, and causal explanations citing the actual numbers above verbatim.
+CRITICAL DIRECTIVES:
+- If Amount ({amount:.2f}) < {INVOICE.auto_approve_max:.0f} AND validation is NO AND cash is PASSED AND budget < {BUDGET.auto_approve_below:.0f}, you MUST select 'auto'.
+- In 'business_explanation', include a STRATEGIC INSIGHT: a forward-looking comment on whether this department will stay under budget for the quarter based on current {budget_utilisation:.1f}% utilisation.
+- In 'causal_explanation', cite the specific threshold vs the actual value.
 """
 
     return system, user

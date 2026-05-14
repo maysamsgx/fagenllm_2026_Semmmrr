@@ -21,7 +21,11 @@ interface AuditDecision {
   created_at: string
 }
 
-export default function GovernanceView() {
+interface GovernanceViewProps {
+  onNavigate?: (tab: string) => void
+}
+
+export default function GovernanceView({ onNavigate }: GovernanceViewProps) {
   const [audits, setAudits] = useState<AuditDecision[]>([])
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState({ total: 0, passed: 0, flagged: 0, blocked: 0 })
@@ -107,7 +111,7 @@ export default function GovernanceView() {
           {loading ? <Spinner /> : audits.length === 0 ? <Empty msg="No governance audits found." /> : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {audits.map(audit => (
-                <AuditCard key={audit.id} audit={audit} />
+                <AuditCard key={audit.id} audit={audit} onViewEntity={() => onNavigate?.('invoice')} />
               ))}
             </div>
           )}
@@ -151,7 +155,7 @@ export default function GovernanceView() {
   )
 }
 
-function AuditCard({ audit }: { audit: AuditDecision }) {
+function AuditCard({ audit, onViewEntity }: { audit: AuditDecision; onViewEntity?: () => void }) {
   const status = audit.output_action?.status || 'passed'
   const Icon = status === 'passed' ? CheckCircle2 : status === 'flagged' ? AlertTriangle : ShieldOff
   const color = status === 'passed' ? '#34d399' : status === 'flagged' ? '#fbbf24' : '#fb7185'
@@ -195,7 +199,7 @@ function AuditCard({ audit }: { audit: AuditDecision }) {
       )}
 
       <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <button className="btn-sm" style={{ opacity: 0.7 }} onClick={() => window.location.href = `#/invoice?id=${audit.entity_id}`}>
+        <button className="btn-sm" style={{ opacity: 0.7 }} onClick={onViewEntity}>
           <ExternalLink size={11} /> View Entity
         </button>
       </div>

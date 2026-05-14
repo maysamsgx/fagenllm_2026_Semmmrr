@@ -654,40 +654,41 @@ h3 {
 }
 
 .table th {
-  background: rgba(255, 255, 255, .025);
+  background: rgba(255, 255, 255, .02);
   color: var(--text-4);
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 10px;
-  font-weight: 600;
+  font-size: 9.5px;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
-  padding: 13px 18px 12px;
+  letter-spacing: 0.12em;
+  padding: 10px 14px;
   border-bottom: 1px solid var(--border);
   text-align: left;
   white-space: nowrap;
 }
 
 .table td {
-  padding: 13px 18px;
-  border-bottom: 1px solid rgba(255, 255, 255, .04);
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, .03);
   vertical-align: middle;
   color: var(--text-2);
-  font-family: 'Inter', 'Space Grotesk', sans-serif;
+  font-family: 'Inter', sans-serif;
   font-size: 13px;
-  line-height: 1.45;
-  letter-spacing: -0.005em;
-}
-
-.table tr:last-child td {
-  border-bottom: none;
-}
-
-.table tr {
-  transition: background .15s;
+  line-height: 1.35;
 }
 
 .table tbody tr:hover td {
-  background: rgba(34, 211, 238, .04);
+  background: rgba(34, 211, 238, .03);
+}
+
+.hide-mobile {
+  display: inline;
+}
+
+@media (max-width: 1200px) {
+  .hide-mobile {
+    display: none;
+  }
 }
 
 /* ══════════════════════════════════════════════════════════════════════════

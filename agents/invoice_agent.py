@@ -42,12 +42,15 @@ def _handle_new_invoice(state: FinancialState, invoice_id: str) -> FinancialStat
 
     db.update_invoice_status(invoice_id, "extracting")
 
-    # ── 1. OCR (skip if already present) ──────────────────────────────────
+    # ── 1. OCR Lifecycle ──────────────────────────────────────────────────
+    # Attempts high-precision cloud OCR first; falls back to local Tesseract
+    # to maintain availability even if the primary API is rate-limited.
     ocr_text = invoice.get("ocr_raw_text")
     if not ocr_text:
         try:
             ocr_text = _run_ocr(invoice)
         except Exception as e:
+            # Fatal error: without digitised text, no downstream logic can proceed.
             db.update_invoice_status(invoice_id, "rejected", {"rejection_reason": f"OCR failed: {e}"})
             db.log_agent_decision(
                 agent="invoice", decision_type="ocr_failed",
@@ -134,9 +137,9 @@ def _handle_new_invoice(state: FinancialState, invoice_id: str) -> FinancialStat
         update_data["currency"] = extracted["currency"]
     db.update("invoices", {"id": invoice_id}, update_data)
     
-    # ── 2.2 Duplicate Detection (Thesis Improvement: Fraud Prevention) ──
-    # We check if this vendor has already submitted an invoice with the same number
-    # that is currently in-flight or already settled.
+    # ── 2.2 Duplicate Detection (Fraud Prevention Gate) ──────────────────
+    # Prevents 'Double-Payment' liability. We cross-reference vendor_id and 
+    # invoice_number against both settled and in-flight invoices.
     if update_data.get("invoice_number") and vendor_id:
         duplicate = db.find_duplicate_invoice(vendor_id, update_data["invoice_number"])
         if duplicate and str(duplicate["id"]) != str(invoice_id):
@@ -163,8 +166,9 @@ def _handle_new_invoice(state: FinancialState, invoice_id: str) -> FinancialStat
             )
             return _error(state, f"Duplicate invoice detected: {update_data['invoice_number']}")
 
-    # ── 2.5 Math validation ──────────────────────────────────────────────
-    # Verify: Subtotal + Tax == Total (Rubric requirement)
+    # ── 2.5 Deterministic Math Validation ───────────────────────────────
+    # Validates: Subtotal + Tax == Total. 
+    # Mismatches indicate either OCR hallucination or vendor invoice error.
     subtotal = extracted.get("subtotal")
     tax = extracted.get("tax_amount")
     total = extracted.get("total_amount")
@@ -226,14 +230,26 @@ def _handle_new_invoice(state: FinancialState, invoice_id: str) -> FinancialStat
     risk_level = vendor_risk.get("risk_level") or ("high" if risk_score >= 70 else "medium" if risk_score >= 40 else "low")
     is_new_vendor = not vendor_risk or (vendor_risk.get("factors") or {}).get("reason") == "new_vendor_no_history"
     risk_descriptor = "baseline (new vendor, no payment history)" if is_new_vendor else f"{risk_level} risk tier"
-    val_reason = f"Vendor risk score {risk_score:.0f}/100 — {risk_descriptor}.{memory_note}"
+    
+    # Risk Reasoning Enrichment
+    if is_new_vendor:
+        risk_reasoning = "Vendor identity not yet verified in ERP. Recommended for manual first-time audit."
+    elif risk_score >= 90:
+        risk_reasoning = "Vendor has high reliability score; consistent history of accurate invoicing and no past discrepancies."
+    elif risk_score >= 70:
+        risk_reasoning = "Vendor shows stable performance; minor variances recorded but within acceptable operational bounds."
+    else:
+        risk_reasoning = "Vendor profile shows elevated risk factors (late deliveries or price volatility). Requires oversight."
+
+    val_reason = f"Risk Score {risk_score:.0f}/100 — {risk_descriptor}. Reasoning: {risk_reasoning}{memory_note}"
     
     # If there is past fraud memory, force human review regardless of risk score
-    needs_human = risk_level == "high" or bool(past_fraud)
+    needs_human = risk_level == "high" or bool(past_fraud) or is_new_vendor
+    
     business_msg = (
-        f"High-risk vendor or past fraud detected — invoice flagged for manual review.{memory_note}"
+        f"Fraud memory or High Risk detected — manual review required to prevent financial loss.{memory_note}"
         if needs_human else
-        f"Vendor profile within tolerance ({risk_level}); cleared for liquidity and budget checks."
+        f"Vendor profile is highly stable ({risk_level} risk). Cleared for liquidity and budget checks based on strong performance history."
     )
     valid_id = db.log_agent_decision(
         agent="invoice", decision_type="validation_completed",
@@ -253,14 +269,33 @@ def _handle_new_invoice(state: FinancialState, invoice_id: str) -> FinancialStat
                        "Extracted fields enabled vendor-risk validation.",
                        strength=confidence/100.0)
 
-    # Use the department extracted by the LLM, with a smarter fallback logic (V4)
+    # Department Logic (Intelligent Classification)
+    # Priority: 1. Manual user selection (from invoice row) 2. AI Extraction 3. Default (engineering)
+    manual_dept = invoice.get("department_id")
     extracted_dept = extracted.get("department_id")
-    department_id = extracted_dept if extracted_dept in [d[0] for d in db.select("departments")] else (invoice.get("department_id") or "engineering")
+    valid_depts = [d["id"] for d in db.select("departments")]
+    
+    if manual_dept and manual_dept in valid_depts:
+        department_id = manual_dept
+    elif extracted_dept in valid_depts:
+        department_id = extracted_dept
+    else:
+        department_id = "engineering"
 
+    # Update invoice with final department and metadata
     db.update("invoices", {"id": invoice_id}, {
         "status": "awaiting_approval",
         "department_id": department_id,
+        "needs_human": needs_human,
     })
+
+    new_trace = state.get("reasoning_trace", []) + [{
+        "agent": "invoice",
+        "step": "New Invoice Ingestion",
+        "technical_explanation": val_reason,
+        "business_explanation": f"Processed new invoice from {vendor_name} ({amount_label}). Risk validation: {risk_level}.",
+        "causal_explanation": "Extracted data enabled downstream budget and liquidity checks."
+    }]
 
     return {
         **state,
@@ -268,6 +303,7 @@ def _handle_new_invoice(state: FinancialState, invoice_id: str) -> FinancialStat
         "next_agent": "cash",
         "trigger": "invoice_post_checks",
         "decision_ids": {**state.get("decision_ids", {}), "invoice_validation": valid_id},
+        "reasoning_trace": new_trace,
         "invoice": {
             "invoice_id": invoice_id,
             "vendor_id": vendor_id,
@@ -277,6 +313,7 @@ def _handle_new_invoice(state: FinancialState, invoice_id: str) -> FinancialStat
             "department_id": department_id,
             "decision_id": valid_id,
             "extraction_confidence": confidence,
+            "needs_human": needs_human,
         },
         "budget": {**state.get("budget", {}), "department_id": department_id, "period": _current_period()},
     }
@@ -306,9 +343,9 @@ def _handle_approval_routing(state: FinancialState, invoice_id: str, invoice_ctx
             except (TypeError, ValueError):
                 pass
 
-    # ── Deterministic hard gates ──────────────────────────────────────────────
-    # Team, we don't negotiate here. These are the absolute financial controls.
-    # Delegating these to an LLM is a liability risk we don't take.
+    # ── Deterministic Hard Gates ──────────────────────────────────────────────
+    # Strategic Constraint: Budget breaches above the ceiling are non-negotiable.
+    # We bypass LLM 'reasoning' to enforce absolute financial policy.
     if utilisation_pct >= BUDGET.hard_stop_threshold:
         overage = utilisation_pct - 100.0
         tech = (

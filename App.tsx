@@ -89,7 +89,7 @@ export default function App() {
         {tab === 'budget'         && <BudgetView />}
         {tab === 'reconciliation' && <ReconciliationView />}
         {tab === 'credit'         && <CreditView />}
-        {tab === 'governance'     && <GovernanceView />}
+        {tab === 'governance'     && <GovernanceView onNavigate={(id) => setTab(id as Tab)} />}
         {tab === 'evaluation'     && <EvaluationView />}
       </main>
     </div>

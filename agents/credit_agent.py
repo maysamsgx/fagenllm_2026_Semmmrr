@@ -110,7 +110,9 @@ def _assess_customer(state: FinancialState) -> FinancialState:
         history_ctx = "\nHISTORICAL CONTEXT (Past Decisions):\n"
         for m in past_memories:
             c = m.get("content", {})
-            history_ctx += f"- {m.get('created_at')[:10]}: Score {c.get('score')}, Risk {c.get('risk_level')}. Decision: {c.get('decision')}\n"
+            created_at = m.get("created_at")
+            ts = created_at[:10] if created_at else "YYYY-MM-DD"
+            history_ctx += f"- {ts}: Score {c.get('score')}, Risk {c.get('risk_level')}. Decision: {c.get('decision')}\n"
     f1 = float(customer.get("payment_delay_avg", 5.0))
     f2 = float(customer.get("total_outstanding", 5000.0)) / 1000.0
     

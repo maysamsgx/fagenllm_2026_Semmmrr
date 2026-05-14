@@ -122,14 +122,11 @@ export default function InvoiceView() {
           <table className="table">
             <thead>
               <tr>
-                <th>Vendor</th>
-                <th>Amount</th>
-                <th>Department</th>
+                <th style={{ width: '30%' }}>Vendor / Dept</th>
+                <th style={{ textAlign: 'right' }}>Amount</th>
                 <th>Status</th>
-                <th style={{ textAlign: 'center' }}>Cash</th>
-                <th style={{ textAlign: 'center' }}>Budget</th>
+                <th style={{ textAlign: 'center' }}>Health</th>
                 <th>Auditor</th>
-                <th>Confidence</th>
                 <th style={{ textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
@@ -143,26 +140,37 @@ export default function InvoiceView() {
                     <td>
                       <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
                         <div style={{
-                          width: 30, height: 30, borderRadius: 8,
-                          background: 'rgba(34, 211, 238, .1)',
-                          border: '1px solid rgba(34, 211, 238, .25)',
+                          width: 32, height: 32, borderRadius: 8,
+                          background: 'rgba(34, 211, 238, .08)',
+                          border: '1px solid rgba(34, 211, 238, .15)',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          color: '#67e8f9',
+                          color: '#67e8f9', flexShrink: 0,
                         }}>
-                          <FileText size={13} />
+                          <FileText size={14} />
                         </div>
-                        <div>
-                          <div style={{ fontWeight: 500, color: 'var(--text)' }}>{inv.vendor_name || '—'}</div>
-                          <div style={{ fontSize: 11, color: 'var(--text-4)', fontFamily: 'JetBrains Mono, monospace' }}>
-                            #{inv.invoice_number || '—'}
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontWeight: 600, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {inv.vendor_name || '—'}
+                          </div>
+                          <div style={{ fontSize: 11, color: 'var(--text-4)', textTransform: 'capitalize', display: 'flex', alignItems: 'center', gap: 4 }}>
+                            {inv.department || '—'}
+                            <span style={{ opacity: 0.3 }}>•</span>
+                            <span style={{ fontFamily: 'JetBrains Mono, monospace' }}>#{inv.invoice_number || '—'}</span>
                           </div>
                         </div>
                       </div>
                     </td>
-                    <td style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 500, fontVariantNumeric: 'tabular-nums', color: 'var(--text)' }}>
-                      {fmt(inv.total_amount, inv.currency)}
+                    <td style={{ textAlign: 'right' }}>
+                      <div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 600, color: 'var(--text)' }}>
+                        {fmt(inv.total_amount, inv.currency)}
+                      </div>
+                      {conf != null && (
+                        <div style={{ fontSize: 10, color: `var(--text-4)`, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4, marginTop: 2 }}>
+                          <div style={{ width: 4, height: 4, borderRadius: '50%', background: conf >= 80 ? '#34d399' : '#fbbf24' }} />
+                          {Math.round(conf)}% conf
+                        </div>
+                      )}
                     </td>
-                    <td style={{ textTransform: 'capitalize' }}>{inv.department || '—'}</td>
                     <td>
                       <Badge label={inv.status.replace('_', ' ')}
                         color={STATUS_COLOR[statusKey]}
@@ -170,46 +178,47 @@ export default function InvoiceView() {
                         className="badge-status" />
                     </td>
                     <td style={{ textAlign: 'center' }}>
-                      {inv.cash_check_passed == null ? <span style={{ color: 'var(--text-4)' }}>—</span>
-                        : inv.cash_check_passed
-                          ? <CheckCircle size={15} color="#34d399" style={{ filter: 'drop-shadow(0 0 4px rgba(52,211,153,.5))' }} />
-                          : <XCircle size={15} color="#fb7185" style={{ filter: 'drop-shadow(0 0 4px rgba(251,113,133,.5))' }} />}
-                    </td>
-                    <td style={{ textAlign: 'center' }}>
-                      {inv.budget_check_passed == null ? <span style={{ color: 'var(--text-4)' }}>—</span>
-                        : inv.budget_check_passed
-                          ? <CheckCircle size={15} color="#34d399" style={{ filter: 'drop-shadow(0 0 4px rgba(52,211,153,.5))' }} />
-                          : <XCircle size={15} color="#fb7185" style={{ filter: 'drop-shadow(0 0 4px rgba(251,113,133,.5))' }} />}
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <div style={{ width: 6, height: 6, borderRadius: '50%', background: GOV_COLOR[inv.governance_status || 'pending'] }} />
-                        <span style={{ fontSize: 11, fontWeight: 600, color: GOV_COLOR[inv.governance_status || 'pending'], textTransform: 'capitalize' }}>
-                          {inv.governance_status || 'pending'}
-                        </span>
+                      <div style={{ display: 'flex', gap: 12, justifyContent: 'center', alignItems: 'center' }}>
+                        <div title="Cash Position" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                          {inv.cash_check_passed == null ? <div style={{ width: 14, height: 14, borderRadius: '50%', border: '1px dashed var(--border-3)' }} />
+                            : inv.cash_check_passed
+                              ? <CheckCircle size={15} color="#34d399" style={{ filter: 'drop-shadow(0 0 4px rgba(52,211,153,.3))' }} />
+                              : <XCircle size={15} color="#fb7185" style={{ filter: 'drop-shadow(0 0 4px rgba(251,113,133,.3))' }} />}
+                          <span style={{ fontSize: 8, textTransform: 'uppercase', color: 'var(--text-4)', fontWeight: 700 }}>Cash</span>
+                        </div>
+                        <div title="Budget Alignment" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                          {inv.budget_check_passed == null ? <div style={{ width: 14, height: 14, borderRadius: '50%', border: '1px dashed var(--border-3)' }} />
+                            : inv.budget_check_passed
+                              ? <CheckCircle size={15} color="#34d399" style={{ filter: 'drop-shadow(0 0 4px rgba(52,211,153,.3))' }} />
+                              : <XCircle size={15} color="#fb7185" style={{ filter: 'drop-shadow(0 0 4px rgba(251,113,133,.3))' }} />}
+                          <span style={{ fontSize: 8, textTransform: 'uppercase', color: 'var(--text-4)', fontWeight: 700 }}>Bgt</span>
+                        </div>
                       </div>
                     </td>
                     <td>
-                      {conf != null ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 110 }}>
-                          <div className={`conf-bar ${confClass}`}>
-                            <span style={{ width: `${conf}%` }} />
-                          </div>
-                          <span style={{ fontSize: 11, fontFamily: 'JetBrains Mono, monospace', color: 'var(--text-2)', minWidth: 32, textAlign: 'right' }}>
-                            {Math.round(conf)}%
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div style={{
+                          width: 8, height: 8, borderRadius: '50%',
+                          background: GOV_COLOR[inv.governance_status || 'pending'],
+                          boxShadow: `0 0 8px ${GOV_COLOR[inv.governance_status || 'pending']}66`
+                        }} />
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-2)', textTransform: 'capitalize', lineHeight: 1.2 }}>
+                            {inv.governance_status || 'pending'}
                           </span>
+                          <span style={{ fontSize: 9, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.02em' }}>Policy Audit</span>
                         </div>
-                      ) : <span style={{ color: 'var(--text-4)' }}>—</span>}
+                      </div>
                     </td>
                     <td style={{ textAlign: 'right' }}>
                       <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                        <button className="btn-sm" onClick={() => setTraceId(inv.id)}>
-                          <Brain size={11} /> Trace
+                        <button className="btn-sm" onClick={() => setTraceId(inv.id)} title="View AI Decision Trace">
+                          <Brain size={12} /> <span className="hide-mobile">Trace</span>
                         </button>
                         {inv.status === 'awaiting_approval' && (
                           <button className="btn-sm btn-green"
                             onClick={() => invoiceApi.approve(inv.id, 'dashboard').then(load)}>
-                            Approve
+                            <CheckCircle size={12} /> Approve
                           </button>
                         )}
                       </div>
