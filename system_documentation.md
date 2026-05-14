@@ -125,17 +125,16 @@ The Budget Agent runs two distinct pipelines depending on the trigger, implement
 
 #### Agent 4 — Reconciliation Agent (`agents/reconciliation_agent.py`)
 
-**Two-Stage Matching Pipeline:**
+**4-Stage Forensic Matching Pipeline (V4+):**
 
-*   **Stage 1 — TF-IDF Cosine Similarity:** Fast exact/near-exact text matching using `sklearn`. Compares internal vs. bank transaction descriptions, amounts, dates, and counterparties.
-*   **Stage 2 — MiniLM Sentence Embeddings (V4):** For transactions below the TF-IDF threshold, a `SentenceTransformer('all-MiniLM-L6-v2')` model generates dense embeddings. These are stored in the `transactions.embedding` column (`pgvector`) and queried via `db.vector_search_transactions()` (calls the `match_transactions` Supabase RPC). A separate `semantic_match_threshold` applies.
-*   **Bulk Upsert (V3 Latency Fix):** Match scores for all transactions are written back to the DB in a single `upsert` call rather than row-by-row updates.
-*   **Global Match Rate:** The reconciliation report records the system-wide match rate (across all historical transactions), not just the current batch.
+1.  **Stage 0 — Semantic Memory Patterns (Episodic):** Before running algorithms, the agent scans `agent_memory` for known systematic mismatch rules (e.g. "Counterparty X always has a $2.00 bank fee"). This allows for zero-latency resolution of recurring discrepancies.
+2.  **Stage 1 — TF-IDF Cosine Similarity:** Rapid matching of exact/near-exact text strings using `sklearn`. Threshold: ≥ 0.80.
+3.  **Stage 2 — PGVector Semantic Search:** Items failing Stage 1 are re-scored using 384-dimensional MiniLM embeddings. The agent queries the entire bank history in Supabase using `pgvector` to find semantic matches (e.g. "AWS Cloud" vs "Amazon Web Svcs"). Threshold: ≥ 0.75.
+4.  **Stage 3 — Multi-Currency Forensic Check:** For items with high semantic similarity but amount mismatches, the agent calculates the variance. If the discrepancy is ≤ 2% (controlled via `RECON.fx_tolerance`), it is automatically reconciled as an FX variance, satisfying multi-currency treasury requirements.
 
 **LLM Anomaly Analysis:**
-*   Qwen3 (`qwen_structured`) processes unmatched transactions via `reconciliation_anomaly_prompt`.
-*   If `analysis.is_systematic == True`, the agent identifies all affected customer IDs using fuzzy matching (`thefuzz.fuzz.partial_ratio`).
-*   Per-customer anomaly counts are calculated and stored as `semantic` memories in `agent_memory`.
+*   Qwen3 (`qwen_structured`) processes remaining anomalies to detect systematic patterns (e.g. ingestion failures).
+*   If `is_systematic == True`, the agent stores a new `semantic` memory and escalates to the **Credit Agent**.
 
 **Multi-Customer Credit Loop (V4):**
 *   All affected customer IDs are placed in `pending_risk_assessments`.

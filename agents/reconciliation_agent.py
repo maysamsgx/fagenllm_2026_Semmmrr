@@ -62,10 +62,14 @@ def _run_reconciliation(state: FinancialState) -> FinancialState:
         )
         return {**state, "current_agent": "reconciliation", "next_agent": END}
 
-    # ── Orchestration: TF-IDF cosine similarity matching ─────────────────────
+    # ── Orchestration: 4-Stage Reconciliation Pipeline ────────────────────────
     matched   = []
     anomalies = []
-
+    
+    # Stage 0: Pattern Memory (Episodic)
+    # Fetches known systematic mismatch rules from memory
+    known_patterns = db.get_recent_memories("reconciliation", None, limit=10)
+    
     if bank_txs:
         def tx_to_string(tx: dict) -> str:
             parts = [
@@ -90,23 +94,51 @@ def _run_reconciliation(state: FinancialState) -> FinancialState:
         # ── Persistent Memory: Vector-DB-Backed Matching (Stage 2) ───────────────────
         model = get_sentence_model()
         
+        # ── Intelligence Layers (Stage 1-3) ──────────────────────────────────
+        model = get_sentence_model()
+        
+        counts = {"pattern": 0, "tfidf": 0, "vector": 0, "fx": 0}
+        
         for i, tx in enumerate(internal_txs):
-            # 1. Ensure embedding exists for internal tx
+            # 1. Stage 0: Check against known patterns
+            matched_by_pattern = False
+            for p in known_patterns:
+                p_data = p.get("content", {})
+                if (p_data.get("counterparty") == tx.get("counterparty") and 
+                    p_data.get("type") == "fixed_delta"):
+                    # Check if bank has a match with the expected delta
+                    delta = p_data.get("delta", 0)
+                    target_amt = float(tx["amount"]) + delta
+                    for btx in bank_txs:
+                        if abs(float(btx["amount"]) - target_amt) < 0.01:
+                            tx["matched"] = True
+                            tx["sim_score"] = 1.0
+                            tx["match_type"] = f"pattern_{p_data.get('reason', 'rule')}"
+                            matched.append(tx)
+                            counts["pattern"] += 1
+                            matched_by_pattern = True
+                            break
+                if matched_by_pattern: break
+            if matched_by_pattern: continue
+
+            # 2. Stage 1 & 2 logic
             emb = tx.get("embedding")
             if not emb and model:
                 emb = model.encode(tx_to_string(tx)).tolist()
                 db.update("transactions", {"id": tx["id"]}, {"embedding": emb})
                 tx["embedding"] = emb
             
-            # 2. Vector search in DB for best bank match
             best_sim = 0.0
             match_type = "tfidf"
+            best_candidate = None
             
-            # Start with TF-IDF from the current batch (Stage 1)
-            tfidf_max = float(np.max(sim_matrix[i])) if sim_matrix.shape[1] > 0 else 0.0
-            best_sim = tfidf_max
+            # Stage 1: TF-IDF
+            if sim_matrix.shape[1] > 0:
+                best_idx = np.argmax(sim_matrix[i])
+                best_sim = float(sim_matrix[i][best_idx])
+                best_candidate = bank_txs[best_idx]
             
-            # If TF-IDF is weak, try Vector Search in the DB (Stage 2)
+            # Stage 2: PGVector (Semantic)
             if best_sim < RECON.match_threshold and emb:
                 vector_matches = db.vector_search_transactions(emb, threshold=0.1, count=1, source="bank")
                 if vector_matches:
@@ -114,23 +146,46 @@ def _run_reconciliation(state: FinancialState) -> FinancialState:
                     if v_match["similarity"] > best_sim:
                         best_sim = v_match["similarity"]
                         match_type = "vector"
+                        best_candidate = v_match
             
             tx["sim_score"] = best_sim
             tx["match_type"] = match_type
             
-            # Use appropriate threshold
             threshold = RECON.match_threshold if match_type == "tfidf" else RECON.semantic_match_threshold
             
             if best_sim >= threshold:
                 tx["matched"] = True
                 matched.append(tx)
+                counts[match_type] += 1
             else:
+                # Stage 3: FX Variance Check
+                # If we have a strong semantic candidate but the amount is off by < 2%
+                if best_candidate and best_sim >= 0.6: # Moderate semantic match
+                    internal_amt = abs(float(tx["amount"]))
+                    bank_amt = abs(float(best_candidate.get("amount", 0)))
+                    variance = abs(internal_amt - bank_amt) / max(1, internal_amt)
+                    if variance <= RECON.fx_tolerance:
+                        tx["matched"] = True
+                        tx["match_type"] = "fx_variance"
+                        tx["sim_score"] = 1.0 - variance # Weight by accuracy
+                        matched.append(tx)
+                        counts["fx"] += 1
+                        continue
+                
                 tx["matched"] = False
                 anomalies.append(tx)
+        
+        technical_summary = (
+            f"Processed {len(internal_txs)} transactions across 4 stages: "
+            f"Patterns: {counts['pattern']}, TF-IDF: {counts['tfidf']}, "
+            f"Vector: {counts['vector']}, FX: {counts['fx']}. "
+            f"{len(anomalies)} anomalies identified."
+        )
     else:
         for tx in internal_txs:
             tx["sim_score"] = 0.0
         anomalies = internal_txs
+        technical_summary = "No bank transactions available for matching; all internal items flagged as anomalies."
 
     # ── Orchestration: LLM anomaly analysis with directive context ────────────
     from utils.contracts import ReconciliationOutput
@@ -139,14 +194,17 @@ def _run_reconciliation(state: FinancialState) -> FinancialState:
 
     # Persistent Agent Memory: Read semantic memories for context
     past_anomalies_ctx = ""
-    potential_cids = _find_customers(anomalies)
+    potential_cids = _find_customers(anomalies)[:3] # Cap to 3 customers to save tokens
     for cid in potential_cids:
         memories = db.get_recent_memories("reconciliation", cid, limit=1)
         if memories:
             m = memories[0]
-            past_anomalies_ctx += f" [Memory: In {m['content'].get('period')}, customer had {m['content'].get('anomaly_count')} anomalies. Note: {m['content'].get('summary')}]"
+            past_anomalies_ctx += f" [Memory: {m['content'].get('period')} customer had {m['content'].get('anomaly_count')} anomalies]"
 
-    base_system, user = reconciliation_anomaly_prompt(anomalies, period)
+    # Cap anomalies to 5 for LLM analysis to avoid Rate Limit (TPM) issues
+    analysis_pool = sorted(anomalies, key=lambda x: abs(float(x.get('amount', 0))), reverse=True)[:5]
+    
+    base_system, user = reconciliation_anomaly_prompt(analysis_pool, period)
     if past_anomalies_ctx:
         user = "HISTORICAL CONTEXT: " + past_anomalies_ctx + "\n\n" + user
         
@@ -161,7 +219,7 @@ def _run_reconciliation(state: FinancialState) -> FinancialState:
         decision_type="reconciliation_complete",
         entity_table="reconciliation_reports",
         entity_id=run_id,
-        technical_explanation=analysis.technical_explanation,
+        technical_explanation=technical_summary,
         business_explanation=analysis.business_explanation,
         causal_explanation=analysis.causal_explanation,
         input_state={
@@ -180,7 +238,7 @@ def _run_reconciliation(state: FinancialState) -> FinancialState:
     trace = state.get("reasoning_trace", []) + [{
         "agent": "reconciliation",
         "step":  "Reconciliation Analysis",
-        "technical_explanation": analysis.technical_explanation,
+        "technical_explanation": technical_summary,
         "business_explanation":  analysis.business_explanation,
         "causal_explanation":    analysis.causal_explanation,
     }]
@@ -250,6 +308,19 @@ def _run_reconciliation(state: FinancialState) -> FinancialState:
         for tx in anomalies
     ]
     db.add_reconciliation_items(report_id, items)
+
+    # ── Execution: update transaction status in DB (V4 Accuracy Fix) ─────────
+    if matched:
+        # Prepare bulk update: only id, matched status, and score
+        update_payload = [
+            {
+                "id": tx["id"], 
+                "matched": True, 
+                "match_score": float(tx.get("sim_score", 0))
+            } 
+            for tx in matched
+        ]
+        db.upsert("transactions", update_payload)
 
     # ── Communication: route to credit if systematic issue found ─────────────
     # Thesis V4: Multi-Customer Support

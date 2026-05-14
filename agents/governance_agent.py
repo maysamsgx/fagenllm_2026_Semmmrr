@@ -47,7 +47,24 @@ def governance_node(state: FinancialState) -> FinancialState:
     elif "credit" in trigger or "payment" in trigger:
         entity_table = "customers"
         
-    entity_id = state.get("trigger_entity_id", "governance_gate")
+    entity_id = state.get("trigger_entity_id")
+    
+    # Thesis V4: Ensure entity_id is a UUID if possible
+    if entity_table == "reconciliation_reports" and state.get("reconciliation", {}).get("report_id"):
+        entity_id = state["reconciliation"]["report_id"]
+    
+    # If it's still not a UUID (like a string trigger), use a dummy or skip
+    import uuid
+    def is_uuid(val):
+        try:
+            uuid.UUID(str(val))
+            return True
+        except:
+            return False
+
+    if not is_uuid(entity_id):
+        # Default to a system-wide "Zero ID" for general audits
+        entity_id = "00000000-0000-0000-0000-000000000000"
 
     # ── Explanation: Log the final audit decision ───────────────────────────
     audit_id = db.log_agent_decision(

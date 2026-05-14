@@ -242,14 +242,19 @@ Return ONLY valid JSON.
 
 OUTPUT FORMAT:
 {
-  "technical_explanation": "",
-  "business_explanation": "",
-  "causal_explanation": "",
+  "technical_explanation": "Detailed forensic trace of mismatch patterns (e.g. 'Consistent $5.00 variance suggests bank fee ingestion failure').",
+  "business_explanation": "High-level summary for the CFO, including STRATEGIC IMPLICATIONS of the unreconciled amount.",
+  "causal_explanation": "What this anomaly blocks (e.g. 'Unreconciled AR prevents accurate credit score update for Customer X').",
   "risk_level": "low | medium | high | critical",
   "confidence": 0-100,
   "decision": "reconciliation_complete | escalation_required | manual_review_required",
   "is_systematic": true | false
 }
+
+FORENSIC DIRECTIVES:
+- If a systematic pattern is detected, you MUST identify the 'Primary Hypothesis' (e.g. ingestion error, fraud risk, timing drift).
+- Cite specific 'Evidence Markers' (e.g. '3 items with identical mismatch delta of $50.00').
+- In 'business_explanation', suggest a corrective action (e.g. 'Investigate bank feed mapping for counterparty Y').
 
 SCORE INTERPRETATION (critical — follow exactly):
 - Scores 0.80–1.00 = strong match (reconciled)
