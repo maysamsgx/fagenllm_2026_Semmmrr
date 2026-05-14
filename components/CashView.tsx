@@ -10,21 +10,21 @@ const RISK_COLOR: Record<string, string> = {
 }
 
 export default function CashView() {
-  const [pos, setPos]         = useState<{ total_balance: number; accounts: CashAccount[] } | null>(null)
-  const [forecast, setFore]   = useState<ForecastDay[]>([])
+  const [pos, setPos] = useState<{ total_balance: number; accounts: CashAccount[] } | null>(null)
+  const [forecast, setFore] = useState<ForecastDay[]>([])
   const [running, setRunning] = useState(false)
 
   // Scenario (what-if)
   const [showScenario, setShowScenario] = useState(false)
-  const [scAmount, setScAmount]         = useState('')
-  const [scLabel, setScLabel]           = useState('')
-  const [scLoading, setScLoading]       = useState(false)
-  const [scResult, setScResult]         = useState<CashScenarioResult | null>(null)
-  const [scError, setScError]           = useState('')
+  const [scAmount, setScAmount] = useState('')
+  const [scLabel, setScLabel] = useState('')
+  const [scLoading, setScLoading] = useState(false)
+  const [scResult, setScResult] = useState<CashScenarioResult | null>(null)
+  const [scError, setScError] = useState('')
 
   const load = () => {
-    cashApi.position().then(setPos).catch(() => {})
-    cashApi.forecast().then(r => setFore(r.forecast)).catch(() => {})
+    cashApi.position().then(setPos).catch(() => { })
+    cashApi.forecast().then(r => setFore(r.forecast)).catch(() => { })
   }
 
   useEffect(() => { load() }, [])
@@ -133,9 +133,9 @@ export default function CashView() {
               </defs>
               <CartesianGrid strokeDasharray="2 4" stroke="rgba(255,255,255,.05)" />
               <XAxis dataKey="day" tick={{ fontSize: 11, fill: 'var(--text-3)' }} stroke="rgba(255,255,255,.08)" />
-              <YAxis tick={{ fontSize: 11, fill: 'var(--text-3)' }} stroke="rgba(255,255,255,.08)" tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
+              <YAxis tick={{ fontSize: 11, fill: 'var(--text-3)' }} stroke="rgba(255,255,255,.08)" tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} />
               <Tooltip formatter={(v: number) => fmt(v)} />
-              <Area type="monotone" dataKey="inflow"  stroke="#34d399" fill="url(#gi)" name="Inflows" strokeWidth={2} />
+              <Area type="monotone" dataKey="inflow" stroke="#34d399" fill="url(#gi)" name="Inflows" strokeWidth={2} />
               <Area type="monotone" dataKey="outflow" stroke="#fb7185" fill="url(#go)" name="Outflows" strokeWidth={2} />
             </AreaChart>
           </ResponsiveContainer>
@@ -222,18 +222,18 @@ export default function CashView() {
                   <div style={{ padding: '10px 14px', background: 'rgba(255,255,255,.04)', borderRadius: 8 }}>
                     <div style={{ fontSize: 10.5, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 }}>Decision</div>
                     <Badge
-                      label={scResult.can_approve ? 'Approved' : 'Escalate'}
-                      color={scResult.can_approve ? '#34d399' : '#fb7185'}
-                      bg={scResult.can_approve ? 'rgba(52,211,153,.14)' : 'rgba(251,113,133,.14)'}
+                      label={scResult.risk_level === 'low' ? 'Low Risk' : scResult.risk_level === 'medium' ? 'Review Recommended' : scResult.risk_level === 'high' ? 'High Risk' : 'CRITICAL'}
+                      color={RISK_COLOR[scResult.risk_level]}
+                      bg={`${RISK_COLOR[scResult.risk_level]}22`}
                     />
                   </div>
                 </div>
 
                 {/* --- Honors Level: Scenario Comparison Forecast --- */}
-                <div style={{ 
-                  background: 'rgba(0,0,0,0.2)', 
-                  borderRadius: 12, 
-                  padding: '24px', 
+                <div style={{
+                  background: 'rgba(0,0,0,0.2)',
+                  borderRadius: 12,
+                  padding: '24px',
                   marginBottom: 20,
                   border: '1px solid rgba(255,255,255,0.05)'
                 }}>
@@ -250,38 +250,58 @@ export default function CashView() {
                   </div>
 
                   <ResponsiveContainer width="100%" height={220}>
-                    <AreaChart data={forecast.map((d: ForecastDay) => ({
-                      day: fmtDay(d.forecast_date),
-                      baseline: d.net_position,
-                      scenario: d.net_position - parseFloat(scAmount),
-                      reserve: scResult.minimum_balance
-                    }))}>
+                    <AreaChart data={(() => {
+                      let runningBaseline = pos?.total_balance || 0;
+                      let runningScenario = (pos?.total_balance || 0) - parseFloat(scAmount);
+                      
+                      return forecast.map((d: ForecastDay) => {
+                        // Use net_position if available, else fallback to inflow - outflow
+                        const net = d.net_position !== undefined && d.net_position !== null 
+                          ? d.net_position 
+                          : (d.projected_inflow - d.projected_outflow);
+                        
+                        runningBaseline += net;
+                        runningScenario += net;
+                        
+                        return {
+                          day: fmtDay(d.forecast_date),
+                          baseline: runningBaseline,
+                          scenario: runningScenario,
+                          reserve: scResult.minimum_balance
+                        };
+                      });
+                    })()}>
                       <defs>
                         <linearGradient id="gDiff" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#fb7185" stopOpacity={0.15} />
-                          <stop offset="100%" stopColor="#fb7185" stopOpacity={0} />
+                          <stop offset="0%" stopColor={scResult.can_approve ? '#67e8f9' : '#fb7185'} stopOpacity={0.15} />
+                          <stop offset="100%" stopColor={scResult.can_approve ? '#67e8f9' : '#fb7185'} stopOpacity={0} />
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="2 4" stroke="rgba(255,255,255,.05)" vertical={false} />
                       <XAxis dataKey="day" tick={{ fontSize: 10, fill: 'var(--text-4)' }} stroke="transparent" />
-                      <YAxis tick={{ fontSize: 10, fill: 'var(--text-4)' }} stroke="transparent" tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
-                      <Tooltip 
+                      <YAxis 
+                        tick={{ fontSize: 10, fill: 'var(--text-4)' }} 
+                        stroke="transparent" 
+                        tickFormatter={v => v >= 1000000 ? `$${(v / 1000000).toFixed(1)}M` : `$${(v / 1000).toFixed(0)}k`} 
+                        domain={['auto', 'auto']}
+                      />
+                      <Tooltip
                         contentStyle={{ background: '#0d1226', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }}
                         formatter={(v: number) => fmt(v)}
                       />
                       {/* Danger Zone */}
                       <Area type="monotone" dataKey="reserve" stroke="#fb7185" fill="rgba(251, 113, 133, 0.05)" strokeDasharray="5 5" name="Min Reserve" />
-                      
+
                       {/* Current Projection */}
                       <Area type="monotone" dataKey="baseline" stroke="var(--text-4)" fill="transparent" strokeWidth={1} name="Baseline" />
-                      
+
                       {/* Scenario Projection */}
-                      <Area 
-                        type="monotone" 
-                        dataKey="scenario" 
-                        stroke={scResult.can_approve ? '#67e8f9' : '#fb7185'} 
-                        fill="url(#gDiff)" 
-                        strokeWidth={3} 
+                      <Area
+                        type="monotone"
+                        dataKey="scenario"
+                        stroke={scResult.can_approve ? '#67e8f9' : '#fb7185'}
+                        fill="url(#gDiff)"
+                        strokeWidth={3}
                         name="Scenario"
                         animationDuration={1500}
                       />

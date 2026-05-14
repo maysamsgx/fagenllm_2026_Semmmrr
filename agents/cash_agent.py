@@ -303,6 +303,7 @@ def _write_forecast(accounts: list, inflows: float, outflows: float) -> None:
             "cash_account_id":  account_id,
             "projected_inflow":  round(inflows * weight, 2),
             "projected_outflow": round(outflows * weight, 2),
+            "net_position":      round((inflows - outflows) * weight, 2),
             "notes": f"Agent-generated forecast (run {today.isoformat()})",
         })
 

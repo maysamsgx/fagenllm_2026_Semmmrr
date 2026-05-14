@@ -1,6 +1,6 @@
 import React from 'react'
 
-export function Card({ children, className = '', ...props }: { children?: React.ReactNode; className?: string; [key: string]: any }) {
+export function Card({ children, className = '', ...props }: { children?: React.ReactNode; className?: string;[key: string]: any }) {
   return <div className={`card ${className}`} {...props}>{children}</div>
 }
 
@@ -37,7 +37,7 @@ export function Empty({ msg }: { msg: string }) {
 }
 
 export const RISK_COLOR: Record<string, string> = { low: '#34d399', medium: '#fbbf24', high: '#fb7185' }
-export const RISK_BG: Record<string, string>    = { low: 'rgba(52, 211, 153, .12)', medium: 'rgba(251, 191, 36, .12)', high: 'rgba(251, 113, 133, .12)' }
+export const RISK_BG: Record<string, string> = { low: 'rgba(52, 211, 153, .12)', medium: 'rgba(251, 191, 36, .12)', high: 'rgba(251, 113, 133, .12)' }
 export const STATUS_COLOR: Record<string, string> = {
   pending: '#94a3b8',
   extracting: '#67e8f9',
@@ -133,11 +133,23 @@ export function getLegacyAgentAvatar(agent: string) {
 
 export function fmt(n: number | null, currency = 'USD') {
   if (n == null) return '—'
-  if (Math.abs(n) >= 1_000_000) {
-    const formatted = new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 1 }).format(n / 1_000_000)
+  const absN = Math.abs(n)
+  if (absN >= 1_000_000) {
+    // For large numbers, we show more decimals if they are just over a million 
+    // to ensure changes like $20k are visible (2.80M vs 2.78M)
+    const decimals = absN < 10_000_000 ? 2 : 1
+    const formatted = new Intl.NumberFormat('en-US', { 
+      style: 'currency', 
+      currency, 
+      maximumFractionDigits: decimals,
+      minimumFractionDigits: decimals 
+    }).format(n / 1_000_000)
     return `${formatted}M`
   }
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 0 }).format(n)
+  if (absN >= 10_000) {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 0 }).format(n)
+  }
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 2 }).format(n)
 }
 
 export function pct(n: number) { return `${n.toFixed(1)}%` }
