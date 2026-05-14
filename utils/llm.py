@@ -177,11 +177,15 @@ def _call_groq_with_fallback(
     messages: list[dict],
     temperature: float = 0.0,
     force_json: bool = True,
-    max_tokens: int = 4096,
+    max_tokens: int = 1024,
     tier: str = "reasoning"
 ) -> tuple[str, str]:
     """
     Call primary model (Qwen3); on failure retry with fallback (gpt-oss-20b).
+
+    max_tokens is intentionally kept at 1024 for workhorse/structured calls
+    so that total request tokens (input ~2-3k + output) stays under Groq's
+    6000 TPM free-tier cap for llama-3.1-8b-instant.
 
     Returns
     -------
@@ -214,10 +218,11 @@ def _call_groq_with_fallback(
         )
 
     # Fallback attempt (openai/gpt-oss-20b:free via OpenRouter)
+    # OpenRouter has no strict TPM cap, so we give it more room
     try:
         raw = _openrouter_raw_call(messages, model=s.openrouter_fallback_model,
-                             temperature=1.0, force_json=force_json,
-                             max_tokens=1024)
+                             temperature=0.3, force_json=force_json,
+                             max_tokens=1500)
         logger.info("Fallback model (%s) succeeded.", s.openrouter_fallback_model)
         return raw, "fallback"
     except Exception as exc2:
@@ -250,7 +255,8 @@ def qwen_json(system_prompt: str, user_prompt: str) -> dict:
         {"role": "user",   "content": user_prompt},
     ]
     # Use 'workhorse' for routine JSON extraction tasks to save 'reasoning' TPM
-    raw, model_used = _call_groq_with_fallback(messages, temperature=0.0, force_json=True, tier="workhorse")
+    # max_tokens=1024 keeps total request under Groq 6000 TPM limit
+    raw, model_used = _call_groq_with_fallback(messages, temperature=0.0, force_json=True, max_tokens=1024, tier="workhorse")
     logger.info("qwen_json attempt 1: model_used=%s", model_used)
     cleaned = _strip_reasoning(raw)
     parsed = _coerce_json(cleaned)
@@ -266,10 +272,10 @@ def qwen_json(system_prompt: str, user_prompt: str) -> dict:
         "Now reply again. Output ONLY the JSON object — start with `{` and end with `}`. "
         "No reasoning, no prose, no fences."
     )
-    messages.append({"role": "assistant", "content": cleaned[:1500]})
+    messages.append({"role": "assistant", "content": cleaned[:800]})
     messages.append({"role": "user", "content": correction})
     # Correction still uses 'workhorse'
-    raw2, model_used2 = _call_groq_with_fallback(messages, temperature=0.0, force_json=True, tier="workhorse")
+    raw2, model_used2 = _call_groq_with_fallback(messages, temperature=0.0, force_json=True, max_tokens=1024, tier="workhorse")
     logger.info("qwen_json attempt 2: model_used=%s", model_used2)
     cleaned2 = _strip_reasoning(raw2)
     parsed = _coerce_json(cleaned2)
@@ -302,7 +308,8 @@ def qwen_structured(system_prompt: str, user_prompt: str, schema: Type[T], tier:
     last_raw = ""
     for attempt in range(2):
         # Use 'workhorse' for routine structured extraction
-        raw, model_used = _call_groq_with_fallback(messages, temperature=0.0, force_json=True, tier="workhorse")
+        # max_tokens=1024 keeps total request under Groq 6000 TPM limit
+        raw, model_used = _call_groq_with_fallback(messages, temperature=0.0, force_json=True, max_tokens=1024, tier="workhorse")
         logger.info("qwen_structured attempt %d: model_used=%s", attempt + 1, model_used)
         raw = raw  # keep variable name consistent below
         last_raw = raw
@@ -313,16 +320,16 @@ def qwen_structured(system_prompt: str, user_prompt: str, schema: Type[T], tier:
                 return schema(**parsed)
             except Exception as e:
                 logger.warning(f"qwen_structured: schema mismatch on attempt {attempt + 1}: {e}")
-                # Feed the bad output back for a corrective retry
-                messages.append({"role": "assistant", "content": cleaned[:1500]})
+                # Feed the bad output back for a corrective retry (keep short to save TPM)
+                messages.append({"role": "assistant", "content": cleaned[:600]})
                 messages.append({"role": "user", "content":
-                    f"Validation failed: {e}. Return ONLY a JSON object that strictly matches "
-                    "the schema above. Use null for unknown values."})
+                    f"Validation failed: {e}. Return ONLY a JSON object matching "
+                    "the schema. Use null for unknown values."})
                 continue
-        # Bad JSON entirely
-        messages.append({"role": "assistant", "content": cleaned[:1500]})
+        # Bad JSON entirely (keep short to save TPM)
+        messages.append({"role": "assistant", "content": cleaned[:600]})
         messages.append({"role": "user", "content":
-            "Your previous response was not valid JSON. Output ONLY the JSON object now."})
+            "Invalid JSON. Output ONLY the JSON object now."})
 
     logger.error(f"qwen_structured: gave up after retries. Raw: {last_raw[:400]!r}")
     raise ValueError("Qwen3 returned non-JSON output even after corrective retry.")

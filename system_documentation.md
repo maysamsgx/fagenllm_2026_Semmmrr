@@ -128,8 +128,8 @@ The Budget Agent runs two distinct pipelines depending on the trigger, implement
 **4-Stage Forensic Matching Pipeline (V4+):**
 
 1.  **Stage 0 — Semantic Memory Patterns (Episodic):** Before running algorithms, the agent scans `agent_memory` for known systematic mismatch rules (e.g. "Counterparty X always has a $2.00 bank fee"). This allows for zero-latency resolution of recurring discrepancies.
-2.  **Stage 1 — TF-IDF Cosine Similarity:** Rapid matching of exact/near-exact text strings using `sklearn`. Threshold: ≥ 0.80.
-3.  **Stage 2 — PGVector Semantic Search:** Items failing Stage 1 are re-scored using 384-dimensional MiniLM embeddings. The agent queries the entire bank history in Supabase using `pgvector` to find semantic matches (e.g. "AWS Cloud" vs "Amazon Web Svcs"). Threshold: ≥ 0.75.
+2.  **Stage 1 — TF-IDF Cosine Similarity:** Rapid matching of exact/near-exact text strings using `sklearn`. Threshold: ≥ 0.50 (lower than semantic because TF-IDF scores cluster lower for valid matches).
+3.  **Stage 2 — PGVector Semantic Search:** Items failing Stage 1 are re-scored using 384-dimensional MiniLM embeddings. The agent queries the entire bank history in Supabase using `pgvector` to find semantic matches (e.g. "AWS Cloud" vs "Amazon Web Svcs"). Threshold: ≥ 0.75 (higher than TF-IDF because embedding similarities inflate for unrelated text).
 4.  **Stage 3 — Multi-Currency Forensic Check:** For items with high semantic similarity but amount mismatches, the agent calculates the variance. If the discrepancy is ≤ 2% (controlled via `RECON.fx_tolerance`), it is automatically reconciled as an FX variance, satisfying multi-currency treasury requirements.
 
 **LLM Anomaly Analysis:**

@@ -204,6 +204,7 @@ def reconciliation_anomaly_prompt(unmatched: list[dict], period: str) -> tuple[s
     Generate enterprise forensic-grade intelligence for reconciliation anomalies.
     Produces 3 XAI fields in professional treasury operations language.
     """
+    from directives.policies import RECON  # lazy import
 
     # Enrich with similarity scores and counterparty data
     if unmatched:
@@ -213,17 +214,17 @@ def reconciliation_anomaly_prompt(unmatched: list[dict], period: str) -> tuple[s
         items_text = "\n".join([
             f"  [{i+1:02d}] {t.get('source','?').upper()} | "
             f"Counterparty: {str(t.get('counterparty','Unknown'))[:35]} | "
-            f"Amount: ${float(t.get('amount',0)):>11,.2f} | "
+            f"Amount: ${float(t.get('amount',0) or 0):>11,.2f} | "
             f"Date: {t.get('transaction_date','?')} | "
-            f"Score: {float(t.get('sim_score', t.get('match_score',0))):.3f}"
+            f"Score: {float(t.get('sim_score') or t.get('match_score') or 0):.3f}"
             for i, t in enumerate(sample)
         ])
         total_n   = len(unmatched)
-        total_exp = sum(float(t.get('amount', 0)) for t in unmatched)
+        total_exp = sum(float(t.get('amount', 0) or 0) for t in unmatched)
         cps       = list({t.get('counterparty','') for t in unmatched if t.get('counterparty')})
         dates     = sorted(t.get('transaction_date','') for t in unmatched if t.get('transaction_date'))
         date_range = f"{dates[0]} to {dates[-1]}" if len(dates) >= 2 else (dates[0] if dates else "N/A")
-        avg_score = sum(float(t.get('sim_score', t.get('match_score',0))) for t in unmatched) / len(unmatched)
+        avg_score = sum(float(t.get('sim_score') or t.get('match_score') or 0) for t in unmatched) / max(1, len(unmatched))
         cp_str    = ", ".join(cps[:5]) + (" ..." if len(cps) > 5 else "")
         note      = f" (showing 10 of {total_n})" if total_n > 10 else ""
     else:
@@ -257,11 +258,10 @@ FORENSIC DIRECTIVES:
 - In 'business_explanation', suggest a corrective action (e.g. 'Investigate bank feed mapping for counterparty Y').
 
 SCORE INTERPRETATION (critical — follow exactly):
-- Scores 0.80–1.00 = strong match (reconciled)
-- Scores 0.65–0.79 = SYSTEMATIC PARTIAL MATCH — items are related but threshold not met. Do NOT say 'no structural match'. Say 'consistent partial-match signals below threshold'.
-- Scores 0.30–0.64 = weak match, possible rule mismatch
+- TF-IDF Score ≥ {RECON.match_threshold:.2f} OR Semantic Score ≥ {RECON.semantic_match_threshold:.2f} = strong match (reconciled)
+- Scores 0.30–0.49 = SYSTEMATIC PARTIAL MATCH — items are related but threshold not met. Do NOT say 'no structural match'. Say 'consistent partial-match signals below threshold'.
 - Scores <0.30 = no structural relationship found
-NEVER say 'no structural match rules satisfied' when scores are in the 0.65–0.79 band.
+NEVER say 'no structural match rules satisfied' when scores are in the 0.30–0.49 band.
 
 TEMPORAL REASONING:
 - If dates span more than 60 days, explicitly segment into: pre-period outliers vs primary cluster.
@@ -289,11 +289,15 @@ FINANCIAL EXPOSURE:
 Return ONLY valid JSON."""
 
     user = f"""RECONCILIATION BRIEF — Period: {period}
-Unreconciled: {total_n} items | Exposure: ${total_exp:,.2f} | Dates: {date_range}
+CRITICAL: Total Unreconciled Items = {total_n}
+Financial Exposure = ${total_exp:,.2f}
+Affected Dates = {date_range}
+
 Counterparties ({len(cps)}): {cp_str} | Avg Match-Score: {avg_score:.3f}
 
-EVIDENCE{note}:
+EVIDENCE (Top 5 largest/most recent items for forensic analysis):{note}
 {items_text}
+
 
 Return JSON with these 3 distinct analytical fields + metadata:
 
@@ -315,7 +319,7 @@ Return JSON with these 3 distinct analytical fields + metadata:
 Also set:
   decision: reconciliation_complete | escalation_required | manual_review_required
   confidence: 0-100
-  is_systematic: true if ≥3 items share counterparty, amount band, or date window
+  is_systematic: true if you identified ANY pattern or shared root cause in technical_explanation (e.g. counterparty recurrence, ingestion failure, timing drift).
 """
     return system, user
 

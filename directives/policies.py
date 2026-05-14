@@ -47,12 +47,12 @@ class CreditPolicy:
 
 @dataclass(frozen=True)
 class ReconciliationPolicy:
-    match_threshold:          float = 0.8   # TF-IDF cosine similarity
+    match_threshold:          float = 0.50  # TF-IDF cosine similarity
     semantic_match_threshold: float = 0.75  # SentenceTransformer similarity
     fx_tolerance:             float = 0.02  # 2% variance allowed for FX fluctuations
     pattern_threshold:        float = 0.95  # Similarity for episodic memory patterns
     systematic_keywords:      tuple = ("systematic", "pattern", "recurring", "repeated")
-    max_fetch:           int   = 20    # max unmatched rows per reconciliation run
+    max_fetch:           int   = 50    # max unmatched rows per reconciliation run
 
 
 # Module-level singletons — import these in agent files

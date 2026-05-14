@@ -115,17 +115,12 @@ def get_stats():
 @router.get("/report/{report_id}/causal-trace")
 def get_recon_causal_trace(report_id: str):
     """
-    Full causal trail for a reconciliation run.
-    
-    Architecture (matches thesis Section on Causal Domain Reasoning):
-    - Step 1: Fetch the reconciliation decision for this report.
-    - Step 2: Follow explicit causal_links to find downstream effects
-              (e.g. Credit risk reassessment triggered by systematic anomaly).
-    - Step 3: Follow further causal_links from those decisions (e.g. Cash AR update).
-    
-    This strictly uses causal_links — NOT temporal proximity —
-    so only decisions that are causally related to THIS run appear.
+    Standardized trace for reconciliation. 
+    Recursively follows causal links starting from the decision that generated the report.
     """
+    supabase = get_supabase()
+    
+    # Step 1: Find the report and its root decision
     report = db.select("reconciliation_reports", {"id": report_id})
     if not report:
         from fastapi import HTTPException
@@ -134,46 +129,55 @@ def get_recon_causal_trace(report_id: str):
     report = report[0]
     decision_id = report.get("generated_by_decision_id")
     
-    decisions = []
     if not decision_id:
         return {"decisions": [], "links": [], "trace": [], "name": f"Reconciliation Report — {report.get('period')}"}
     
-    # Step 1: The root reconciliation decision
+    # Step 2: Fetch the root decision
     root = db.select("agent_decisions", {"id": decision_id})
     if not root:
         return {"decisions": [], "links": [], "trace": [], "name": f"Reconciliation Report — {report.get('period')}"}
     
-    decisions = list(root)
-    supabase = get_supabase()
+    # Step 3: Fetch all decisions with the same entity_id (captures perception + complete from same run)
+    run_id = root[0].get("entity_id")
+    if run_id:
+        decisions = db.select("agent_decisions", {"entity_id": run_id})
+    else:
+        decisions = list(root)
     
-    # Step 2 & 3: Recursively follow all causal links (BFS, max depth 3)
+    visited_ids = {d["id"] for d in decisions}
     all_links = []
-    visited_ids = {decision_id}
-    frontier = [decision_id]
     
-    for _ in range(3):  # max 3 hops (recon → credit → cash)
+    # Step 4: BFS to find downstream/upstream effects
+    frontier = list(visited_ids)
+    for _ in range(3): # max 3 hops
+        if not frontier: break
         next_frontier = []
+        
         for dec_id in frontier:
             links = (supabase.table("causal_links")
                      .select("id, cause_decision_id, effect_decision_id, relationship_type, strength, explanation, created_at")
                      .or_(f"cause_decision_id.eq.{dec_id},effect_decision_id.eq.{dec_id}")
                      .execute().data) or []
-            all_links.extend(links)
             
             for link in links:
-                # Follow downstream (cause → effect)
-                if link["cause_decision_id"] == dec_id:
-                    other_id = link["effect_decision_id"]
+                if link["id"] not in [l["id"] for l in all_links]:
+                    all_links.append(link)
+                    
+                    # Bi-directional follow
+                    cause_id = link["cause_decision_id"]
+                    effect_id = link["effect_decision_id"]
+                    other_id = effect_id if cause_id == dec_id else cause_id
+                    
                     if other_id not in visited_ids:
                         visited_ids.add(other_id)
                         other_dec = db.select("agent_decisions", {"id": other_id})
                         if other_dec:
                             decisions.extend(other_dec)
                             next_frontier.append(other_id)
+        
         frontier = next_frontier
-        if not frontier:
-            break
 
+    # Step 5: Format for TracePanel
     decisions = sorted(decisions, key=lambda d: d.get("created_at") or "")
     
     trace = [

@@ -35,12 +35,12 @@ export default function ReconciliationView() {
     setRunning(true)
     try { 
       await reconApi.run() 
-      // Polling fallback (v3.1): Increase duration to 60s to handle cold-starts/large batches
+      // Polling fallback (v4): Increase duration to 90s to handle larger batches and semantic search
       let attempts = 0
       const poll = setInterval(() => {
         load()
         attempts++
-        if (attempts >= 30) {
+        if (attempts >= 45) { // 45 * 2s = 90s
           clearInterval(poll)
           setRunning(false)
         }
@@ -51,7 +51,7 @@ export default function ReconciliationView() {
         clearInterval(poll)
         setRunning(false)
         load()
-      }, 65000)
+      }, 95000)
     } catch (e) { 
       alert(`Run failed: ${e}`) 
       setRunning(false)
@@ -84,7 +84,7 @@ export default function ReconciliationView() {
           <AgentAvatar agent="reconciliation" active={running} />
           <div>
             <h2>Reconciliation</h2>
-            <p className="view-sub">TF-IDF (≥0.80) + Semantic MiniLM (≥0.75) · Qwen3 anomaly analysis</p>
+            <p className="view-sub">TF-IDF (≥0.50) + Semantic MiniLM (≥0.75) · Qwen3 anomaly analysis</p>
           </div>
         </div>
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
@@ -125,7 +125,7 @@ export default function ReconciliationView() {
               <div style={{ padding: '14px 16px', fontSize: 12, color: 'var(--text-2)', lineHeight: 1.8, background: 'rgba(0,0,0,.15)' }}>
                 <ol style={{ margin: 0, paddingLeft: 18 }}>
                   <li><strong>Data Ingestion:</strong> Fetches all unmatched ledger and bank items (limit: 50 per cycle).</li>
-                  <li><strong>Stage 1 (TF-IDF Cosine Similarity):</strong> Rapid matching of exact/near-exact text patterns. Threshold: ≥ 0.80.</li>
+                  <li><strong>Stage 1 (TF-IDF Cosine Similarity):</strong> Rapid matching of exact/near-exact text patterns. Threshold: ≥ 0.50.</li>
                   <li><strong>Stage 2 (PGVector Semantic Search):</strong> Items failing Stage 1 are transformed into 384-dimensional embeddings (MiniLM-L6) and queried against the entire bank transaction history in Supabase using <strong>pgvector</strong>. Threshold: ≥ 0.75.</li>
                   <li><strong>Qwen3 Forensic Audit:</strong> Unmatched anomalies are analyzed by the Reasoning Tier to detect systematic root causes (e.g. "Timing drift on counterparty X").</li>
                   <li><strong>Causal Escalation:</strong> Systematic anomalies trigger a causal chain to the <strong>Credit Agent</strong> for customer risk adjustment.</li>
@@ -439,8 +439,8 @@ export default function ReconciliationView() {
             <div style={{ background: 'rgba(0,0,0,0.2)', padding: 12, borderRadius: 8, marginBottom: 20 }}>
               <div style={{ fontSize: 11, color: 'var(--text-4)', textTransform: 'uppercase', marginBottom: 6 }}>AI Reasoning</div>
               <p style={{ margin: 0, fontSize: 12, color: 'var(--text-2)' }}>
-                Similarity score of <strong>{(selectedTx.match_score || selectedTx.sim_score || 0 * 100).toFixed(0)}%</strong> via {selectedTx.match_type || 'TF-IDF'}. 
-                Manual stakeholder intervention required due to policy threshold (0.80).
+                Similarity score of <strong>{((selectedTx.match_score || selectedTx.sim_score || 0) * 100).toFixed(0)}%</strong> via {selectedTx.match_type || 'TF-IDF'}. 
+                Manual stakeholder intervention required due to policy threshold (0.50).
               </p>
             </div>
 
