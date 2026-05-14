@@ -88,6 +88,7 @@ export interface Invoice {
   cash_check_passed: boolean | null
   budget_check_passed: boolean | null
   governance_status?: 'passed' | 'flagged' | 'blocked' | 'pending'
+  is_audit_safe?: boolean
   extraction_confidence: number | null
   created_at: string
 }

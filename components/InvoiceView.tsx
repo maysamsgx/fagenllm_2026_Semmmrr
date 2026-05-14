@@ -109,7 +109,7 @@ export default function InvoiceView() {
             </div>
           </div>
           <div className="stat-value" style={{ color: '#34d399', marginTop: 6 }}>
-            {invoices.filter(i => i.governance_status === 'passed').length} / {invoices.length}
+            {invoices.filter(i => i.is_audit_safe).length} / {invoices.length}
           </div>
           <div style={{ fontSize: 11, color: 'var(--text-4)', marginTop: 4 }}>Compliance passed</div>
         </Card>

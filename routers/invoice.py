@@ -95,6 +95,7 @@ def list_invoices(status: str = None, department_id: str = None):
         
         # Create a mapping (Safe access to output_action)
         audit_map = {}
+        audit_safe_map = {}
         for d in audit_decisions:
             eid = d.get("entity_id")
             oa = d.get("output_action")
@@ -103,9 +104,11 @@ def list_invoices(status: str = None, department_id: str = None):
                 if eid not in audit_map:
                     status = oa.get("status", "pending")
                     audit_map[eid] = status.lower() if isinstance(status, str) else "pending"
+                    audit_safe_map[eid] = oa.get("is_audit_safe", False)
         
         for item in data:
             item["governance_status"] = audit_map.get(item["id"], "pending")
+            item["is_audit_safe"] = audit_safe_map.get(item["id"], False)
             item["vendor_name"] = item.get("vendors", {}).get("name") if item.get("vendors") else None
             item["department"] = item.get("department_id")
     
