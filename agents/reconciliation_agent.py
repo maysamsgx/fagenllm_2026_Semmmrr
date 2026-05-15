@@ -145,7 +145,7 @@ def _run_reconciliation(state: FinancialState) -> FinancialState:
                             tx["matched"] = True
                             tx["sim_score"] = 1.0
                             tx["match_type"] = f"pattern_{p_data.get('reason', 'rule')}"
-                            tx["paired_with"] = btx["id"]
+                            tx["matched_to"] = btx["id"]
                             btx["matched"] = True
                             btx["sim_score"] = 1.0
                             matched_bank_ids.add(btx["id"])
@@ -199,7 +199,7 @@ def _run_reconciliation(state: FinancialState) -> FinancialState:
             
             if best_sim >= threshold and best_candidate:
                 tx["matched"] = True
-                tx["paired_with"] = best_candidate["id"]
+                tx["matched_to"] = best_candidate["id"]
                 best_candidate["matched"] = True
                 best_candidate["sim_score"] = best_sim
                 matched_bank_ids.add(best_candidate["id"])
@@ -216,7 +216,7 @@ def _run_reconciliation(state: FinancialState) -> FinancialState:
                         tx["matched"] = True
                         tx["match_type"] = "fx_variance"
                         tx["sim_score"] = 1.0 - variance
-                        tx["paired_with"] = best_candidate["id"]
+                        tx["matched_to"] = best_candidate["id"]
                         best_candidate["matched"] = True
                         best_candidate["sim_score"] = 1.0 - variance
                         matched_bank_ids.add(best_candidate["id"])
@@ -310,6 +310,7 @@ def _run_reconciliation(state: FinancialState) -> FinancialState:
         tx_update = {**tx}
         tx_update["match_score"] = round(tx.get("sim_score", 0), 4)
         tx_update["matched"] = tx.get("matched", False)
+        tx_update["matched_to"] = tx.get("matched_to")
         updates.append(tx_update)
     # Include only matched bank transactions
     for tx in bank_txs:
@@ -317,6 +318,7 @@ def _run_reconciliation(state: FinancialState) -> FinancialState:
             tx_update = {**tx}
             tx_update["match_score"] = round(tx.get("sim_score", 0), 4)
             tx_update["matched"] = True
+            tx_update["matched_to"] = tx.get("matched_to")
             updates.append(tx_update)
     
     if updates:

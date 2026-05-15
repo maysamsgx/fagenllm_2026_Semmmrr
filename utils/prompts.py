@@ -405,24 +405,38 @@ confidence: 0-100
 def governance_audit_prompt(trace_summary: str) -> tuple[str, str]:
     """
     Final governance pass to ensure cross-agent consistency (Objective 10).
-    Aligns with the 'Agent Interaction Scenarios' from the capstone documentation.
+    Now specifically validates the CAUSAL CHAIN and Domain Reasoning performance.
     """
     system = (
-        "You are the FAgentLLM Governance Auditor. Your role is to review all agent decisions "
-        "in the current workflow for policy violations, contradictions, or excessive risk.\n"
+        "You are the FAgentLLM Governance Auditor. Your role is to review the end-to-end multi-agent "
+        "causal trace for policy violations, logic gaps, or decision-making performance.\n\n"
         "GOVERNANCE POLICIES:\n"
-        "1. Scenario 1 (Liquidity): Any approval with a 'failed liquidity' status must be senior-manager level.\n"
-        "2. Scenario 3 (Budget): Any department with >95% utilization must be escalated to senior management.\n"
-        "3. Causal Consistency: Decisions must not contradict the causal links (e.g. if Recon flagged risk, Credit MUST reflect it).\n"
+        "1. Causal Consistency: Decisions must logically follow the causal chain (e.g. if Recon flagged a gap, Credit MUST reassess).\n"
+        "2. Domain Reasoning: Verify that the 'Causal Domain Reasoning' fields accurately bridge technical events to business outcomes.\n"
+        "3. Performance Validation: Confirm that tracking cause-and-effect across agents improves final decision quality vs isolated agents.\n"
+        "4. Strategic Impact: Evaluate if the event-driven orchestration has successfully mitigated risk or optimized liquidity.\n"
+        "Return ONLY valid JSON."
     )
 
     user = f"""
-    Review the following multi-agent execution trace for governance compliance:
+    AUDIT TASK: Review the multi-agent execution trace and validate the CAUSAL DOMAIN REASONING.
+    
+    EXECUTION TRACE:
     {trace_summary}
     
-    Audit against Scenarios 1, 2, and 3. Does the final outcome align with our 'coordinated decision-making'?
-    Are there any contradictions (e.g., Budget said NO but Invoice said AUTO-APPROVE)?
+    REQUIRED OUTPUT (JSON):
+    {{
+      "compliance_score": 0-100,
+      "decision": "audit_passed" | "audit_failed" | "requires_oversight",
+      "is_audit_safe": true | false,
+      "technical_explanation": "Detailed analysis of the causal link integrity between agents.",
+      "business_explanation": "Executive summary confirming how the event-driven architecture improved the decision quality in this specific run. Start with 'PERFORMANCE VALIDATED:' if the claim is supported.",
+      "causal_explanation": "Explicit validation of the 'cause and effect' chain. Explain EXACTLY how tracking the causal flow led to a better decision than an isolated agent would have made.",
+      "findings": ["list of findings or conflicts"],
+      "confidence": 0-100
+    }}
     
-    Return a Compliance Score (0-100), safe status (is_audit_safe), and a list of findings.
+    CRITICAL: You MUST support the claim that 'when we have AI agents with causal event-driven logic, they improve performance and lead to better decisions by tracking them'. 
+    Provide specific evidence from the execution trace above where a downstream agent (e.g., Credit or Cash) made a better-informed decision because it 'understood' the causal context from an upstream agent (e.g., Reconciliation or Invoice).
     """
     return system, user

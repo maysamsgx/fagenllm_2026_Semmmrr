@@ -28,7 +28,7 @@ export interface FinancialStateSnapshot {
 
 export interface AgentDecision {
   id: string
-  agent: 'invoice' | 'budget' | 'reconciliation' | 'credit' | 'cash'
+  agent: 'invoice' | 'budget' | 'reconciliation' | 'credit' | 'cash' | 'governance'
   decision_type: string
   entity_table: string
   entity_id: string
@@ -55,7 +55,7 @@ export interface CausalLink {
 }
 
 export interface TraceEvent {
-  agent: 'invoice' | 'budget' | 'reconciliation' | 'credit' | 'cash'
+  agent: 'invoice' | 'budget' | 'reconciliation' | 'credit' | 'cash' | 'governance'
   event_type: string
   timestamp: string
   technical_explanation?: string | null

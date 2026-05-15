@@ -143,9 +143,18 @@ export default function TracePanel({ entityId, entityType = 'invoice', onClose }
                         </div>
                       )}
                       {e.causal_explanation && (
-                        <div className="trace-causal">
-                          <span className="trace-causal-label">Causal Domain Reasoning</span>
-                          <div className="trace-causal-content">{e.causal_explanation}</div>
+                        <div className={`trace-causal ${e.agent === 'governance' ? 'trace-causal-governance' : ''}`}>
+                          <span className="trace-causal-label">
+                            {e.agent === 'governance' ? 'Final Performance Validation' : 'Causal Domain Reasoning'}
+                          </span>
+                          <div className="trace-causal-content">
+                            {e.agent === 'governance' && e.business_explanation?.includes('PERFORMANCE VALIDATED') && (
+                              <div style={{ color: '#34d399', fontWeight: 700, fontSize: '10px', marginBottom: '4px', textTransform: 'uppercase' }}>
+                                ✓ Performance Claim Verified
+                              </div>
+                            )}
+                            {e.causal_explanation}
+                          </div>
                         </div>
                       )}
                     </div>

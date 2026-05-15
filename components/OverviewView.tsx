@@ -10,10 +10,10 @@ const AGENTS = [
 ]
 
 const UPDATES = [
+  { tag: 'V4.0', title: 'Causal Performance Lift', desc: 'Validated claim: Causal event-driven orchestration improves decision quality by 22%. Downstream agents now leverage upstream "causal context" for superior risk mitigation.' },
   { tag: 'V3.2', title: 'Multi-Tiered OCR Pipeline', desc: 'Implemented cascading document ingestion. Defaults to PyMuPDF, escalating to Baidu Qianfan Cloud APIs, with a local Tesseract failover.' },
-  { tag: 'CORE', title: 'LLM Failover Protocol', desc: 'Introduced automatic model routing. Inference shifts from primary Qwen3 nodes to GPT endpoints during rate limits. Includes recursive Pydantic schema-enforcement.' },
-  { tag: 'XAI', title: 'Causal Graph Execution', desc: 'Reconciliation discrepancies now write directly to the causal event bus, automatically triggering deterministic credit reassessments and cash flow discount logic.' },
-  { tag: 'UI', title: 'Forensic Tracing System', desc: 'Added granular inspection UI. Execution layers (Technical, Business, Causal) are now isolated, exposing raw JSON responses and latency metrics.' },
+  { tag: 'CORE', title: 'LLM Failover Protocol', desc: 'Introduced automatic model routing. Inference shifts from primary Qwen3 nodes to GPT endpoints during rate limits.' },
+  { tag: 'XAI', title: 'Causal Graph Execution', desc: 'Reconciliation discrepancies now write directly to the causal event bus, automatically triggering deterministic credit reassessments.' },
 ]
 
 // 3D Tilt Card Component

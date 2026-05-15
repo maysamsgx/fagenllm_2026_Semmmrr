@@ -189,6 +189,17 @@ function AuditCard({ audit, onViewEntity }: { audit: AuditDecision; onViewEntity
         </p>
       </div>
 
+      {audit.causal_explanation && (
+        <div style={{ background: 'rgba(167, 139, 250, 0.05)', border: '1px border rgba(167, 139, 250, 0.1)', borderRadius: '8px', padding: '12px', marginBottom: '12px' }}>
+          <div style={{ fontSize: '10px', color: '#a78bfa', fontWeight: 700, textTransform: 'uppercase', marginBottom: '6px', letterSpacing: '0.05em' }}>
+            Causal Domain Reasoning
+          </div>
+          <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-2)', lineHeight: 1.6, fontStyle: 'italic' }}>
+            "{audit.causal_explanation}"
+          </p>
+        </div>
+      )}
+
       {audit.output_action?.findings && audit.output_action.findings.length > 0 && (
         <div style={{ marginBottom: '12px' }}>
           <div style={{ fontSize: '11px', color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Audit Findings</div>
