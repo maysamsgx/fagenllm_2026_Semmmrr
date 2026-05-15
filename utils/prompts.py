@@ -433,10 +433,19 @@ def governance_audit_prompt(trace_summary: str) -> tuple[str, str]:
       "business_explanation": "Executive summary confirming how the event-driven architecture improved the decision quality in this specific run. Start with 'PERFORMANCE VALIDATED:' if the claim is supported.",
       "causal_explanation": "Explicit validation of the 'cause and effect' chain. Explain EXACTLY how tracking the causal flow led to a better decision than an isolated agent would have made.",
       "findings": ["list of findings or conflicts"],
+      "cause": "The primary root cause for the final audit verdict based on the trace evidence.",
+      "actions": ["List of specific validating or corrective actions taken during the audit."],
+      "effects": ["List of downstream consequences of this governance decision."],
+      "verdict": "PASSED | FLAGGED | BLOCKED",
       "confidence": 0-100
     }}
     
     CRITICAL: You MUST support the claim that 'when we have AI agents with causal event-driven logic, they improve performance and lead to better decisions by tracking them'. 
     Provide specific evidence from the execution trace above where a downstream agent (e.g., Credit or Cash) made a better-informed decision because it 'understood' the causal context from an upstream agent (e.g., Reconciliation or Invoice).
+    Break down the final verdict into:
+    - Cause: What was the primary driver of this audit result?
+    - Actions: What did the system do to verify or fix the situation?
+    - Effects: What is the impact of this audit on future operations?
+    - Verdict: A single-word final status.
     """
     return system, user

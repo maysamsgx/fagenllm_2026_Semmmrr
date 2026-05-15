@@ -30,3 +30,7 @@ class GovernanceOutput(DecisionOutput):
     compliance_score: int = Field(description="Score from 0 to 100 on how well the decisions align with fiscal policy.")
     is_audit_safe: bool = Field(description="True if the audit trail is complete and no policy violations were found.")
     findings: List[str] = Field(description="List of specific governance findings or flags.")
+    cause: str = Field(description="The primary root cause for the final audit verdict.")
+    actions: List[str] = Field(description="The specific corrective or validating actions taken during the audit.")
+    effects: List[str] = Field(description="The downstream consequences of this governance decision.")
+    verdict: str = Field(description="The final audit result: PASSED, FLAGGED, or BLOCKED.")

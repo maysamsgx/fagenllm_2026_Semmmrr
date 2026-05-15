@@ -22,7 +22,7 @@ interface AuditDecision {
 }
 
 interface GovernanceViewProps {
-  onNavigate?: (tab: string) => void
+  onNavigate?: (tab: string, eid?: string) => void
 }
 
 export default function GovernanceView({ onNavigate }: GovernanceViewProps) {
@@ -111,7 +111,7 @@ export default function GovernanceView({ onNavigate }: GovernanceViewProps) {
           {loading ? <Spinner /> : audits.length === 0 ? <Empty msg="No governance audits found." /> : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {audits.map(audit => (
-                <AuditCard key={audit.id} audit={audit} onViewEntity={() => onNavigate?.('invoice')} />
+                <AuditCard key={audit.id} audit={audit} onNavigate={onNavigate} />
               ))}
             </div>
           )}
@@ -155,10 +155,19 @@ export default function GovernanceView({ onNavigate }: GovernanceViewProps) {
   )
 }
 
-function AuditCard({ audit, onViewEntity }: { audit: AuditDecision; onViewEntity?: () => void }) {
+function AuditCard({ audit, onNavigate }: { audit: AuditDecision; onNavigate?: (tab: string, eid?: string) => void }) {
   const status = audit.output_action?.status || 'passed'
   const Icon = status === 'passed' ? CheckCircle2 : status === 'flagged' ? AlertTriangle : ShieldOff
   const color = status === 'passed' ? '#34d399' : status === 'flagged' ? '#fbbf24' : '#fb7185'
+
+  const handleView = () => {
+    let targetTab = 'overview'
+    if (audit.entity_table === 'invoices') targetTab = 'invoice'
+    if (audit.entity_table === 'reconciliation_reports') targetTab = 'reconciliation'
+    if (audit.entity_table === 'customers') targetTab = 'credit'
+    
+    onNavigate?.(targetTab, audit.entity_id)
+  }
 
   return (
     <Card style={{ padding: '20px', borderLeft: `4px solid ${color}` }}>
@@ -190,7 +199,7 @@ function AuditCard({ audit, onViewEntity }: { audit: AuditDecision; onViewEntity
       </div>
 
       {audit.causal_explanation && (
-        <div style={{ background: 'rgba(167, 139, 250, 0.05)', border: '1px border rgba(167, 139, 250, 0.1)', borderRadius: '8px', padding: '12px', marginBottom: '12px' }}>
+        <div style={{ background: 'rgba(167, 139, 250, 0.05)', border: '1px solid rgba(167, 139, 250, 0.1)', borderRadius: '8px', padding: '12px', marginBottom: '12px' }}>
           <div style={{ fontSize: '10px', color: '#a78bfa', fontWeight: 700, textTransform: 'uppercase', marginBottom: '6px', letterSpacing: '0.05em' }}>
             Causal Domain Reasoning
           </div>
@@ -210,7 +219,7 @@ function AuditCard({ audit, onViewEntity }: { audit: AuditDecision; onViewEntity
       )}
 
       <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <button className="btn-sm" style={{ opacity: 0.7 }} onClick={onViewEntity}>
+        <button className="btn-sm" style={{ opacity: 0.7 }} onClick={handleView}>
           <ExternalLink size={11} /> View Entity
         </button>
       </div>

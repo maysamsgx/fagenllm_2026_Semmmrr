@@ -60,7 +60,7 @@ def tx_to_string(tx: dict) -> str:
 def reconciliation_node(state: FinancialState) -> FinancialState:
     try:
         trigger = state.get("trigger", "daily_reconciliation")
-        if trigger in ("daily_reconciliation", "manual_reconciliation", "reconciliation_requested"):
+        if trigger in ("daily_reconciliation", "manual_reconciliation", "reconciliation_requested", "customer_payment_check", "complex_reconciliation"):
             return _run_reconciliation(state)
         return {**state, "next_agent": END, "current_agent": "reconciliation"}
     except Exception as e:
@@ -386,7 +386,7 @@ def _run_reconciliation(state: FinancialState) -> FinancialState:
 
     db.log_causal_link(perception_id, decision_id, "precedes", "Perception informed the final reconciliation match result.")
 
-    trace = state.get("reasoning_trace", []) + [{
+    new_trace = [{
         "agent": "reconciliation",
         "step":  "Reconciliation Analysis",
         "technical_explanation": technical_summary,
@@ -521,7 +521,7 @@ def _run_reconciliation(state: FinancialState) -> FinancialState:
             "anomalous_customer_ids":  affected_customer_ids,
             "customer_anomaly_counts": customer_anomaly_counts,
         },
-        "reasoning_trace": trace,
+        "reasoning_trace": new_trace,
         "credit": {**state.get("credit", {}), "customer_id": target_customer_id or ""},
     }
 

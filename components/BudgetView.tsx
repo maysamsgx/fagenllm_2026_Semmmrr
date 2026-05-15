@@ -1,5 +1,14 @@
 import { useState, useEffect } from 'react'
 import { RefreshCw, AlertTriangle, ChevronDown, ChevronUp, FlaskConical, TrendingUp } from 'lucide-react'
+
+const DEPT_LABELS: Record<string, string> = {
+  it: 'IT', hr: 'HR', rnd: 'R&D', 'r&d': 'R&D',
+}
+const fmtDept = (d: string | null) => {
+  if (!d) return '—'
+  const key = d.toLowerCase()
+  return DEPT_LABELS[key] ?? d.charAt(0).toUpperCase() + d.slice(1)
+}
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell, ReferenceLine } from 'recharts'
 import { budgetApi, Budget, BudgetAlert, WhatIfResult } from '../lib/api'
 import { Card, Badge, Spinner, fmt, pct, AgentAvatar } from './Shared'
@@ -116,7 +125,7 @@ export default function BudgetView() {
           {alerts.map((a: BudgetAlert) => (
             <div key={a.id} className="alert-banner">
               <AlertTriangle size={16} strokeWidth={2.5} />
-              <span><strong style={{ textTransform: 'capitalize' }}>{a.department}</strong> · {a.alert_type.replace('_', ' ')} · {pct(a.utilisation_pct)} utilised</span>
+              <span><strong>{fmtDept(a.department)}</strong> · {a.alert_type.replace('_', ' ')} · {pct(a.utilisation_pct)} utilised</span>
               <span style={{ flex: 1, fontSize: 12, color: 'rgba(253, 230, 138, .7)' }}>{a.message?.slice(0, 80)}…</span>
               <button className="btn-sm" onClick={() => budgetApi.ack(a.id).then(load)}>Dismiss</button>
             </div>
@@ -132,7 +141,7 @@ export default function BudgetView() {
           return (
             <Card key={b.id}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 14 }}>
-                <div style={{ fontWeight: 600, textTransform: 'capitalize', fontSize: 14, color: 'var(--text)' }}>{b.department}</div>
+                <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text)' }}>{fmtDept(b.department)}</div>
                 <Badge label={`${util.toFixed(0)}%`} color={color} bg={bg} />
               </div>
               <div style={{ height: 6, background: 'rgba(255,255,255,.05)', borderRadius: 999, marginBottom: 16, overflow: 'hidden' }}>
@@ -188,13 +197,14 @@ export default function BudgetView() {
             >
               <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="rgba(255,255,255,0.05)" />
               <XAxis type="number" hide />
-              <YAxis 
-                dataKey="department" 
-                type="category" 
-                tick={{ fontSize: 11, fill: 'var(--text-3)', fontWeight: 500 }} 
+              <YAxis
+                dataKey="department"
+                type="category"
+                tick={{ fontSize: 11, fill: 'var(--text-3)', fontWeight: 500 }}
                 width={80}
                 axisLine={false}
                 tickLine={false}
+                tickFormatter={fmtDept}
               />
               <Tooltip 
                 cursor={{ fill: 'rgba(255,255,255,0.03)' }}
@@ -261,7 +271,7 @@ export default function BudgetView() {
                   style={{ fontSize: 12, padding: '6px 32px 6px 10px', width: '100%', minWidth: 160 }}
                 >
                   <option value="">Select…</option>
-                  {budgets.map(b => <option key={b.id} value={b.department ?? b.id}>{b.department}</option>)}
+                  {budgets.map(b => <option key={b.id} value={b.department ?? b.id}>{fmtDept(b.department)}</option>)}
                 </select>
               </div>
               <div>

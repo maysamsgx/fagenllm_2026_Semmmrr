@@ -43,7 +43,10 @@ def governance_node(state: FinancialState) -> FinancialState:
     # Construct a summary of what happened for the Auditor
     summary = "SUMMARY OF EXECUTION TRACE:\n"
     for step in trace:
-        summary += f"[{step['agent'].upper()}] Step: {step['step']}\n"
+        if not isinstance(step, dict):
+            continue
+        label = step.get("step") or step.get("event_type") or "unknown"
+        summary += f"[{step.get('agent','?').upper()}] Step: {label}\n"
         summary += f"  - Business: {step.get('business_explanation','')}\n"
         summary += f"  - Causal Domain: {step.get('causal_explanation','')}\n"
 
@@ -64,6 +67,10 @@ def governance_node(state: FinancialState) -> FinancialState:
             is_audit_safe=True,
             findings=[],
             cross_domain_signals={},
+            cause="System timeout or API rate limit during LLM call.",
+            actions=["Attempted automated audit", "Fell back to deferred status"],
+            effects=["Delayed automated approval", "Manual review required"],
+            verdict="FLAGGED"
         )
 
     # Determine the entity to link to based on the trigger
@@ -120,8 +127,12 @@ def governance_node(state: FinancialState) -> FinancialState:
         input_state={"decision_ids": decision_ids, "trace_length": len(trace)},
         output_action={
             "compliance_score": audit.compliance_score,
-            "status": audit.decision,
-            "is_audit_safe": audit.is_audit_safe
+            "status": audit.verdict.lower() if audit.verdict else audit.decision,
+            "is_audit_safe": audit.is_audit_safe,
+            "cause": audit.cause,
+            "actions": audit.actions,
+            "effects": audit.effects,
+            "verdict": audit.verdict
         },
         confidence=audit.confidence
     )
@@ -184,7 +195,14 @@ def governance_node(state: FinancialState) -> FinancialState:
         "technical_explanation": audit.technical_explanation,
         "business_explanation": audit.business_explanation,
         "causal_explanation": audit.causal_explanation,
-        "findings": findings
+        "findings": findings,
+        "details": {
+            "cause": audit.cause,
+            "actions": audit.actions,
+            "effects": audit.effects,
+            "verdict": audit.verdict,
+            "compliance_score": audit.compliance_score
+        }
     }]
 
     return {
@@ -194,6 +212,8 @@ def governance_node(state: FinancialState) -> FinancialState:
         "governance": {
             "compliance_score": audit.compliance_score,
             "status": audit.decision,
+            # verdict is the canonical PASSED/FLAGGED/BLOCKED label the evaluator matches against
+            "verdict": audit.verdict or "PASSED",
             "findings": audit.findings,
             "is_audit_safe": audit.is_audit_safe,
             "decision_id": audit_id

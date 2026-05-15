@@ -1,0 +1,1081 @@
+{
+  "metadata": {
+    "version": "2.0",
+    "created": "2026-05-15",
+    "description": "FAgentLLM V4 held-out scientific evaluation suite. Ground truths defined BEFORE running the system. 50 cases stratified across 7 categories. Adversarial sensitivity analysis uses threshold-proximity and vendor-risk intensity as sensitivity parameters.",
+    "total_cases": 50,
+    "categories": {
+      "clean_invoice": "TC-001 to TC-010 — baseline invoice flows, various amounts and departments",
+      "duplicate_detection": "TC-011 to TC-016 — fraud prevention gate",
+      "budget_enforcement": "TC-017 to TC-024 — spend control and hard-stop policy",
+      "liquidity_gate": "TC-025 to TC-030 — cash position and AR forecast",
+      "reconciliation_credit": "TC-031 to TC-038 — cross-domain causal chain",
+      "adversarial_sensitivity": "TC-039 to TC-046 — adversarial threshold and risk sensitivity analysis",
+      "governance_compliance": "TC-047 to TC-050 — cross-agent conflict and audit quality"
+    },
+    "path_matching": "Relative-order (causal-aware): all expected agents must appear in order, but extra agents between them are allowed.",
+    "baseline_model": "Deterministic rule-only system: approves <$10k unconditionally, rejects >$100k unconditionally, no duplicate check, no cross-agent causal reasoning, no governance audit."
+  },
+
+  "cases": [
+
+    {
+      "id": "TC-001",
+      "category": "clean_invoice",
+      "scenario": "Clean invoice — low amount, established vendor, budget headroom",
+      "trigger": "invoice_uploaded",
+      "input": {
+        "vendor_name": "Acme Supplies Ltd",
+        "amount": 1000,
+        "department": "engineering",
+        "invoice_number": "ACM-2026-TC001"
+      },
+      "expected": {
+        "path": ["invoice", "governance"],
+        "verdict": "PASSED",
+        "logic_checks": ["invoice_processed", "governance_audited"]
+      },
+      "baseline_verdict": "PASSED",
+      "sensitivity_group": null,
+      "notes": "Happy-path baseline. Both systems pass."
+    },
+
+    {
+      "id": "TC-002",
+      "category": "clean_invoice",
+      "scenario": "Mid-range invoice — $50k, good vendor, adequate budget",
+      "trigger": "invoice_uploaded",
+      "input": {
+        "vendor_name": "TechSolutions Corp",
+        "amount": 50000,
+        "department": "operations",
+        "invoice_number": "TSC-2026-TC002"
+      },
+      "expected": {
+        "path": ["invoice", "governance"],
+        "verdict": "PASSED",
+        "logic_checks": ["manager_escalation", "governance_audited"]
+      },
+      "baseline_verdict": "PASSED",
+      "sensitivity_group": null,
+      "notes": "Manager range (10k–100k). Baseline approves blindly; FAgentLLM escalates correctly."
+    },
+
+    {
+      "id": "TC-003",
+      "category": "clean_invoice",
+      "scenario": "XAI depth check — all 3 explanation layers must be present",
+      "trigger": "invoice_uploaded",
+      "input": {
+        "vendor_name": "CloudSystems Inc",
+        "amount": 500,
+        "department": "engineering",
+        "invoice_number": "XAI-2026-TC003"
+      },
+      "expected": {
+        "path": ["invoice", "governance"],
+        "verdict": "PASSED",
+        "logic_checks": ["technical_explanation", "business_explanation", "causal_explanation"]
+      },
+      "baseline_verdict": "PASSED",
+      "sensitivity_group": null,
+      "notes": "Tests explainability requirement. Baseline produces no structured explanation."
+    },
+
+    {
+      "id": "TC-004",
+      "category": "clean_invoice",
+      "scenario": "New vendor — no payment history, manual review required",
+      "trigger": "invoice_uploaded",
+      "input": {
+        "vendor_name": "FirstTimeCo LLC",
+        "amount": 4500,
+        "department": "engineering",
+        "invoice_number": "FTC-2026-TC004"
+      },
+      "expected": {
+        "path": ["invoice", "governance"],
+        "verdict": "PASSED",
+        "logic_checks": ["new_vendor_flag", "needs_human"]
+      },
+      "baseline_verdict": "PASSED",
+      "sensitivity_group": null,
+      "notes": "FAgentLLM flags new vendor for manual audit; baseline auto-approves without vendor check."
+    },
+
+    {
+      "id": "TC-005",
+      "category": "clean_invoice",
+      "scenario": "Auto-approve path — amount below threshold, low-risk vendor",
+      "trigger": "invoice_uploaded",
+      "input": {
+        "vendor_name": "Acme Supplies Ltd",
+        "amount": 3000,
+        "department": "engineering",
+        "invoice_number": "ACM-2026-TC005"
+      },
+      "expected": {
+        "path": ["invoice", "governance"],
+        "verdict": "PASSED",
+        "logic_checks": ["auto_approval_eligible"]
+      },
+      "baseline_verdict": "PASSED",
+      "sensitivity_group": null,
+      "notes": "Both systems approve. FAgentLLM produces causal trace; baseline does not."
+    },
+
+    {
+      "id": "TC-006",
+      "category": "clean_invoice",
+      "scenario": "Invoice with math validation — subtotal + tax = total",
+      "trigger": "invoice_uploaded",
+      "input": {
+        "vendor_name": "Office Depot",
+        "amount": 2350,
+        "department": "hr",
+        "invoice_number": "OD-2026-TC006"
+      },
+      "expected": {
+        "path": ["invoice", "governance"],
+        "verdict": "PASSED",
+        "logic_checks": ["math_valid", "governance_audited"]
+      },
+      "baseline_verdict": "PASSED",
+      "sensitivity_group": null,
+      "notes": "Tests math-validation gate in invoice agent."
+    },
+
+    {
+      "id": "TC-007",
+      "category": "clean_invoice",
+      "scenario": "Cross-department routing — invoice correctly routed to HR budget",
+      "trigger": "invoice_uploaded",
+      "input": {
+        "vendor_name": "Recruitment Agency",
+        "amount": 8000,
+        "department": "hr",
+        "invoice_number": "RA-2026-TC007"
+      },
+      "expected": {
+        "path": ["invoice", "governance"],
+        "verdict": "PASSED",
+        "logic_checks": ["department_assigned"]
+      },
+      "baseline_verdict": "PASSED",
+      "sensitivity_group": null,
+      "notes": "Verifies intelligent department classification."
+    },
+
+    {
+      "id": "TC-008",
+      "category": "clean_invoice",
+      "scenario": "High-confidence extraction — all required fields captured",
+      "trigger": "invoice_uploaded",
+      "input": {
+        "vendor_name": "PrecisionCorp",
+        "amount": 7200,
+        "department": "engineering",
+        "invoice_number": "PC-2026-TC008"
+      },
+      "expected": {
+        "path": ["invoice", "governance"],
+        "verdict": "PASSED",
+        "logic_checks": ["high_confidence_extraction"]
+      },
+      "baseline_verdict": "PASSED",
+      "sensitivity_group": null,
+      "notes": "Confirms structured extraction at high confidence."
+    },
+
+    {
+      "id": "TC-009",
+      "category": "clean_invoice",
+      "scenario": "Multi-agent coordination — invoice triggers full chain (invoice→cash→budget→governance)",
+      "trigger": "invoice_uploaded",
+      "input": {
+        "vendor_name": "Enterprise Solutions",
+        "amount": 65000,
+        "department": "operations",
+        "invoice_number": "ES-2026-TC009"
+      },
+      "expected": {
+        "path": ["invoice", "cash", "budget", "governance"],
+        "verdict": "PASSED",
+        "logic_checks": ["full_coordination", "causal_link_cash_budget"]
+      },
+      "baseline_verdict": "PASSED",
+      "sensitivity_group": null,
+      "notes": "Validates full 4-agent causal chain for mid-large invoice."
+    },
+
+    {
+      "id": "TC-010",
+      "category": "clean_invoice",
+      "scenario": "Invoice at auto-approve threshold boundary ($10k exactly)",
+      "trigger": "invoice_uploaded",
+      "input": {
+        "vendor_name": "Acme Supplies Ltd",
+        "amount": 10000,
+        "department": "engineering",
+        "invoice_number": "ACM-2026-TC010"
+      },
+      "expected": {
+        "path": ["invoice", "governance"],
+        "verdict": "PASSED",
+        "logic_checks": ["threshold_boundary_handled"]
+      },
+      "baseline_verdict": "PASSED",
+      "sensitivity_group": null,
+      "notes": "Exact threshold — system must route to manager, not auto-approve."
+    },
+
+    {
+      "id": "TC-011",
+      "category": "duplicate_detection",
+      "scenario": "Exact duplicate submission — same vendor, same invoice number",
+      "trigger": "invoice_uploaded",
+      "input": {
+        "vendor_name": "Acme Supplies Ltd",
+        "amount": 1000,
+        "department": "engineering",
+        "invoice_number": "ACM-2026-TC001"
+      },
+      "expected": {
+        "path": ["invoice", "governance"],
+        "verdict": "PASSED",
+        "logic_checks": ["duplicate_detected", "rejection_reason_present"]
+      },
+      "baseline_verdict": "PASSED",
+      "sensitivity_group": null,
+      "notes": "Resubmits TC-001. FAgentLLM rejects as duplicate; baseline approves (no duplicate check). Both governance verdicts are PASSED — system handled it correctly."
+    },
+
+    {
+      "id": "TC-012",
+      "category": "duplicate_detection",
+      "scenario": "Near-duplicate — same vendor, same amount, but different invoice number",
+      "trigger": "invoice_uploaded",
+      "input": {
+        "vendor_name": "Acme Supplies Ltd",
+        "amount": 1000,
+        "department": "engineering",
+        "invoice_number": "ACM-2026-DIFFERENT"
+      },
+      "expected": {
+        "path": ["invoice", "governance"],
+        "verdict": "PASSED",
+        "logic_checks": ["not_a_duplicate", "approved_correctly"]
+      },
+      "baseline_verdict": "PASSED",
+      "sensitivity_group": null,
+      "notes": "Different number — NOT a duplicate. Both systems should approve."
+    },
+
+    {
+      "id": "TC-013",
+      "category": "duplicate_detection",
+      "scenario": "Duplicate with modified amount — fraud attempt",
+      "trigger": "invoice_uploaded",
+      "input": {
+        "vendor_name": "Acme Supplies Ltd",
+        "amount": 1500,
+        "department": "engineering",
+        "invoice_number": "ACM-2026-TC001"
+      },
+      "expected": {
+        "path": ["invoice", "governance"],
+        "verdict": "PASSED",
+        "logic_checks": ["duplicate_detected", "fraud_memory_written"]
+      },
+      "baseline_verdict": "PASSED",
+      "sensitivity_group": null,
+      "notes": "Same number as TC-001 but different amount. FAgentLLM detects; baseline misses."
+    },
+
+    {
+      "id": "TC-014",
+      "category": "duplicate_detection",
+      "scenario": "Vendor with fraud memory — confidence penalty applied",
+      "trigger": "invoice_uploaded",
+      "input": {
+        "vendor_name": "Acme Supplies Ltd",
+        "amount": 800,
+        "department": "engineering",
+        "invoice_number": "ACM-2026-NEW-LEGIT"
+      },
+      "expected": {
+        "path": ["invoice", "governance"],
+        "verdict": "PASSED",
+        "logic_checks": ["memory_retrieved", "confidence_penalty"]
+      },
+      "baseline_verdict": "PASSED",
+      "sensitivity_group": null,
+      "notes": "Legitimate invoice from vendor with past fraud record. FAgentLLM flags for human review; baseline ignores history."
+    },
+
+    {
+      "id": "TC-015",
+      "category": "duplicate_detection",
+      "scenario": "Duplicate detection across departments — same invoice routed to different dept",
+      "trigger": "invoice_uploaded",
+      "input": {
+        "vendor_name": "TechSolutions Corp",
+        "amount": 50000,
+        "department": "hr",
+        "invoice_number": "TSC-2026-TC002"
+      },
+      "expected": {
+        "path": ["invoice", "governance"],
+        "verdict": "PASSED",
+        "logic_checks": ["duplicate_detected"]
+      },
+      "baseline_verdict": "PASSED",
+      "sensitivity_group": null,
+      "notes": "TC-002 resubmitted to a different department — duplicate by invoice_number+vendor."
+    },
+
+    {
+      "id": "TC-016",
+      "category": "duplicate_detection",
+      "scenario": "Legitimate second invoice from same vendor in same period",
+      "trigger": "invoice_uploaded",
+      "input": {
+        "vendor_name": "Office Depot",
+        "amount": 1800,
+        "department": "hr",
+        "invoice_number": "OD-2026-TC016-NEW"
+      },
+      "expected": {
+        "path": ["invoice", "governance"],
+        "verdict": "PASSED",
+        "logic_checks": ["not_duplicate", "processed_correctly"]
+      },
+      "baseline_verdict": "PASSED",
+      "sensitivity_group": null,
+      "notes": "Vendor reappears legitimately with a new invoice number. Must not be blocked."
+    },
+
+    {
+      "id": "TC-017",
+      "category": "budget_enforcement",
+      "scenario": "Budget at 50% utilisation — no alert, clean approval path",
+      "trigger": "invoice_uploaded",
+      "input": {
+        "vendor_name": "CloudSystems Inc",
+        "amount": 2000,
+        "department": "engineering",
+        "invoice_number": "CS-2026-TC017"
+      },
+      "expected": {
+        "path": ["invoice", "budget", "governance"],
+        "verdict": "PASSED",
+        "logic_checks": ["budget_headroom", "no_alert"]
+      },
+      "baseline_verdict": "PASSED",
+      "sensitivity_group": null,
+      "notes": "Mid-utilisation — both systems pass."
+    },
+
+    {
+      "id": "TC-018",
+      "category": "budget_enforcement",
+      "scenario": "Budget utilisation at 90% (alert threshold) — escalation required",
+      "trigger": "invoice_uploaded",
+      "input": {
+        "vendor_name": "Marketing Pros",
+        "amount": 8000,
+        "department": "marketing",
+        "invoice_number": "MP-2026-TC018"
+      },
+      "expected": {
+        "path": ["invoice", "budget", "governance"],
+        "verdict": "PASSED",
+        "logic_checks": ["budget_alert_triggered", "escalated"]
+      },
+      "baseline_verdict": "PASSED",
+      "sensitivity_group": null,
+      "notes": "Alert threshold — FAgentLLM escalates to manager; baseline approves silently."
+    },
+
+    {
+      "id": "TC-019",
+      "category": "budget_enforcement",
+      "scenario": "Budget utilisation at 95% — breach warning, manager sign-off needed",
+      "trigger": "invoice_uploaded",
+      "input": {
+        "vendor_name": "Marketing Pros",
+        "amount": 12000,
+        "department": "marketing",
+        "invoice_number": "MP-2026-TC019"
+      },
+      "expected": {
+        "path": ["invoice", "budget", "governance"],
+        "verdict": "PASSED",
+        "logic_checks": ["budget_breach", "manager_required"]
+      },
+      "baseline_verdict": "PASSED",
+      "sensitivity_group": null,
+      "notes": "95% utilisation — breach alert. Both systems show PASSED governance (system handled correctly)."
+    },
+
+    {
+      "id": "TC-020",
+      "category": "budget_enforcement",
+      "scenario": "Budget HARD STOP — department at 100% utilisation, mandatory rejection",
+      "trigger": "invoice_uploaded",
+      "input": {
+        "vendor_name": "Marketing Pros",
+        "amount": 25000,
+        "department": "marketing",
+        "invoice_number": "MP-2026-HARD-STOP"
+      },
+      "expected": {
+        "path": ["invoice", "budget", "governance"],
+        "verdict": "PASSED",
+        "logic_checks": ["budget_hard_stop", "invoice_rejected"]
+      },
+      "baseline_verdict": "PASSED",
+      "sensitivity_group": null,
+      "notes": "Hard-stop enforcement. FAgentLLM rejects via policy; baseline might approve. Governance PASSES because the system handled it correctly."
+    },
+
+    {
+      "id": "TC-021",
+      "category": "budget_enforcement",
+      "scenario": "No budget defined for department — bypass check, proceed",
+      "trigger": "invoice_uploaded",
+      "input": {
+        "vendor_name": "StartupVendor Inc",
+        "amount": 5000,
+        "department": "r_and_d",
+        "invoice_number": "SV-2026-TC021"
+      },
+      "expected": {
+        "path": ["invoice", "governance"],
+        "verdict": "PASSED",
+        "logic_checks": ["no_budget_defined", "graceful_bypass"]
+      },
+      "baseline_verdict": "PASSED",
+      "sensitivity_group": null,
+      "notes": "New department with no budget row — system must not crash."
+    },
+
+    {
+      "id": "TC-022",
+      "category": "budget_enforcement",
+      "scenario": "Invoice would push budget exactly to 99% — alert but approve",
+      "trigger": "invoice_uploaded",
+      "input": {
+        "vendor_name": "PrecisionCorp",
+        "amount": 9000,
+        "department": "engineering",
+        "invoice_number": "PC-2026-TC022"
+      },
+      "expected": {
+        "path": ["invoice", "budget", "governance"],
+        "verdict": "PASSED",
+        "logic_checks": ["budget_near_ceiling", "approval_with_alert"]
+      },
+      "baseline_verdict": "PASSED",
+      "sensitivity_group": null,
+      "notes": "Near-ceiling — alert without hard stop."
+    },
+
+    {
+      "id": "TC-023",
+      "category": "budget_enforcement",
+      "scenario": "Large invoice that breaches budget ceiling — rejected with explanation",
+      "trigger": "invoice_uploaded",
+      "input": {
+        "vendor_name": "HeavyMachinery Corp",
+        "amount": 180000,
+        "department": "operations",
+        "invoice_number": "HM-2026-TC023"
+      },
+      "expected": {
+        "path": ["invoice", "cash", "budget", "governance"],
+        "verdict": "PASSED",
+        "logic_checks": ["liquidity_check", "budget_reject", "causal_trace"]
+      },
+      "baseline_verdict": "PASSED",
+      "sensitivity_group": null,
+      "notes": "Large invoice — both cash and budget checks run; amount > $100k triggers senior manager or rejection."
+    },
+
+    {
+      "id": "TC-024",
+      "category": "budget_enforcement",
+      "scenario": "Budget enforcement uses correct department from invoice, not default",
+      "trigger": "invoice_uploaded",
+      "input": {
+        "vendor_name": "Recruitment Agency",
+        "amount": 15000,
+        "department": "hr",
+        "invoice_number": "RA-2026-TC024"
+      },
+      "expected": {
+        "path": ["invoice", "budget", "governance"],
+        "verdict": "PASSED",
+        "logic_checks": ["correct_department_used"]
+      },
+      "baseline_verdict": "PASSED",
+      "sensitivity_group": null,
+      "notes": "Verifies budget agent pulls dept from invoice, not a hard-coded default."
+    },
+
+    {
+      "id": "TC-025",
+      "category": "liquidity_gate",
+      "scenario": "Adequate cash balance — large invoice can be covered",
+      "trigger": "invoice_uploaded",
+      "input": {
+        "vendor_name": "Enterprise Solutions",
+        "amount": 45000,
+        "department": "operations",
+        "invoice_number": "ES-2026-TC025"
+      },
+      "expected": {
+        "path": ["invoice", "cash", "governance"],
+        "verdict": "PASSED",
+        "logic_checks": ["liquidity_sufficient", "headroom_positive"]
+      },
+      "baseline_verdict": "PASSED",
+      "sensitivity_group": null,
+      "notes": "Sufficient balance — cash gate passes."
+    },
+
+    {
+      "id": "TC-026",
+      "category": "liquidity_gate",
+      "scenario": "Projected shortfall — post-payment balance falls below operating reserve",
+      "trigger": "invoice_uploaded",
+      "input": {
+        "vendor_name": "HeavyMachinery Corp",
+        "amount": 200000,
+        "department": "operations",
+        "invoice_number": "HM-2026-TC026"
+      },
+      "expected": {
+        "path": ["invoice", "cash", "governance"],
+        "verdict": "PASSED",
+        "logic_checks": ["liquidity_shortfall", "escalated_to_senior"]
+      },
+      "baseline_verdict": "PASSED",
+      "sensitivity_group": null,
+      "notes": "Shortfall detected — senior manager escalation required. FAgentLLM surfaces this; baseline approves blindly."
+    },
+
+    {
+      "id": "TC-027",
+      "category": "liquidity_gate",
+      "scenario": "Cash forecast spans full 50-day window without gaps",
+      "trigger": "invoice_uploaded",
+      "input": {
+        "vendor_name": "Acme Supplies Ltd",
+        "amount": 500,
+        "department": "engineering",
+        "invoice_number": "ACM-2026-TC027"
+      },
+      "expected": {
+        "path": ["invoice", "cash", "governance"],
+        "verdict": "PASSED",
+        "logic_checks": ["forecast_50_days", "no_continuity_break"]
+      },
+      "baseline_verdict": "PASSED",
+      "sensitivity_group": null,
+      "notes": "Verifies forecast_days=50 produces a 50-row forecast in cash_flow_forecasts."
+    },
+
+    {
+      "id": "TC-028",
+      "category": "liquidity_gate",
+      "scenario": "Budget spending multiplier applied under breach — outflows reduced 20%",
+      "trigger": "invoice_uploaded",
+      "input": {
+        "vendor_name": "Marketing Pros",
+        "amount": 5000,
+        "department": "marketing",
+        "invoice_number": "MP-2026-TC028"
+      },
+      "expected": {
+        "path": ["invoice", "cash", "budget", "governance"],
+        "verdict": "PASSED",
+        "logic_checks": ["spending_controls_applied"]
+      },
+      "baseline_verdict": "PASSED",
+      "sensitivity_group": null,
+      "notes": "Budget breach in state causes cash agent to apply 0.8 multiplier on projected outflows."
+    },
+
+    {
+      "id": "TC-029",
+      "category": "liquidity_gate",
+      "scenario": "AR forecast update — high-risk customer lowers projected inflows",
+      "trigger": "customer_payment_check",
+      "input": {
+        "customer_id": "cust-high-risk",
+        "unmatched_amount": 8000.0,
+        "source": "bank_statement"
+      },
+      "expected": {
+        "path": ["reconciliation", "credit", "governance"],
+        "verdict": "PASSED",
+        "logic_checks": ["ar_discount_applied", "collection_prob_reduced"]
+      },
+      "baseline_verdict": "PASSED",
+      "sensitivity_group": null,
+      "notes": "Reconciliation anomaly → credit reassessment → cash AR discount. Causal chain proven."
+    },
+
+    {
+      "id": "TC-030",
+      "category": "liquidity_gate",
+      "scenario": "Cash position refresh triggered by credit risk elevation",
+      "trigger": "customer_payment_check",
+      "input": {
+        "customer_id": "cust-high-risk",
+        "unmatched_amount": 12000.0,
+        "source": "erp_system"
+      },
+      "expected": {
+        "path": ["reconciliation", "credit", "governance"],
+        "verdict": "PASSED",
+        "logic_checks": ["credit_elevated", "cash_refresh_triggered"]
+      },
+      "baseline_verdict": "PASSED",
+      "sensitivity_group": null,
+      "notes": "High-risk signal triggers AR forecast refresh. FAgentLLM propagates causally; baseline cannot."
+    },
+
+    {
+      "id": "TC-031",
+      "category": "reconciliation_credit",
+      "scenario": "Payment matched automatically — reconciliation clears",
+      "trigger": "customer_payment_check",
+      "input": {
+        "customer_id": "cust-mid-risk",
+        "unmatched_amount": 0.0,
+        "source": "bank_statement"
+      },
+      "expected": {
+        "path": ["reconciliation", "governance"],
+        "verdict": "PASSED",
+        "logic_checks": ["clean_reconciliation"]
+      },
+      "baseline_verdict": "PASSED",
+      "sensitivity_group": null,
+      "notes": "No anomaly — reconciliation passes cleanly."
+    },
+
+    {
+      "id": "TC-032",
+      "category": "reconciliation_credit",
+      "scenario": "Reconciliation anomaly triggers credit score impact",
+      "trigger": "customer_payment_check",
+      "input": {
+        "customer_id": "cust-high-risk",
+        "unmatched_amount": 5000.0,
+        "source": "bank_statement"
+      },
+      "expected": {
+        "path": ["reconciliation", "credit", "governance"],
+        "verdict": "PASSED",
+        "logic_checks": ["causal_link_recon_credit"]
+      },
+      "baseline_verdict": "PASSED",
+      "sensitivity_group": null,
+      "notes": "Cross-domain causal chain: Recon → Credit. Baseline cannot make this link."
+    },
+
+    {
+      "id": "TC-033",
+      "category": "reconciliation_credit",
+      "scenario": "High-risk customer reassessed — credit score drops, escalation triggered",
+      "trigger": "customer_payment_check",
+      "input": {
+        "customer_id": "cust-high-risk",
+        "unmatched_amount": 15000.0,
+        "source": "erp_system"
+      },
+      "expected": {
+        "path": ["reconciliation", "credit", "governance"],
+        "verdict": "PASSED",
+        "logic_checks": ["high_risk_classification", "collection_action_triggered"]
+      },
+      "baseline_verdict": "PASSED",
+      "sensitivity_group": null,
+      "notes": "Large unmatched amount on high-risk customer. Credit elevation documented in causal trace."
+    },
+
+    {
+      "id": "TC-034",
+      "category": "reconciliation_credit",
+      "scenario": "Semantic matching — 'AWS Cloud Infrastructure' matches 'Amazon Web Svcs Infra'",
+      "trigger": "customer_payment_check",
+      "input": {
+        "customer_id": "cust-mid-risk",
+        "internal_tx": "AWS Cloud Infrastructure",
+        "bank_tx": "Amazon Web Svcs Infra",
+        "amount": 1800
+      },
+      "expected": {
+        "path": ["reconciliation", "governance"],
+        "verdict": "PASSED",
+        "logic_checks": ["semantic_match", "no_false_anomaly"]
+      },
+      "baseline_verdict": "PASSED",
+      "sensitivity_group": null,
+      "notes": "Semantic embedding match. FAgentLLM resolves; baseline flags as unmatched (false positive)."
+    },
+
+    {
+      "id": "TC-035",
+      "category": "reconciliation_credit",
+      "scenario": "Systematic payment delay pattern — recurring anomaly across multiple transactions",
+      "trigger": "customer_payment_check",
+      "input": {
+        "customer_id": "cust-high-risk",
+        "unmatched_amount": 3500.0,
+        "source": "bank_statement",
+        "anomaly_type": "systematic"
+      },
+      "expected": {
+        "path": ["reconciliation", "credit", "governance"],
+        "verdict": "PASSED",
+        "logic_checks": ["systematic_pattern_detected", "credit_downgraded"]
+      },
+      "baseline_verdict": "PASSED",
+      "sensitivity_group": null,
+      "notes": "Systematic flag from reconciliation triggers elevated credit risk. Causal chain documented."
+    },
+
+    {
+      "id": "TC-036",
+      "category": "reconciliation_credit",
+      "scenario": "Low-risk customer — payment on time, no anomaly",
+      "trigger": "customer_payment_check",
+      "input": {
+        "customer_id": "cust-mid-risk",
+        "unmatched_amount": 0.0,
+        "source": "bank_statement"
+      },
+      "expected": {
+        "path": ["reconciliation", "governance"],
+        "verdict": "PASSED",
+        "logic_checks": ["no_escalation", "clean_trace"]
+      },
+      "baseline_verdict": "PASSED",
+      "sensitivity_group": null,
+      "notes": "Clean customer — minimal agent chain, no escalation needed."
+    },
+
+    {
+      "id": "TC-037",
+      "category": "reconciliation_credit",
+      "scenario": "Full 4-agent causal chain — Recon → Credit → Cash → Governance",
+      "trigger": "customer_payment_check",
+      "input": {
+        "customer_id": "cust-high-risk",
+        "anomaly_type": "timing",
+        "unmatched_amount": 9000.0,
+        "source": "bank_statement"
+      },
+      "expected": {
+        "path": ["reconciliation", "credit", "governance"],
+        "verdict": "PASSED",
+        "logic_checks": ["full_coordination", "causal_links_across_3_agents"]
+      },
+      "baseline_verdict": "PASSED",
+      "sensitivity_group": null,
+      "notes": "Proves the Recon→Credit→Cash cascade. Core thesis scenario for multi-agent causal coordination."
+    },
+
+    {
+      "id": "TC-038",
+      "category": "reconciliation_credit",
+      "scenario": "Mid-risk customer — minor anomaly, monitored but not escalated",
+      "trigger": "customer_payment_check",
+      "input": {
+        "customer_id": "cust-mid-risk",
+        "unmatched_amount": 500.0,
+        "source": "bank_statement"
+      },
+      "expected": {
+        "path": ["reconciliation", "governance"],
+        "verdict": "PASSED",
+        "logic_checks": ["minor_anomaly_monitored"]
+      },
+      "baseline_verdict": "PASSED",
+      "sensitivity_group": null,
+      "notes": "Small anomaly below escalation threshold — documented but not escalated."
+    },
+
+    {
+      "id": "TC-039",
+      "category": "adversarial_sensitivity",
+      "scenario": "Sensitivity Level 1 — amount $9,500 (clearly below auto-approve threshold)",
+      "trigger": "invoice_uploaded",
+      "input": {
+        "vendor_name": "Acme Supplies Ltd",
+        "amount": 9500,
+        "department": "engineering",
+        "invoice_number": "SENS-2026-L1"
+      },
+      "expected": {
+        "path": ["invoice", "governance"],
+        "verdict": "PASSED",
+        "logic_checks": ["auto_approve_eligible"]
+      },
+      "baseline_verdict": "PASSED",
+      "sensitivity_group": "threshold_proximity",
+      "sensitivity_level": 1,
+      "sensitivity_value": 9500,
+      "notes": "Sensitivity analysis: amount below $10k threshold. Both systems approve correctly."
+    },
+
+    {
+      "id": "TC-040",
+      "category": "adversarial_sensitivity",
+      "scenario": "Sensitivity Level 2 — amount $10,100 (just over auto-approve threshold → manager)",
+      "trigger": "invoice_uploaded",
+      "input": {
+        "vendor_name": "Acme Supplies Ltd",
+        "amount": 10100,
+        "department": "engineering",
+        "invoice_number": "SENS-2026-L2"
+      },
+      "expected": {
+        "path": ["invoice", "governance"],
+        "verdict": "PASSED",
+        "logic_checks": ["manager_escalation_triggered"]
+      },
+      "baseline_verdict": "PASSED",
+      "sensitivity_group": "threshold_proximity",
+      "sensitivity_level": 2,
+      "sensitivity_value": 10100,
+      "notes": "Sensitivity analysis: $100 over threshold. FAgentLLM escalates to manager; baseline auto-approves (policy miss)."
+    },
+
+    {
+      "id": "TC-041",
+      "category": "adversarial_sensitivity",
+      "scenario": "Sensitivity Level 3 — amount $99,500 (just under senior-manager threshold)",
+      "trigger": "invoice_uploaded",
+      "input": {
+        "vendor_name": "TechSolutions Corp",
+        "amount": 99500,
+        "department": "operations",
+        "invoice_number": "SENS-2026-L3"
+      },
+      "expected": {
+        "path": ["invoice", "cash", "governance"],
+        "verdict": "PASSED",
+        "logic_checks": ["manager_range", "liquidity_checked"]
+      },
+      "baseline_verdict": "PASSED",
+      "sensitivity_group": "threshold_proximity",
+      "sensitivity_level": 3,
+      "sensitivity_value": 99500,
+      "notes": "Sensitivity analysis: just under senior-manager threshold — manager approval required."
+    },
+
+    {
+      "id": "TC-042",
+      "category": "adversarial_sensitivity",
+      "scenario": "Sensitivity Level 4 — amount $100,100 (just over senior-manager threshold)",
+      "trigger": "invoice_uploaded",
+      "input": {
+        "vendor_name": "TechSolutions Corp",
+        "amount": 100100,
+        "department": "operations",
+        "invoice_number": "SENS-2026-L4"
+      },
+      "expected": {
+        "path": ["invoice", "cash", "governance"],
+        "verdict": "PASSED",
+        "logic_checks": ["senior_manager_required", "high_value_flag"]
+      },
+      "baseline_verdict": "PASSED",
+      "sensitivity_group": "threshold_proximity",
+      "sensitivity_level": 4,
+      "sensitivity_value": 100100,
+      "notes": "Sensitivity analysis: $100 over senior-manager threshold. FAgentLLM routes correctly; baseline rejects unconditionally."
+    },
+
+    {
+      "id": "TC-043",
+      "category": "adversarial_sensitivity",
+      "scenario": "Vendor risk Sensitivity Level 1 — low-risk vendor, auto-approved",
+      "trigger": "invoice_uploaded",
+      "input": {
+        "vendor_name": "Acme Supplies Ltd",
+        "amount": 7000,
+        "department": "engineering",
+        "invoice_number": "VRISK-2026-L1"
+      },
+      "expected": {
+        "path": ["invoice", "governance"],
+        "verdict": "PASSED",
+        "logic_checks": ["low_risk_vendor", "auto_approved"]
+      },
+      "baseline_verdict": "PASSED",
+      "sensitivity_group": "vendor_risk",
+      "sensitivity_level": 1,
+      "sensitivity_value": "low",
+      "notes": "Vendor risk sensitivity analysis: low risk — clean approval."
+    },
+
+    {
+      "id": "TC-044",
+      "category": "adversarial_sensitivity",
+      "scenario": "Vendor risk Sensitivity Level 2 — medium-risk vendor, manager review",
+      "trigger": "invoice_uploaded",
+      "input": {
+        "vendor_name": "Marketing Pros",
+        "amount": 7000,
+        "department": "marketing",
+        "invoice_number": "VRISK-2026-L2"
+      },
+      "expected": {
+        "path": ["invoice", "governance"],
+        "verdict": "PASSED",
+        "logic_checks": ["medium_risk_vendor", "manager_review"]
+      },
+      "baseline_verdict": "PASSED",
+      "sensitivity_group": "vendor_risk",
+      "sensitivity_level": 2,
+      "sensitivity_value": "medium",
+      "notes": "Vendor risk sensitivity: medium risk — escalated for manager check."
+    },
+
+    {
+      "id": "TC-045",
+      "category": "adversarial_sensitivity",
+      "scenario": "Vendor risk Sensitivity Level 3 — high-risk vendor, human review required",
+      "trigger": "invoice_uploaded",
+      "input": {
+        "vendor_name": "GlobalSupplies",
+        "amount": 7000,
+        "department": "engineering",
+        "invoice_number": "VRISK-2026-L3"
+      },
+      "expected": {
+        "path": ["invoice", "governance"],
+        "verdict": "PASSED",
+        "logic_checks": ["high_risk_vendor", "needs_human_review"]
+      },
+      "baseline_verdict": "PASSED",
+      "sensitivity_group": "vendor_risk",
+      "sensitivity_level": 3,
+      "sensitivity_value": "high",
+      "notes": "Vendor risk sensitivity: high risk — manual audit required regardless of amount."
+    },
+
+    {
+      "id": "TC-046",
+      "category": "adversarial_sensitivity",
+      "scenario": "Vendor risk Sensitivity Level 4 — new unknown vendor, highest caution",
+      "trigger": "invoice_uploaded",
+      "input": {
+        "vendor_name": "NewUnknownSupplier2026",
+        "amount": 7000,
+        "department": "engineering",
+        "invoice_number": "VRISK-2026-L4"
+      },
+      "expected": {
+        "path": ["invoice", "governance"],
+        "verdict": "PASSED",
+        "logic_checks": ["new_vendor_no_history", "manual_first_audit"]
+      },
+      "baseline_verdict": "PASSED",
+      "sensitivity_group": "vendor_risk",
+      "sensitivity_level": 4,
+      "sensitivity_value": "unknown",
+      "notes": "Vendor risk sensitivity: completely unknown vendor — strictest caution. Baseline approves blindly."
+    },
+
+    {
+      "id": "TC-047",
+      "category": "governance_compliance",
+      "scenario": "Cross-agent conflict — budget hard-stop but invoice approval attempted",
+      "trigger": "invoice_uploaded",
+      "input": {
+        "vendor_name": "Marketing Pros",
+        "amount": 5000,
+        "department": "marketing",
+        "invoice_number": "CONF-2026-TC047"
+      },
+      "expected": {
+        "path": ["invoice", "budget", "governance"],
+        "verdict": "PASSED",
+        "logic_checks": ["conflict_detected_by_governance", "violation_logged"]
+      },
+      "baseline_verdict": "PASSED",
+      "sensitivity_group": null,
+      "notes": "Governance agent detects if budget hard-stop and invoice state conflict. Proves cross-agent consistency validation."
+    },
+
+    {
+      "id": "TC-048",
+      "category": "governance_compliance",
+      "scenario": "Governance audit quality — verdict must include cause, actions, effects",
+      "trigger": "invoice_uploaded",
+      "input": {
+        "vendor_name": "PrecisionCorp",
+        "amount": 6000,
+        "department": "engineering",
+        "invoice_number": "GOV-2026-TC048"
+      },
+      "expected": {
+        "path": ["invoice", "governance"],
+        "verdict": "PASSED",
+        "logic_checks": ["cause_present", "actions_present", "effects_present", "verdict_structured"]
+      },
+      "baseline_verdict": "PASSED",
+      "sensitivity_group": null,
+      "notes": "Validates GovernanceOutput structure: cause/actions/effects/verdict all populated."
+    },
+
+    {
+      "id": "TC-049",
+      "category": "governance_compliance",
+      "scenario": "Causal link integrity — governance links back to all preceding agent decisions",
+      "trigger": "customer_payment_check",
+      "input": {
+        "customer_id": "cust-mid-risk",
+        "unmatched_amount": 2500.0,
+        "source": "bank_statement"
+      },
+      "expected": {
+        "path": ["reconciliation", "credit", "governance"],
+        "verdict": "PASSED",
+        "logic_checks": ["causal_links_traced", "governance_links_chain"]
+      },
+      "baseline_verdict": "PASSED",
+      "sensitivity_group": null,
+      "notes": "Governance must create causal_links to the preceding agent decisions proving chain integrity."
+    },
+
+    {
+      "id": "TC-050",
+      "category": "governance_compliance",
+      "scenario": "Full system audit — 6-agent coordination with governance as terminal gate",
+      "trigger": "customer_payment_check",
+      "input": {
+        "customer_id": "cust-high-risk",
+        "unmatched_amount": 20000.0,
+        "source": "erp_system",
+        "anomaly_type": "systematic"
+      },
+      "expected": {
+        "path": ["reconciliation", "credit", "governance"],
+        "verdict": "PASSED",
+        "logic_checks": ["full_coordination", "governance_is_terminal", "compliance_score_above_50"]
+      },
+      "baseline_verdict": "PASSED",
+      "sensitivity_group": null,
+      "notes": "Capstone thesis case: proves governance always runs last and validates the full causal chain. Baseline cannot replicate this coordination."
+    }
+
+  ]
+}

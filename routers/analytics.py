@@ -6,6 +6,185 @@ from config import get_supabase
 
 router = APIRouter()
 
+@router.get("/evaluation-runs")
+def list_evaluation_runs():
+    """List all scientific evaluation runs (newest first) for the run-selector dropdown."""
+    return (
+        db._ensure_client()
+        .table("evaluation_runs")
+        .select("*")
+        .order("created_at", desc=True)
+        .execute()
+        .data
+    )
+
+
+@router.get("/scientific-evaluation")
+def get_scientific_evaluation(run_id: str = None):
+    """
+    Full metrics payload for the Held-Out Scientific Evaluation tab.
+
+    Returns:
+      run          — run summary row
+      results      — per-case detail rows
+      metrics      — scalar KPIs (accuracy, F1, latency, …)
+      confusion_matrix — TP/FP/FN/TN
+      per_category — accuracy broken down by category
+      sensitivity_curves — detection-rate vs deception-level for adversarial cases
+      baseline_comparison — FAgentLLM accuracy vs deterministic baseline
+    """
+    client = db._ensure_client()
+
+    # ── Resolve run ───────────────────────────────────────────────────────────
+    if not run_id:
+        runs = client.table("evaluation_runs").select("*").order("created_at", desc=True).limit(1).execute()
+        if not runs.data:
+            return {"error": "No evaluation runs found. Run python -m evaluation.evaluator first."}
+        run_id = runs.data[0]["id"]
+
+    run_row = client.table("evaluation_runs").select("*").eq("id", run_id).execute()
+    run = run_row.data[0] if run_row.data else {}
+    results = client.table("evaluation_results").select("*").eq("run_id", run_id).execute().data or []
+
+    # ── Confusion matrix (PASSED = Positive) ─────────────────────────────────
+    def _pos(v: str) -> bool:
+        return any(x in str(v).upper() for x in ["PASSED", "APPROVED", "SAFE", "COMPLIANT"])
+
+    tp = sum(1 for r in results if r["status"] == "pass" and _pos(r.get("expected_verdict", "")))
+    fp = sum(1 for r in results if r["status"] == "fail" and not _pos(r.get("expected_verdict", "")))
+    fn = sum(1 for r in results if r["status"] == "fail" and _pos(r.get("expected_verdict", "")))
+    tn = max(0, len(results) - tp - fp - fn)
+
+    precision = round(tp / (tp + fp), 3) if (tp + fp) > 0 else 0.0
+    recall    = round(tp / (tp + fn), 3) if (tp + fn) > 0 else 0.0
+    f1        = round(2 * precision * recall / (precision + recall), 3) if (precision + recall) > 0 else 0.0
+
+    # ── Per-category accuracy ─────────────────────────────────────────────────
+    categories = list({r.get("category", "general") for r in results})
+    per_category = []
+    for cat in sorted(categories):
+        cat_rows  = [r for r in results if r.get("category", "general") == cat]
+        cat_pass  = sum(1 for r in cat_rows if r["status"] == "pass")
+        per_category.append({
+            "category": cat,
+            "total":    len(cat_rows),
+            "passed":   cat_pass,
+            "accuracy": round(cat_pass / len(cat_rows) * 100, 1) if cat_rows else 0,
+        })
+
+    # ── Sensitivity curves ────────────────────────────────────────────────────
+    # Group adversarial_sensitivity cases by sensitivity_group and build detection
+    # rate vs level curves (one point per sensitivity level).
+    sens_rows = [r for r in results if r.get("category") == "adversarial_sensitivity"]
+    groups: dict = {}
+    for r in sens_rows:
+        # The test_case_id suffix encodes the level (e.g. TC-039 → level 1)
+        # Retrieve grouping info from the run metrics JSONB if available
+        meta = run.get("metrics") or {}
+        curves = meta.get("sensitivity_curves", {})
+        # If the evaluator stored curves directly, use them
+        if curves:
+            groups = curves
+            break
+    else:
+        # Fallback: reconstruct from result rows using category naming
+        for r in sens_rows:
+            grp = "threshold_proximity" if r.get("test_case_id", "") in [
+                "TC-039", "TC-040", "TC-041", "TC-042"
+            ] else "vendor_risk"
+            if grp not in groups:
+                groups[grp] = []
+            groups[grp].append({
+                "test_case_id":   r.get("test_case_id"),
+                "passed":         r["status"] == "pass",
+                "baseline_passed": r.get("baseline_passed", True),
+            })
+
+    sensitivity_curves = [
+        {"group": grp, "points": pts} for grp, pts in groups.items()
+    ]
+
+    # ── Baseline comparison ───────────────────────────────────────────────────
+    n = len(results)
+    baseline_passed_count   = sum(1 for r in results if r.get("baseline_passed", True))
+    fagentllm_passed_count  = sum(1 for r in results if r["status"] == "pass")
+    advantage_cases         = sum(1 for r in results if r.get("fagentllm_advantage", False))
+
+    baseline_accuracy    = round(baseline_passed_count  / n * 100, 1) if n else 0
+    fagentllm_accuracy   = round(fagentllm_passed_count / n * 100, 1) if n else 0
+    accuracy_improvement = round(fagentllm_accuracy - baseline_accuracy, 1)
+
+    # ── Aggregate scalar metrics ──────────────────────────────────────────────
+    gov_pass_rate    = round(sum(1 for r in results if r.get("governance_passed",  False)) / n * 100, 1) if n else 0
+    causal_succ_rate = round(sum(1 for r in results if r.get("causal_links_present", False)) / n * 100, 1) if n else 0
+    avg_latency      = round(sum(float(r.get("latency") or 0) for r in results) / n, 2) if n else 0
+    avg_rq           = round(sum(int(r.get("reasoning_quality") or 0) for r in results) / n, 1) if n else 0
+    hallucination_rate = round(
+        sum(1 for r in results if (r.get("reasoning_quality") or 100) < 30 and r["status"] == "fail") / n * 100, 1
+    ) if n else 0
+
+    # Prefer metrics persisted by the evaluator (most accurate) over re-computed values
+    stored = run.get("metrics") or {}
+    metrics = {
+        "accuracy":              stored.get("accuracy",            run.get("accuracy", fagentllm_accuracy)),
+        "precision":             stored.get("precision",           precision) ,
+        "recall":                stored.get("recall",              recall),
+        "f1":                    stored.get("f1",                  f1),
+        "f1_pct":                round(stored.get("f1", f1) * 100, 1),
+        "latency_avg":           stored.get("latency_avg",         avg_latency),
+        "governance_pass_rate":  stored.get("gov_pass_rate",       gov_pass_rate),
+        "causal_success_rate":   stored.get("causal_success_rate", causal_succ_rate),
+        "hallucination_rate":    stored.get("hallucination_rate",  hallucination_rate),
+        "avg_reasoning_quality": stored.get("avg_reasoning_quality", avg_rq),
+        "baseline_accuracy":     stored.get("baseline_accuracy",  baseline_accuracy),
+        "accuracy_improvement":  accuracy_improvement,
+        "total_cases":           n,
+        "passed_cases":          fagentllm_passed_count,
+    }
+
+    # ── Per-agent performance (from results + decision data) ──────────────────
+    agent_categories = {
+        "invoice":        ["clean_invoice", "duplicate_detection", "budget_enforcement", "liquidity_gate"],
+        "reconciliation": ["reconciliation_credit"],
+        "credit":         ["reconciliation_credit"],
+        "governance":     ["governance_compliance"],
+        "budget":         ["budget_enforcement"],
+        "cash":           ["liquidity_gate"],
+    }
+    per_agent_metrics = []
+    for agent, cats in agent_categories.items():
+        agent_rows = [r for r in results if r.get("category") in cats]
+        if not agent_rows:
+            continue
+        agent_pass = sum(1 for r in agent_rows if r["status"] == "pass")
+        per_agent_metrics.append({
+            "agent":    agent,
+            "cases":    len(agent_rows),
+            "passed":   agent_pass,
+            "accuracy": round(agent_pass / len(agent_rows) * 100, 1),
+            "gov_rate": round(sum(1 for r in agent_rows if r.get("governance_passed")) / len(agent_rows) * 100, 1),
+        })
+
+    return {
+        "run":               run,
+        "results":           results,
+        "metrics":           metrics,
+        "confusion_matrix":  {"tp": tp, "fp": fp, "fn": fn, "tn": tn},
+        "per_category":      per_category,
+        "per_agent":         per_agent_metrics,
+        "sensitivity_curves": sensitivity_curves,
+        "baseline_comparison": {
+            "baseline_accuracy":    baseline_accuracy,
+            "fagentllm_accuracy":   fagentllm_accuracy,
+            "accuracy_improvement": accuracy_improvement,
+            "advantage_cases":      advantage_cases,
+            "chart": [
+                {"system": "Baseline (Rule-Only)",    "accuracy": baseline_accuracy,  "color": "#fb7185"},
+                {"system": "FAgentLLM (Causal+Gov)",  "accuracy": fagentllm_accuracy, "color": "#34d399"},
+            ],
+        },
+    }
+
 @router.get("/aging")
 def get_aging_analysis():
     """Calculate aging buckets for all open receivables."""
@@ -468,3 +647,4 @@ def get_evaluation_metrics():
             }
         }
     }
+

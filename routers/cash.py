@@ -34,18 +34,35 @@ def get_forecast(days: int = Query(7, le=30)):
     supabase = get_supabase()
     start = date.today().isoformat()
     end   = (date.today() + timedelta(days=days)).isoformat()
-    rows  = (supabase.table("cash_flow_forecasts").select("*")
-             .gte("forecast_date", start).lte("forecast_date", end)
-             .order("forecast_date").execute().data)
-             
-    unique_forecasts = {}
-    for r in rows:
-        d = r["forecast_date"]
-        if d not in unique_forecasts or r.get("created_at", "") > unique_forecasts[d].get("created_at", ""):
-            unique_forecasts[d] = r
-            
-    deduped_forecast = [unique_forecasts[d] for d in sorted(unique_forecasts.keys())]
-    
+
+    def _query_rows():
+        return (supabase.table("cash_flow_forecasts").select("*")
+                .gte("forecast_date", start).lte("forecast_date", end)
+                .order("forecast_date").execute().data)
+
+    def _dedupe(rows):
+        unique: dict = {}
+        for r in rows:
+            d = r["forecast_date"]
+            if d not in unique or r.get("created_at", "") > unique[d].get("created_at", ""):
+                unique[d] = r
+        return [unique[d] for d in sorted(unique.keys())]
+
+    deduped_forecast = _dedupe(_query_rows())
+
+    # Auto-seed forecast when the table is empty so the chart renders immediately.
+    if not deduped_forecast:
+        try:
+            from agents.cash_agent import _projected_inflows, _projected_outflows, _write_forecast
+            from directives.policies import CASH
+            accounts = db.get_cash_balances()
+            inflows  = _projected_inflows(days=CASH.near_window_days)
+            outflows = _projected_outflows(days=CASH.near_window_days)
+            _write_forecast(accounts, inflows, outflows)
+            deduped_forecast = _dedupe(_query_rows())
+        except Exception:
+            pass
+
     return {"days": days, "forecast": deduped_forecast}
 
 

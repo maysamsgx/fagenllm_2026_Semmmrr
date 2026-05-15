@@ -103,12 +103,18 @@ function RiskDropdown({ value, onChange }: { value: string; onChange: (v: string
     </div>
   )
 }
-export default function CreditView() {
+export default function CreditView({ initialSelectedId }: { initialSelectedId?: string }) {
   const [customers, setCustomers]     = useState<Customer[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [riskFilter, setRiskFilter]   = useState('')
   const [assessingId, setAssessingId] = useState<string | null>(null)
-  const [traceEntity, setTraceEntity] = useState<{ id: string; type: 'credit' } | null>(null)
+  const [traceEntity, setTraceEntity] = useState<{ id: string; type: 'credit' } | null>(
+    initialSelectedId ? { id: initialSelectedId, type: 'credit' } : null
+  )
+
+  useEffect(() => {
+    if (initialSelectedId) setTraceEntity({ id: initialSelectedId, type: 'credit' })
+  }, [initialSelectedId])
   
   const { agingData, metrics, loading: analyticsLoading } = useAnalytics()
 

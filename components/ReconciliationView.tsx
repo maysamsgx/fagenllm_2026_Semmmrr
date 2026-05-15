@@ -6,7 +6,7 @@ import { Card, Empty, pct, AgentAvatar } from './Shared'
 import { useRealtime } from '../lib/useRealtime'
 import TracePanel from './TracePanel'
 
-export default function ReconciliationView() {
+export default function ReconciliationView({ initialSelectedId }: { initialSelectedId?: string }) {
   const [stats, setStats]         = useState<ReconStats | null>(null)
   const [report, setReport]       = useState<ReconReport | null>(null)
   const [unmatched, setUnmatched] = useState<any[]>([])
@@ -14,8 +14,12 @@ export default function ReconciliationView() {
   const [showInfo, setShowInfo]   = useState(false)
   const [viewMode, setViewMode]   = useState<'operations' | 'dashboard'>('operations')
   const [dashboardData, setDashboardData] = useState<any[]>([])
-  const [traceId, setTraceId]             = useState<string | null>(null)
+  const [traceId, setTraceId]             = useState<string | null>(initialSelectedId || null)
   const [selectedTx, setSelectedTx]       = useState<any | null>(null)
+
+  useEffect(() => {
+    if (initialSelectedId) setTraceId(initialSelectedId)
+  }, [initialSelectedId])
 
   const load = useCallback(() => {
     reconApi.stats().then(setStats).catch(console.error)

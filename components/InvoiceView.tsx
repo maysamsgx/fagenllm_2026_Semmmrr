@@ -20,10 +20,10 @@ const GOV_COLOR: Record<string, string> = {
   pending: '#94a3b8'
 }
 
-export default function InvoiceView() {
+export default function InvoiceView({ initialSelectedId }: { initialSelectedId?: string }) {
   const [invoices, setInvoices]     = useState<Invoice[]>([])
   const [loading, setLoading]       = useState(true)
-  const [traceId, setTraceId]       = useState<string | null>(null)
+  const [traceId, setTraceId]       = useState<string | null>(initialSelectedId || null)
   const [uploading, setUploading]   = useState(false)
   const [dept, setDept]             = useState('engineering')
   const [departments, setDepartments] = useState<Department[]>([])
@@ -34,6 +34,9 @@ export default function InvoiceView() {
   }, [])
 
   useEffect(() => { load() }, [load])
+  useEffect(() => {
+    if (initialSelectedId) setTraceId(initialSelectedId)
+  }, [initialSelectedId])
   useEffect(() => {
     departmentsApi.list().then(rows => {
       setDepartments(rows)

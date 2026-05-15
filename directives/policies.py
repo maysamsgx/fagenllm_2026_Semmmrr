@@ -23,7 +23,7 @@ class BudgetPolicy:
 @dataclass(frozen=True)
 class CashPolicy:
     minimum_balance:    float = 10_000.0  # operating reserve floor ($)
-    forecast_days:      int   = 7         # default look-ahead window
+    forecast_days:      int   = 50        # default look-ahead window
     wma_weights:        tuple = (0.5, 0.3, 0.2)  # most-recent → oldest weekly weight
     near_window_days:   int   = 7         # receivables counted at full weight
     far_window_days:    int   = 30        # receivables counted at discount factor

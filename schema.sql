@@ -1,7 +1,7 @@
 -- =============================================================
 -- FAgentLLM — Financial Intelligence Schema (10/10 Causal Perfection)
 -- =============================================================
--- Improvements vs v2:
+-- recent improvements:
 --   1. Added 'payments' table to bridge invoices and transactions.
 --   2. Added 'reconciliation_report_items' for item-level match traceability.
 --   3. Added 'vendor_risk_scores' for pro-active AP risk assessment.

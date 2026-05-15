@@ -28,7 +28,27 @@ const NAV: { id: Tab; label: string; desc: string }[] = [
 ]
 
 export default function App() {
-  const [tab, setTab] = useState<Tab>('overview')
+  const [tab, setTab] = useState<Tab>(() => {
+    const path = window.location.pathname;
+    if (path.includes('/evaluation')) return 'evaluation';
+    if (path.includes('/governance')) return 'governance';
+    if (path.includes('/credit')) return 'credit';
+    if (path.includes('/reconciliation')) return 'reconciliation';
+    if (path.includes('/budget')) return 'budget';
+    if (path.includes('/cash')) return 'cash';
+    if (path.includes('/invoice')) return 'invoice';
+    return 'overview';
+  })
+  const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null)
+
+  const handleNavigate = (targetTab: Tab, entityId?: string) => {
+    setTab(targetTab)
+    if (entityId) {
+      setSelectedEntityId(entityId)
+    } else {
+      setSelectedEntityId(null)
+    }
+  }
 
   return (
     <>
@@ -56,7 +76,7 @@ export default function App() {
             <button
               key={n.id}
               className={`nav-item ${tab === n.id ? 'active' : ''}`}
-              onClick={() => setTab(n.id)}
+              onClick={() => handleNavigate(n.id)}
             >
               <span className="nav-icon" style={{ minWidth: '54px', minHeight: '54px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <img
@@ -83,13 +103,13 @@ export default function App() {
       </aside>
 
       <main className="main">
-        {tab === 'overview'       && <OverviewView onNavigate={(id) => setTab(id as Tab)} />}
-        {tab === 'invoice'        && <InvoiceView />}
+        {tab === 'overview'       && <OverviewView onNavigate={(id) => handleNavigate(id as Tab)} />}
+        {tab === 'invoice'        && <InvoiceView initialSelectedId={selectedEntityId || undefined} />}
         {tab === 'cash'           && <CashView />}
         {tab === 'budget'         && <BudgetView />}
-        {tab === 'reconciliation' && <ReconciliationView />}
-        {tab === 'credit'         && <CreditView />}
-        {tab === 'governance'     && <GovernanceView onNavigate={(id) => setTab(id as Tab)} />}
+        {tab === 'reconciliation' && <ReconciliationView initialSelectedId={selectedEntityId || undefined} />}
+        {tab === 'credit'         && <CreditView initialSelectedId={selectedEntityId || undefined} />}
+        {tab === 'governance'     && <GovernanceView onNavigate={(id, eid) => handleNavigate(id as Tab, eid)} />}
         {tab === 'evaluation'     && <EvaluationView />}
       </main>
     </div>

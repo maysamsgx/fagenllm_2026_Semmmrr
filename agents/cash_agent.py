@@ -141,7 +141,7 @@ def _update_ar_forecast(state: FinancialState) -> FinancialState:
             "risk_discount":             round(total_at_risk - adjusted_inflow, 2),
         }, memory_type="procedural", entity_id=customer_id)
         
-        trace = state.get("reasoning_trace", []) + [{
+        new_trace = [{
             "agent": "cash",
             "step": "AR Forecast Update",
             "event_type": "ar_forecast_adjusted",
@@ -155,13 +155,13 @@ def _update_ar_forecast(state: FinancialState) -> FinancialState:
         }]
         
     except Exception as e:
-        trace = state.get("reasoning_trace", [])
+        new_trace = []
     
     return {
         **state,
         "current_agent": "cash",
         "next_agent": END,
-        "reasoning_trace": trace,
+        "reasoning_trace": new_trace,
     }
 
 
@@ -318,11 +318,11 @@ def _write_forecast(accounts: list, inflows: float, outflows: float) -> None:
     rows = []
     for i in range(n):
         fdate = (today + timedelta(days=i)).isoformat()
-        # Confidence tapers further out; day 0 = 100 %, day 6 = 70 %
-        weight = 1.0 - (i * 0.05)
+        # Confidence tapers further out; day 0 = 100 %, day 49 = 40 %
+        weight = 1.0 - (i * (0.6 / n)) if n > 0 else 1.0
         # Deterministic ±10 % daily shape so the chart isn't perfectly flat
-        var_in  = 1.0 + ((i * 7  + 3) % 5 - 2) * 0.05
-        var_out = 1.0 + ((i * 11 + 1) % 5 - 2) * 0.05
+        var_in  = 1.0 + ((i * 7  + 3) % 7 - 3) * 0.04
+        var_out = 1.0 + ((i * 11 + 1) % 7 - 3) * 0.04
         proj_in  = round(daily_in  * weight * var_in,  2)
         proj_out = round(daily_out * weight * var_out, 2)
         rows.append({
@@ -440,7 +440,8 @@ def _refresh_forecast(state: FinancialState) -> FinancialState:
 def _projected_inflows(days: int = 7) -> float:
     today = date.today()
     near_end = (today + timedelta(days=days)).isoformat()
-    far_end  = (today + timedelta(days=CASH.far_window_days)).isoformat()
+    far_window = max(CASH.far_window_days, CASH.forecast_days)
+    far_end  = (today + timedelta(days=far_window)).isoformat()
     start    = today.isoformat()
 
     # Near-term receivables (0–7 days) at full value

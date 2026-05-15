@@ -280,7 +280,7 @@ def _assess_customer(state: FinancialState) -> FinancialState:
         _advance_collection_stages(customer_id)
 
     # ── Communication: Append to reasoning trace for UI visibility ──────────
-    trace = state.get("reasoning_trace", []) + [{
+    new_trace = [{
         "agent":                 "credit",
         "step":                  "Forensic Risk Assessment",
         "event_type":            "risk_assessed",
@@ -300,7 +300,7 @@ def _assess_customer(state: FinancialState) -> FinancialState:
             "risk_level":   risk_level,
             "decision_id":  decision_id,
         },
-        "reasoning_trace": trace,
+        "reasoning_trace": new_trace,
         # Step 6 (thesis): always hand off to Cash for AR forecast update when triggered
         # by reconciliation. For invoice checks, only hand off if high risk.
         "next_agent": "cash" if recon_ctx.get("decision_id") or risk_level == "high" else END,

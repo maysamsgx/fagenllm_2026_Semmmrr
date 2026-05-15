@@ -47,26 +47,26 @@ NODE_MAP = {
 
 def route(state: FinancialState) -> str:
     # This just looks at the state.next_agent and maps it to the right node.
-    # Stop immediately on any error
-    if state.get("error"):
+    next_agent = state.get("next_agent", "")
+    current_agent = state.get("current_agent", "")
+
+    # Thesis Requirement: Governance is the final audit gate for EVERY trace.
+    # If we are about to END (either by error or completion), we must hit governance first.
+    if (state.get("error") or not next_agent or next_agent == END) and current_agent != "governance":
+        return "governance"
+    
+    if current_agent == "governance":
         return END
 
-    next_agent = state.get("next_agent", "")
-    
     # Thesis V4: Handle multi-customer reconciliation loop
     pending = state.get("pending_risk_assessments", [])
-    if not next_agent or next_agent == END:
-        if pending:
-            return "credit"
+    if (not next_agent or next_agent == END) and pending:
+        return "credit"
     
     if next_agent in NODE_MAP:
         return next_agent
         
-    # If finishing, run the final governance audit (Stage 10 Defense)
-    if state.get("current_agent") != "governance":
-        return "governance"
-
-    return END
+    return "governance"
 
 
 def build_graph() -> StateGraph:

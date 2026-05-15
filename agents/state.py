@@ -3,8 +3,12 @@ agents/state.py
 The shared "brain" of the system. This dict flows through all the agents.
 """
 
-from typing import TypedDict, Literal, Any, List, Dict, Optional
+from typing import TypedDict, Literal, Any, List, Dict, Optional, Annotated
+import operator
 from enum import Enum
+
+def merge_dicts(left: Dict[str, Any], right: Dict[str, Any]) -> Dict[str, Any]:
+    return {**left, **right}
 
 AgentName = Literal["supervisor", "invoice", "budget", "reconciliation", "credit", "cash", "governance"]
 AgentStatus = Literal["idle", "running", "done", "error"]
@@ -78,7 +82,8 @@ class CashContext(TypedDict, total=False):
 class GovernanceContext(TypedDict, total=False):
     """State populated by the Governance Auditor (Objective 10)."""
     compliance_score: int          # 0-100
-    status: str                    # "passed", "flagged", "blocked"
+    status: str                    # audit.decision (LLM free-text)
+    verdict: str                   # PASSED | FLAGGED | BLOCKED — used by evaluator for ground-truth matching
     findings: List[str]
     is_audit_safe: bool
     decision_id: str
@@ -105,14 +110,14 @@ class FinancialState(TypedDict, total=False):
 
     # Causal Graph tracking
     # Mapping of agent name -> last decision ID in this run
-    decision_ids: Dict[str, str]
+    decision_ids: Annotated[Dict[str, str], merge_dicts]
 
     # Orchestration: Multi-Entity Loops (V4)
     pending_risk_assessments: List[str]     # List of customer IDs to check
     processed_risk_assessments: List[str]   # List of already checked IDs
     
     # XAI: reasoning traces
-    reasoning_trace: List[Dict[str, str]]
+    reasoning_trace: Annotated[List[Dict[str, Any]], operator.add]
 
     # Error handling
     error: Optional[str]

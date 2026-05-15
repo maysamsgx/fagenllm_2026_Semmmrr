@@ -242,7 +242,7 @@ def _inv_communicate(state: FinancialState, percept: dict, verdict: dict) -> Fin
     dept_id    = percept["dept_id"]
     did        = verdict.get("decision_id", "")
 
-    trace = state.get("reasoning_trace", []) + [{
+    new_trace = [{
         "agent": "budget",
         "step":  "Checked Budget",
         "technical_explanation": (
@@ -260,7 +260,7 @@ def _inv_communicate(state: FinancialState, percept: dict, verdict: dict) -> Fin
         **state,
         "current_agent": "budget",
         "next_agent":    verdict["next_agent"],
-        "reasoning_trace": trace,
+        "reasoning_trace": new_trace,
         "budget": {
             **budget_ctx,
             "department_id":   dept_id,
@@ -504,7 +504,7 @@ def _rev_communicate(state: FinancialState, percept: dict, verdict: dict) -> Fin
         f" Reallocation advisor: {len(reallocations)} cross-department transfer(s) suggested."
         if reallocations else ""
     )
-    trace = state.get("reasoning_trace", []) + [{
+    new_trace = [{
         "agent": "budget",
         "step":  "Budget Review",
         "technical_explanation": (
@@ -525,7 +525,7 @@ def _rev_communicate(state: FinancialState, percept: dict, verdict: dict) -> Fin
         **state,
         "current_agent":   "budget",
         "next_agent":      verdict["next_agent"],
-        "reasoning_trace": trace,
+        "reasoning_trace": new_trace,
         "budget": {
             **percept["budget_ctx"],
             "period":          percept["period"],

@@ -26,8 +26,10 @@ def invoice_node(state: FinancialState) -> FinancialState:
     trigger = state.get("trigger", "invoice_uploaded")
     invoice_id = state.get("trigger_entity_id", "")
     invoice_ctx = state.get("invoice", {})
+    new_trace = [{"agent": "invoice"}]
+    state = {**state, "reasoning_trace": new_trace}
 
-    if trigger == "invoice_uploaded":
+    if trigger in ["invoice_uploaded", "batch_invoice_upload"]:
         return _handle_new_invoice(state, invoice_id)
     if trigger == "invoice_post_checks":
         return _handle_approval_routing(state, invoice_id, invoice_ctx)
@@ -164,7 +166,15 @@ def _handle_new_invoice(state: FinancialState, invoice_id: str) -> FinancialStat
                 output_action={"status": "rejected", "duplicate_id": str(duplicate["id"])},
                 confidence=100.0,
             )
-            return _error(state, f"Duplicate invoice detected: {update_data['invoice_number']}")
+            trace = state.get("reasoning_trace", []) + [{
+                "agent": "invoice",
+                "step": "Duplicate Check",
+                "event_type": "duplicate_detected",
+                "technical_explanation": f"Identity collision: invoice_id {duplicate['id']} already exists.",
+                "business_explanation": f"Duplicate invoice {update_data['invoice_number']} detected.",
+                "causal_explanation": "Rejection due to fraud risk (double-payment prevention)."
+            }]
+            return _error({**state, "reasoning_trace": trace}, f"Duplicate invoice detected: {update_data['invoice_number']}")
 
     # ── 2.5 Deterministic Math Validation ───────────────────────────────
     # Validates: Subtotal + Tax == Total. 
@@ -500,4 +510,10 @@ def _current_period() -> str:
 
 
 def _error(state: FinancialState, msg: str) -> FinancialState:
-    return {**state, "next_agent": END, "error": msg}
+    trace = state.get("reasoning_trace", []) + [{
+        "agent": "invoice",
+        "step": "Error",
+        "business_explanation": msg,
+        "technical_explanation": f"Workflow halted: {msg}"
+    }]
+    return {**state, "next_agent": END, "error": msg, "reasoning_trace": trace}
