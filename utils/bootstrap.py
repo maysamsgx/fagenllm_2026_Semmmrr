@@ -61,6 +61,10 @@ def ensure_initial_match_state() -> None:
         # No data yet.
         return
 
+    if matched > 0:
+        logger.info(f"DB already has {matched} matched transactions; skipping pairing.")
+        return
+
     logger.info("All transactions unmatched; pairing seeded internal/bank rows…")
 
     try:

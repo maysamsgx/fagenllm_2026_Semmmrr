@@ -19,6 +19,9 @@ router = APIRouter()
 def run_reconciliation(background_tasks: BackgroundTasks,
                         period: str | None = Query(None)):
     """Trigger a reconciliation run. Fires LangGraph in background."""
+    import logging
+    logger = logging.getLogger("fagentllm")
+    logger.info("RECEIVED POST /api/reconciliation/run")
     from datetime import date
     from agents.graph import graph
     from agents.state import initial_state
@@ -31,6 +34,7 @@ def run_reconciliation(background_tasks: BackgroundTasks,
         state["reconciliation"] = {"period": run_period}
         graph.invoke(state)
 
+    logger.info(f"Queuing background task for period: {run_period}")
     background_tasks.add_task(_run)
     return {"message": "Reconciliation started", "period": run_period}
 
@@ -81,16 +85,17 @@ def get_unmatched(limit: int = Query(50, le=200)):
     latest = (supabase.table("reconciliation_reports")
               .select("id").order("generated_at", desc=True).limit(1).execute().data)
     _type_re = re.compile(r'\((tfidf|semantic)\)', re.IGNORECASE)
-    if latest:
+    if latest and len(latest) > 0:
         report_id = latest[0]["id"]
         items = (supabase.table("reconciliation_report_items")
                  .select("transaction_id,notes")
                  .eq("report_id", report_id)
                  .in_("transaction_id", tx_ids)
                  .execute().data or [])
-        item_map = {row["transaction_id"]: row.get("notes", "") for row in items}
+        item_map = {row["transaction_id"]: (row.get("notes") or "") for row in items}
         for tx in transactions:
-            m = _type_re.search(item_map.get(tx["id"], ""))
+            notes = item_map.get(tx["id"], "")
+            m = _type_re.search(notes) if notes else None
             tx["match_type"] = m.group(1) if m else None
     else:
         for tx in transactions:
@@ -103,13 +108,17 @@ def get_unmatched(limit: int = Query(50, le=200)):
 def get_stats():
     """Quick stats: total, matched, unmatched counts."""
     supabase = get_supabase()
-    total    = supabase.table("transactions").select("id", count="exact").execute().count
-    matched  = supabase.table("transactions").select("id", count="exact").eq("matched", True).execute().count
+    total_res = supabase.table("transactions").select("id", count="exact").execute()
+    matched_res = supabase.table("transactions").select("id", count="exact").eq("matched", True).execute()
+    
+    total = total_res.count or 0
+    matched = matched_res.count or 0
+    
     return {
         "total_transactions": total,
         "matched":            matched,
-        "unmatched":          total - matched,
-        "match_rate_pct":     round(matched / total * 100, 2) if total else 0,
+        "unmatched":          max(0, total - matched),
+        "match_rate_pct":     round(matched / total * 100, 2) if total > 0 else 0,
     }
 
 @router.get("/report/{report_id}/causal-trace")

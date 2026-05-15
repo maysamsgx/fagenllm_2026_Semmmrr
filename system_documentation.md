@@ -1,4 +1,4 @@
-# FAgentLLM V4: System Architecture & Implementation Documentation
+# FAgentLLM V4 (Patched): System Architecture & Implementation Documentation
 
 ## 1. System Overview
 
@@ -8,7 +8,7 @@ The system relies on a **10/10 Causal Perfection Architecture**, emphasising **E
 
 ### Technology Stack
 *   **Orchestration:** LangGraph (Python) with a `FinancialState` shared-context pattern
-*   **Backend:** FastAPI (Python) — `uvicorn main:app`
+*   **Backend:** FastAPI (Python) — `uvicorn main:app --port 8000`
 *   **Database:** Supabase (PostgreSQL with Realtime triggers, `pgvector` for semantic matching, and PostgREST)
 *   **LLMs:** Tiered Model Architecture via Groq:
     *   **Reasoning Tier:** Qwen3-32B (Best-in-class reasoning for Governance & Reflection)
@@ -125,12 +125,28 @@ The Budget Agent runs two distinct pipelines depending on the trigger, implement
 
 #### Agent 4 — Reconciliation Agent (`agents/reconciliation_agent.py`)
 
-**4-Stage Forensic Matching Pipeline (V4+):**
+**Canonical Text Encoder (`tx_to_string`):**
 
-1.  **Stage 0 — Semantic Memory Patterns (Episodic):** Before running algorithms, the agent scans `agent_memory` for known systematic mismatch rules (e.g. "Counterparty X always has a $2.00 bank fee"). This allows for zero-latency resolution of recurring discrepancies.
-2.  **Stage 1 — TF-IDF Cosine Similarity:** Rapid matching of exact/near-exact text strings using `sklearn`. Threshold: ≥ 0.50 (lower than semantic because TF-IDF scores cluster lower for valid matches).
-3.  **Stage 2 — PGVector Semantic Search:** Items failing Stage 1 are re-scored using 384-dimensional MiniLM embeddings. The agent queries the entire bank history in Supabase using `pgvector` to find semantic matches (e.g. "AWS Cloud" vs "Amazon Web Svcs"). Threshold: ≥ 0.75 (higher than TF-IDF because embedding similarities inflate for unrelated text).
-4.  **Stage 3 — Multi-Currency Forensic Check:** For items with high semantic similarity but amount mismatches, the agent calculates the variance. If the discrepancy is ≤ 2% (controlled via `RECON.fx_tolerance`), it is automatically reconciled as an FX variance, satisfying multi-currency treasury requirements.
+A module-level function shared between the reconciliation agent and `scripts/warm_vectors.py`. It produces a normalised string `"<abs_amount> <date> <counterparty> <description>"` with common financial noise words removed. Defining it at module level (rather than inside the matching loop) guarantees that offline-warmed embeddings and live query encodings are byte-for-byte identical — divergent encodings produce cosine similarity ≈ 0 and make Stage 2 blind.
+
+**4-Stage Forensic Matching Pipeline:**
+
+1.  **Stage 0 — Semantic Memory Patterns (Episodic):** Before running algorithms, the agent scans `agent_memory` for known systematic mismatch rules (e.g. "Counterparty X always has a $2.00 bank fee"). This allows zero-latency resolution of recurring discrepancies.
+
+2.  **Stage 1 — TF-IDF Cosine Similarity:** Rapid matching of exact/near-exact text strings using `sklearn`. Threshold: ≥ 0.50. A single `TfidfVectorizer` is fit on the union of all internal and bank strings, then two separate transform calls produce the similarity matrix. The fetch is capped at `RECON.max_fetch = 100` rows **at the database level** (via `db.select(…, limit=RECON.max_fetch)`) — not by Python slicing after a full-table scan.
+
+3.  **Stage 2 — PGVector Semantic Search:** Items failing Stage 1 are re-scored using 384-dimensional MiniLM-L6 embeddings stored in the `transactions.embedding` pgvector column. Threshold: ≥ 0.68.
+
+    *   **Bank embedding pre-computation:** Before the per-transaction loop begins, the agent identifies all bank transactions with a null embedding and computes + stores them in a single batch pass. This ensures Stage 2 is never blind to un-warmed rows without requiring a separate manual step.
+    *   **Object resolution:** The pgvector RPC (`match_transactions`) returns new dicts, not references to the in-memory `bank_txs` list. A `bank_tx_by_id` lookup map (built once before the loop) is used to resolve every RPC result back to its original `bank_txs` entry. Without this, `matched=True` would be set on a throwaway dict and the bank-side match would never be persisted to the database — which was the primary cause of the low match rate in earlier versions.
+
+4.  **Stage 3 — Multi-Currency Forensic Check:** For items with high semantic similarity (≥ 0.60) but amount mismatches, the agent calculates the variance. If the discrepancy is ≤ 2% (`RECON.fx_tolerance`), it is automatically reconciled as an FX variance.
+
+**DB Persistence:**
+
+After the matching loop, all transaction updates are written via `db.upsert()`. The `embedding` field is stripped from every update payload to prevent accidentally overwriting a correctly-stored pgvector value with a raw Python list. Bank-side updates use `matched_bank_ids` (the authoritative set populated at match time) rather than the `tx.get("matched")` flag, ensuring Stage 2 and Stage 3 bank matches are always persisted regardless of which sub-dict was mutated during matching.
+
+**Error logging:** A module-level `_NIL_UUID = "00000000-0000-0000-0000-000000000000"` constant is used for all system-level `agent_decisions` rows (e.g. the empty-run early-exit path) where there is no real entity UUID to reference.
 
 **LLM Anomaly Analysis:**
 *   Qwen3 (`qwen_structured`) processes remaining anomalies to detect systematic patterns (e.g. ingestion failures).
@@ -225,6 +241,8 @@ All agents can read and write structured memories to the `agent_memory` Supabase
 *   **Defensive State Refetch:** If an in-memory invoice amount is null (extraction edge-case), the Invoice Agent re-fetches the persisted row from Supabase before routing.
 *   **Graceful Degradation:** `db.store_memory()` and `db.get_recent_memories()` catch all exceptions and log a warning rather than crashing the pipeline.
 *   **Zero-Value State Guard (Cash Agent):** Prevents phantom risk calculations by silently exiting the AR forecast path when a customer has $0 in open receivables.
+*   **Bank Embedding Pre-Computation (Reconciliation Agent):** Before the matching loop, the agent computes and persists MiniLM embeddings for any bank transactions that are missing them. This means Stage 2 is fully operational from the very first reconciliation run even without prior execution of `warm_vectors.py`, though pre-warming the full history with that script is still recommended for performance.
+*   **Vector Match Object Resolution (Reconciliation Agent):** The pgvector RPC returns independent dicts; a `bank_tx_by_id` lookup map resolves each result back to the original `bank_txs` list entry before any flags are set, ensuring all match results — including Stage 2 and Stage 3 — are reliably persisted to the database.
 
 ---
 
@@ -237,7 +255,7 @@ Agents inject policy documents into their LLM prompts via `utils/directives.inje
 | `BUDGET` | `alert_threshold = 95%`, `hard_stop_threshold = 100%`, `auto_approve_below = 80%` |
 | `CREDIT` | `base_score`, `delay_weight`, `outstanding_weight`, `high_risk_below`, `medium_risk_below` |
 | `CASH` | `minimum_balance`, `near_window_days = 7`, `far_window_days = 30`, `far_discount`, `wma_weights`, `forecast_days` |
-| `RECON` | `match_threshold`, `semantic_match_threshold`, `max_fetch` |
+| `RECON` | `match_threshold = 0.50`, `semantic_match_threshold = 0.68`, `fx_tolerance = 0.02`, `max_fetch = 100` |
 
 Narrative policy documents (`budget_policy.md`, `governance_policy.md`, etc.) are loaded on-demand and injected as system-prompt context.
 
@@ -274,7 +292,7 @@ The React frontend (Vite + TypeScript) provides the following views:
 | `InvoiceView.tsx` | Invoice list, status badges, OCR confidence |
 | `BudgetView.tsx` | Departmental utilisation bars, alerts, reallocation panel |
 | `CashView.tsx` | 7-day liquidity forecast chart, shortfall indicators |
-| `ReconciliationView.tsx` | Match rate analytics, anomaly list, reconciliation history |
+| `ReconciliationView.tsx` | Match rate analytics, anomaly list, reconciliation history. The "Run Reconciliation" spinner polls the report endpoint every 2 s and stops immediately when a new report ID is detected, rather than waiting a fixed 90 s timeout. |
 | `CreditView.tsx` | Customer risk scores, collection stage pipeline |
 | `AgingDashboard.tsx` | AR aging buckets |
 | `GovernanceView.tsx` | Compliance score, violation log, audit findings |
@@ -349,14 +367,14 @@ The backend bootstraps data automatically on first startup. The CORS policy allo
 
 1.  **Live API Integration:** Transitioning from the internal synthetic data seeder to live Open Banking and ERP API integrations.
 2.  **Collection Automation:** External communication pathways (Email/SMS via Twilio/SendGrid) for the Credit Agent to actively execute its generated collection workflows.
-3.  **PgVector Scaling:** Upgrading reconciliation from batch TF-IDF + MiniLM to a fully persistent vector-DB-first architecture, enabling semantic matching across the entire transaction history rather than just the current unmatched batch.
+3.  **PgVector Scaling:** Upgrading reconciliation from batch TF-IDF + MiniLM to a fully persistent vector-DB-first architecture, enabling semantic matching across the entire transaction history rather than just the current unmatched batch. The `tx_to_string` encoder and `bank_tx_by_id` resolution pattern introduced in the current version provide the correct foundation for this migration.
 4.  **Multi-Tenant Architecture:** Extending `FinancialState` and the budget/credit policy objects to support multiple independent organisations within the same deployment.
 
 ---
 
 ## 9. Appendix: Prompt Engineering & Context Density Optimization
 
-In V4.1, the Reconciliation Agent's prompt was optimized to balance **forensic depth** with **token efficiency** and **reasoning consistency**.
+In V4.2, the Reconciliation Agent's prompt and thresholds were optimized to balance **forensic depth** with **collection throughput** and **reasoning consistency**.
 
 ### 9.1 The Challenge: Context Dilution
 In high-volume reconciliation runs (e.g., 50+ anomalies), providing a full transaction list to the LLM led to context dilution, where the model failed to "see" systematic patterns due to excessive noise. Additionally, hardcoded thresholds in prompts often drifted from the deterministic thresholds in `policies.py`.
@@ -371,3 +389,6 @@ In high-volume reconciliation runs (e.g., 50+ anomalies), providing a full trans
 *   **Consistency:** Zero drift between algorithmic matching and LLM explanation.
 *   **Efficiency:** Significantly lower latency and token costs during large-batch reconciliation.
 *   **Accuracy:** Improved identification of "ingestion failure" vs "timing delay" root causes in the XAI trace.
+
+### 9.4 Encoding Consistency (Patched)
+A previously undocumented requirement is that `scripts/warm_vectors.py` and the live reconciliation agent **must use identical text encoding**. The `tx_to_string()` function (absolute amount, lowercase, noise-word removal) is now defined at module level in `agents/reconciliation_agent.py` and imported by `warm_vectors.py`. Any future changes to the encoder must be made in exactly one place; both the offline warming script and the live agent will pick up the change automatically. Failure to maintain this invariant causes cosine similarity scores to collapse to ≈ 0 for semantically identical transactions, disabling Stage 2 entirely.

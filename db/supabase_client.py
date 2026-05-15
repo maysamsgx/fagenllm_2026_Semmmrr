@@ -152,17 +152,6 @@ class SupabaseDB:
         return self._ensure_client().table("transactions") \
             .select("*").eq("matched", False).limit(limit).execute().data
 
-    # -- Reconciliation V3 --
-
-    def create_reconciliation_report(self, data: Dict[str, Any]) -> str:
-        res = self.insert("reconciliation_reports", data)
-        return res.data[0]["id"]
-
-    def add_reconciliation_items(self, report_id: str, items: List[Dict[str, Any]]):
-        for item in items:
-            item["report_id"] = report_id
-        return self.insert("reconciliation_report_items", items)
-
     # -- Payments Layer V3 --
 
     def record_payment(self, invoice_id: str, amount: float, method: str, reference: str = None) -> str:
@@ -191,11 +180,13 @@ class SupabaseDB:
     def upsert(self, table: str, data: Any):
         return self._ensure_client().table(table).upsert(data).execute()
 
-    def select(self, table: str, filters: Dict[str, Any] | None = None) -> List[Dict[str, Any]]:
+    def select(self, table: str, filters: Dict[str, Any] | None = None, limit: int | None = None) -> List[Dict[str, Any]]:
         query = self._ensure_client().table(table).select("*")
         if filters:
             for k, v in filters.items():
                 query = query.eq(k, v)
+        if limit:
+            query = query.limit(limit)
         return query.execute().data
 
     def insert(self, table: str, data: Any):
@@ -289,6 +280,17 @@ class SupabaseDB:
             import logging
             logging.getLogger("fagentllm").warning(f"Could not fetch memories: {e}")
             return []
+    
+    def create_reconciliation_report(self, data: Dict[str, Any]) -> str:
+        """Saves a new reconciliation report and returns its ID."""
+        res = self._ensure_client().table("reconciliation_reports").insert(data).execute()
+        return res.data[0]["id"]
+
+    def add_reconciliation_items(self, report_id: str, items: List[Dict[str, Any]]):
+        """Bulk adds item-level trace entries for a report."""
+        for item in items:
+            item["report_id"] = report_id
+        return self._ensure_client().table("reconciliation_report_items").insert(items).execute()
 
     def vector_search_transactions(self, embedding: List[float], threshold: float = 0.7, count: int = 5, source: str = "bank") -> List[Dict[str, Any]]:
         params = {
@@ -376,8 +378,6 @@ class SupabaseDB:
                 "outflow": float(r["projected_outflow"] or 0) / 1_000_000
             })
         
-        # If no forecast data in DB, return empty list or some defaults
-        return forecast
 
 # Singleton instance
 db = SupabaseDB()

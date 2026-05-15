@@ -52,7 +52,7 @@ def _update_ar_forecast(state: FinancialState) -> FinancialState:
     # Thesis V4: DynamicCashModel
     # We factor in the system-wide risk score from the latest snapshot
     snapshot = db.get_latest_snapshot()
-    system_risk = float(snapshot.get("system_risk_score", 50.0)) if snapshot else 50.0
+    system_risk = float(snapshot.get("system_risk_score") or 50.0) if snapshot else 50.0
     risk_multiplier = (100 - system_risk) / 100.0 # High system risk = lower collection prob
     
     # Probability of collection based on revised risk level AND system risk

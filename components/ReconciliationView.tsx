@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { RefreshCw, ChevronDown, ChevronUp, Info, Brain } from 'lucide-react'
-import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts'
+import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts'
 import { reconApi, analyticsApi, ReconStats, ReconReport } from '../lib/api'
 import { Card, Empty, pct, AgentAvatar } from './Shared'
 import { useRealtime } from '../lib/useRealtime'
@@ -33,27 +33,36 @@ export default function ReconciliationView() {
 
   async function runRecon() {
     setRunning(true)
-    try { 
-      await reconApi.run() 
-      // Polling fallback (v4): Increase duration to 90s to handle larger batches and semantic search
+    // Capture current report id so we can detect when a new one arrives.
+    const initialReportId = report?.id ?? null
+    try {
+      await reconApi.run()
       let attempts = 0
-      const poll = setInterval(() => {
-        load()
+      const poll = setInterval(async () => {
         attempts++
-        if (attempts >= 45) { // 45 * 2s = 90s
+        try {
+          const r = await reconApi.report()
+          if (r && typeof r === 'object' && 'match_rate' in r) {
+            const fresh = r as ReconReport
+            setReport(fresh)
+            // Stop as soon as the backend has produced a new report for this run.
+            if (fresh.id !== initialReportId) {
+              clearInterval(poll)
+              setRunning(false)
+              load() // full refresh of stats + unmatched list
+              return
+            }
+          }
+        } catch (_) { /* keep polling */ }
+        // Safety ceiling: 120 s (60 × 2 s)
+        if (attempts >= 60) {
           clearInterval(poll)
           setRunning(false)
+          load()
         }
       }, 2000)
-      
-      // Safety release
-      setTimeout(() => {
-        clearInterval(poll)
-        setRunning(false)
-        load()
-      }, 95000)
-    } catch (e) { 
-      alert(`Run failed: ${e}`) 
+    } catch (e) {
+      alert(`Run failed: ${e}`)
       setRunning(false)
     }
   }
@@ -84,7 +93,7 @@ export default function ReconciliationView() {
           <AgentAvatar agent="reconciliation" active={running} />
           <div>
             <h2>Reconciliation</h2>
-            <p className="view-sub">TF-IDF (≥0.50) + Semantic MiniLM (≥0.75) · Qwen3 anomaly analysis</p>
+            <p className="view-sub">TF-IDF (≥0.50) + Semantic MiniLM (≥0.68) · Qwen3 anomaly analysis</p>
           </div>
         </div>
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
@@ -124,9 +133,9 @@ export default function ReconciliationView() {
             {showInfo && (
               <div style={{ padding: '14px 16px', fontSize: 12, color: 'var(--text-2)', lineHeight: 1.8, background: 'rgba(0,0,0,.15)' }}>
                 <ol style={{ margin: 0, paddingLeft: 18 }}>
-                  <li><strong>Data Ingestion:</strong> Fetches all unmatched ledger and bank items (limit: 50 per cycle).</li>
-                  <li><strong>Stage 1 (TF-IDF Cosine Similarity):</strong> Rapid matching of exact/near-exact text patterns. Threshold: ≥ 0.50.</li>
-                  <li><strong>Stage 2 (PGVector Semantic Search):</strong> Items failing Stage 1 are transformed into 384-dimensional embeddings (MiniLM-L6) and queried against the entire bank transaction history in Supabase using <strong>pgvector</strong>. Threshold: ≥ 0.75.</li>
+                  <li className="protocol-item">1. <strong>Data Ingestion</strong>: Fetches all unmatched ledger and bank items (limit: 100 per cycle).</li>
+                  <li className="protocol-item">2. <strong>Stage 1 (TF-IDF Cosine Similarity)</strong>: Rapid matching of exact/near-exact text patterns. Threshold: ≥ 0.50.</li>
+                  <li className="protocol-item">3. <strong>Stage 2 (PGVector Semantic Search)</strong>: Items failing Stage 1 are transformed into 384-dimensional embeddings (MiniLM-L6) and queried against the entire bank transaction history in Supabase using pgvector. Threshold: ≥ 0.68.</li>
                   <li><strong>Qwen3 Forensic Audit:</strong> Unmatched anomalies are analyzed by the Reasoning Tier to detect systematic root causes (e.g. "Timing drift on counterparty X").</li>
                   <li><strong>Causal Escalation:</strong> Systematic anomalies trigger a causal chain to the <strong>Credit Agent</strong> for customer risk adjustment.</li>
                 </ol>

@@ -22,7 +22,7 @@ export interface FinancialStateSnapshot {
   overdue_receivables: number
   budget_utilisation: Record<string, number>
   system_risk_score: number
-  system_vendor_risk_avg?: number // V3
+  system_vendor_risk_avg?: number
   causal_summary: string | null
 }
 
@@ -45,10 +45,10 @@ export interface CausalLink {
   id: string
   cause_decision_id: string
   effect_decision_id: string
-  relationship_type: 
-    | 'reduces_liquidity' | 'increases_liquidity' | 'breaches_budget'
-    | 'elevates_risk' | 'lowers_risk' | 'triggers_collection'
-    | 'blocks_approval' | 'enables_approval' | 'enables_validation'
+  relationship_type:
+  | 'reduces_liquidity' | 'increases_liquidity' | 'breaches_budget'
+  | 'elevates_risk' | 'lowers_risk' | 'triggers_collection'
+  | 'blocks_approval' | 'enables_approval' | 'enables_validation'
   strength: number
   explanation: string
   created_at: string
@@ -96,8 +96,8 @@ export interface Invoice {
 export const invoiceApi = {
   list: (status?: string) => req<Invoice[]>(`/invoice/${status ? `?status=${status}` : ''}`),
   get: (id: string) => req<Invoice>(`/invoice/${id}`),
-  trace: (id: string) => req<{ 
-    decisions: AgentDecision[], 
+  trace: (id: string) => req<{
+    decisions: AgentDecision[],
     links: CausalLink[],
     snapshot: FinancialStateSnapshot | null,
     trace: TraceEvent[] // TracePanel expects this
@@ -129,9 +129,9 @@ export const invoiceApi = {
     }
     return r.json() as Promise<{ invoice_id: string }>
   },
-  approve: (id: string, approverId: string) => req(`/invoice/${id}/approve`, { 
-    method: 'POST', 
-    body: JSON.stringify({ approver_id: approverId }) 
+  approve: (id: string, approverId: string) => req(`/invoice/${id}/approve`, {
+    method: 'POST',
+    body: JSON.stringify({ approver_id: approverId })
   }),
 }
 
@@ -256,14 +256,14 @@ export const reconApi = {
   unmatched: () => req<any[]>('/reconciliation/unmatched?limit=20'),
   reports: () => req<ReconReport[]>('/reconciliation/reports'),
   report: () => req<ReconReport>('/reconciliation/report'),
-  trace: (id: string) => req<{ 
-    decisions: AgentDecision[], 
+  trace: (id: string) => req<{
+    decisions: AgentDecision[],
     links: CausalLink[],
-    trace: TraceEvent[] 
+    trace: TraceEvent[]
   }>(`/reconciliation/report/${id}/causal-trace`),
-  resolve: (id: string, action: 'match' | 'ignore' | 'escalate') => req(`/reconciliation/resolve/${id}`, { 
-    method: 'POST', 
-    body: JSON.stringify({ action }) 
+  resolve: (id: string, action: 'match' | 'ignore' | 'escalate') => req(`/reconciliation/resolve/${id}`, {
+    method: 'POST',
+    body: JSON.stringify({ action })
   }),
 }
 
@@ -282,8 +282,8 @@ export const creditApi = {
   customers: (risk?: string) => req<Customer[]>(`/credit/customers${risk ? `?risk_level=${risk}` : ''}`),
   aging: () => req<{ buckets: Record<string, number>, total_open: number }>('/credit/aging'),
   assess: (id: string) => req<{ status: string; score: number; risk_level: string; decision: any }>(`/credit/assess/${id}`, { method: 'POST' }),
-  trace: (id: string) => req<{ 
-    decisions: any[], 
+  trace: (id: string) => req<{
+    decisions: any[],
     links: any[],
     trace: TraceEvent[],
     name?: string

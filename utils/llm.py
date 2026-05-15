@@ -106,8 +106,11 @@ def _groq_raw_call(
         parameter (e.g. gpt-oss-20b).
     """
     client = _groq_client()
+    # 45 s hard ceiling — prevents the reconciliation background task from
+    # hanging indefinitely on Groq free-tier rate pressure or slow responses.
     base: dict = dict(model=model, messages=messages,
-                      temperature=temperature, max_tokens=max_tokens)
+                      temperature=temperature, max_tokens=max_tokens,
+                      timeout=45.0)
     if use_reasoning_effort:
         base["extra_body"] = {"reasoning_effort": "none"}
     try:

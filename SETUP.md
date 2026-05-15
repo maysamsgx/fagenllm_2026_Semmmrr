@@ -1,6 +1,6 @@
 # FAgentLLM — Enterprise Deployment & Setup Guide
 
-This guide details the deployment process for FAgentLLM, a multi-agent financial automation architecture (v3). This setup validates the system for Design Science Research (DSR) methodology, encompassing the **10/10 Causal Perfection Architecture** with 6 autonomous agents, persistent pgvector memory, and real-time governance.
+This guide details the deployment process for FAgentLLM, a multi-agent financial automation architecture (v4). This setup validates the system for Design Science Research (DSR) methodology, encompassing the **10/10 Causal Perfection Architecture** with 6 autonomous agents, persistent pgvector memory, and real-time governance.
 
 ---
 
@@ -105,7 +105,17 @@ Run the FastAPI server which hosts the LangGraph supervisor and the 6-agent syst
 # Ensure venv is active
 uvicorn main:app --reload --port 8000
 ```
-*Health Check:* Navigate to `http://localhost:8000/health`. You should receive a `status: ok` confirming "FAgentLLM v3 (10/10 Architecture)" is online.
+*Health Check:* Navigate to `http://localhost:8000/health`. You should receive a `status: ok` confirming "FAgentLLM v4.2 (10/10 Architecture)" is online.
+
+### 5. Essential: Vector Warming (First Run Only)
+Before running the first reconciliation, backfill MiniLM embeddings for all existing transactions so Stage 2 semantic search has full coverage:
+```bash
+python -m scripts.warm_vectors
+```
+
+> **Why this matters:** `scripts/warm_vectors.py` imports `tx_to_string` directly from `agents/reconciliation_agent.py`. This guarantees that offline-warmed embeddings are encoded with the exact same text normalisation (absolute amount, noise-word removal) that the agent uses at query time. Divergent encodings produce cosine similarity ≈ 0, making Stage 2 effectively blind.
+
+After this initial run, the reconciliation agent automatically computes and stores embeddings for any new bank transactions it encounters, so this script only needs to be re-run when seeding a fresh database.
 
 ### The Operations Dashboard (Frontend)
 Initialize the Vite development server in a separate terminal:
@@ -128,8 +138,8 @@ The system is designed for autonomous operation triggered by state changes acros
 3. **Governance Audit:** Navigate to the `Governance` tab to view real-time compliance monitoring and any detected policy violations across agent interactions.
 
 ### DSR Quantitative Evaluation
-1. **Analytics Dashboard:** Navigate to `Reconciliation` -> `Analytics` for performance metrics on transaction matching.
-2. **Evaluation Suite:** Use the `Evaluation` tab for research-grade reporting, including quantitative metrics on system accuracy, causal link strength, and agent cooperation efficiency.
+1. **Analytics Dashboard:** Navigate to `Reconciliation` → `Analytics` for performance metrics on transaction matching. The UI spinner stops automatically as soon as the new report is detected, rather than waiting a fixed 90 seconds.
+2. **Evaluation Suite:** Use the `Evaluation` tab for research-grade reporting. The system uses an optimized **0.68 semantic threshold** for vector matching and a **0.50 TF-IDF threshold** for exact matching.
 
 ---
 
