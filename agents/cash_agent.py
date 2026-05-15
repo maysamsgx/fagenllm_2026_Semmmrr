@@ -311,9 +311,8 @@ def _write_forecast(accounts: list, inflows: float, outflows: float) -> None:
     n = CASH.forecast_days
     daily_in  = inflows  / n if n else inflows
     daily_out = outflows / n if n else outflows
-    # Floor outflows at 80 % of daily inflows so the chart always reads healthy
-    if daily_in > 0 and daily_out >= daily_in:
-        daily_out = daily_in * 0.78
+
+    current_running_balance = sum(float(a.get("current_balance", 0) or 0) for a in accounts)
 
     rows = []
     for i in range(n):
@@ -325,12 +324,17 @@ def _write_forecast(accounts: list, inflows: float, outflows: float) -> None:
         var_out = 1.0 + ((i * 11 + 1) % 7 - 3) * 0.04
         proj_in  = round(daily_in  * weight * var_in,  2)
         proj_out = round(daily_out * weight * var_out, 2)
+        
+        # Cumulative balance projection
+        current_running_balance += (proj_in - proj_out)
+        
         rows.append({
             "forecast_date":    fdate,
             "cash_account_id":  account_id,
             "projected_inflow":  proj_in,
             "projected_outflow": proj_out,
             "net_position":      round(proj_in - proj_out, 2),
+            "projected_balance": round(current_running_balance, 2),
             "notes": f"Agent-generated forecast (run {today.isoformat()})",
         })
 
@@ -347,7 +351,12 @@ def _write_forecast(accounts: list, inflows: float, outflows: float) -> None:
         try:
             supabase.table("cash_flow_forecasts").insert(row).execute()
         except Exception:
-            pass
+            # Fallback: projected_balance column may not exist yet — insert without it
+            try:
+                row_fallback = {k: v for k, v in row.items() if k != "projected_balance"}
+                supabase.table("cash_flow_forecasts").insert(row_fallback).execute()
+            except Exception:
+                pass
 
 
 # ── Module 6: Communication ───────────────────────────────────────────────────

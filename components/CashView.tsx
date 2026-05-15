@@ -23,8 +23,22 @@ export default function CashView() {
   const [scError, setScError] = useState('')
 
   const load = () => {
-    cashApi.position().then(setPos).catch(() => { })
-    cashApi.forecast().then(r => setFore(r.forecast)).catch(() => { })
+    cashApi.position().then(setPos).catch(console.error)
+    cashApi.forecast().then(r => {
+      // Ensure every row has projected_balance — compute running total if missing
+      const rows = r.forecast
+      let running = 0
+      const enriched = rows.map((d, i) => {
+        if (d.projected_balance != null) {
+          running = d.projected_balance
+          return d
+        }
+        // Fallback: accumulate from net_position
+        running += (d.net_position ?? (d.projected_inflow - d.projected_outflow))
+        return { ...d, projected_balance: running }
+      })
+      setFore(enriched)
+    }).catch(console.error)
   }
 
   useEffect(() => { load() }, [])
@@ -111,32 +125,76 @@ export default function CashView() {
             <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
               <TrendingDown size={12} color="#fb7185" /> Outflows
             </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#67e8f9' }} /> Balance
+            </span>
           </div>
         </div>
         {forecast.length === 0 ? <Empty msg="No forecast data — run Refresh Position" /> : (
-          <ResponsiveContainer width="100%" height={260}>
-            <AreaChart data={forecast.map((d: ForecastDay) => ({
+          <ResponsiveContainer width="100%" height={300}>
+            <AreaChart data={forecast.map((d: any) => ({
               day: fmtDay(d.forecast_date),
               inflow: d.projected_inflow,
               outflow: d.projected_outflow,
-              net: d.net_position,
+              balance: d.projected_balance,
+              min: pos?.accounts[0]?.minimum_balance || 50000
             }))}>
               <defs>
                 <linearGradient id="gi" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#34d399" stopOpacity={0.45} />
+                  <stop offset="0%" stopColor="#34d399" stopOpacity={0.4} />
                   <stop offset="100%" stopColor="#34d399" stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="go" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#fb7185" stopOpacity={0.45} />
+                  <stop offset="0%" stopColor="#fb7185" stopOpacity={0.4} />
                   <stop offset="100%" stopColor="#fb7185" stopOpacity={0} />
                 </linearGradient>
+                <linearGradient id="gb" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#67e8f9" stopOpacity={0.2} />
+                  <stop offset="100%" stopColor="#67e8f9" stopOpacity={0} />
+                </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="2 4" stroke="rgba(255,255,255,.05)" />
-              <XAxis dataKey="day" tick={{ fontSize: 11, fill: 'var(--text-3)' }} stroke="rgba(255,255,255,.08)" />
-              <YAxis tick={{ fontSize: 11, fill: 'var(--text-3)' }} stroke="rgba(255,255,255,.08)" tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} />
-              <Tooltip formatter={(v: number) => fmt(v)} />
-              <Area type="monotone" dataKey="inflow" stroke="#34d399" fill="url(#gi)" name="Inflows" strokeWidth={2} />
-              <Area type="monotone" dataKey="outflow" stroke="#fb7185" fill="url(#go)" name="Outflows" strokeWidth={2} />
+              <CartesianGrid strokeDasharray="2 4" stroke="rgba(255,255,255,.05)" vertical={false} />
+              <XAxis dataKey="day" tick={{ fontSize: 10, fill: 'var(--text-4)' }} stroke="transparent" />
+              <YAxis 
+                yAxisId="left"
+                tick={{ fontSize: 10, fill: 'var(--text-4)' }} 
+                stroke="transparent" 
+                tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} 
+              />
+              <YAxis 
+                yAxisId="right" 
+                orientation="right"
+                tick={{ fontSize: 10, fill: '#67e8f9' }} 
+                stroke="transparent" 
+                tickFormatter={v => `$${(v / 1000000).toFixed(1)}M`} 
+              />
+              <Tooltip 
+                contentStyle={{ background: '#0d1226', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10 }}
+                formatter={(v: number) => fmt(v)} 
+              />
+              <Area yAxisId="left" type="monotone" dataKey="inflow" stroke="#34d399" fill="url(#gi)" name="Daily Inflow" strokeWidth={2} />
+              <Area yAxisId="left" type="monotone" dataKey="outflow" stroke="#fb7185" fill="url(#go)" name="Daily Outflow" strokeWidth={2} />
+              <Area 
+                yAxisId="right" 
+                type="monotone" 
+                dataKey="balance" 
+                stroke="#67e8f9" 
+                fill="url(#gb)" 
+                name="Projected Balance" 
+                strokeWidth={3} 
+                dot={{ r: 3, fill: '#67e8f9', strokeWidth: 0 }}
+                activeDot={{ r: 5, strokeWidth: 0 }}
+              />
+              <Area 
+                yAxisId="right" 
+                type="step" 
+                dataKey="min" 
+                stroke="#fb7185" 
+                fill="transparent" 
+                strokeDasharray="5 5" 
+                name="Minimum Reserve" 
+                strokeWidth={1} 
+              />
             </AreaChart>
           </ResponsiveContainer>
         )}

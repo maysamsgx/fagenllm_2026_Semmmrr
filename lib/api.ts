@@ -150,6 +150,7 @@ export interface ForecastDay {
   projected_inflow: number
   projected_outflow: number
   net_position: number
+  projected_balance: number
 }
 
 export interface CashScenarioResult {
