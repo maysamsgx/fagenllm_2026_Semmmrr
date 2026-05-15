@@ -36,12 +36,12 @@ FAgentLLM solves this by acting as a **Cognitive Intelligence Layer** over tradi
 - **📄 3-Layer Resilient OCR Pipeline**: Cascading document ingestion via PyMuPDF (Native) → Baidu Qianfan (Cloud) → Tesseract (Local fallback).
 - **🔗 Causal Domain Reasoning**: The XAI engine dynamically links agent decisions. An anomaly in reconciliation autonomously triggers a credit risk reassessment and adjusts AR liquidity forecasts.
 - **🔍 Hybrid Vector Reconciliation**: 4-stage pipeline — Episodic Patterns → TF-IDF (≥0.50) → PGVector MiniLM-L6 semantic search (≥0.68) → FX variance (≤2%). Bank-side embeddings are pre-computed automatically on each run; `scripts/warm_vectors.py` backfills the full history using the same canonical `tx_to_string` encoder as the agent, ensuring zero encoding drift.
-- **🧠 Persistent Agent Memory**: Agents utilize a multi-layer memory system (episodic, semantic, procedural) to maintain context and improve decisions over time.
+- **🧠 Persistent Agent Memory**: Agents utilize a four-layer memory system — **episodic** (past decision outcomes), **temporal** (utilisation snapshots), **semantic** (LLM-derived anomaly patterns), and **procedural** (policy rules & formula weights applied per run) — enabling consistency enforcement and drift detection across pipeline executions.
 - **📊 Forensic Audit Tracing**: A beautiful React frontend that visualizes the exact technical, business, and causal reasoning behind every single autonomous decision.
 - **🤝 Stakeholder Collaboration Portal**: A manual dispute resolution system allowing stakeholders to resolve anomalies, force matches, or escalate disputes to external audit.
 - **🛡️ Deterministic Financial Guardrails**: LLMs are used strictly for cognitive routing and qualitative analysis, while math, budgets, and similarities are enforced via hard deterministic formulas.
-- **🔄 Resilient Multi-Key Rotation**: High-availability LLM orchestration that rotates through multiple API keys to multiply TPM/RPM limits and prevent 429 errors.
-- **📈 Evaluation & Metrics Dashboard**: Live performance tracking (F1-score, Precision, Recall) and confusion matrices for each agent, visualizing the system's accuracy and reliability.
+- **🔄 Groq API Key Rotation**: High-availability LLM orchestration that round-robins across multiple Groq API keys to multiply TPM/RPM limits and prevent 429 rate-limit errors under sustained load.
+- **📈 Evaluation & Metrics Dashboard**: Live performance tracking (F1-score, Precision, Recall) and confusion matrices for each agent. Metrics are computed from live Supabase data using a proxy definition (extraction confidence ≥ 85% = predicted positive), reflecting real operational signals rather than held-out ground-truth labels.
 - **⚡ V4.2 Performance Tuning**: Optimized for Groq free-tier stability with 100-item batch windows and 0.68 semantic matching sensitivity.
 
 ---

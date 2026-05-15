@@ -115,6 +115,45 @@ def ensure_initial_match_state() -> None:
             logger.error(f"Bulk match update failed: {e}")
 
 
+def ensure_forecast_current() -> None:
+    """Write a fresh 7-day cash flow forecast if none exists for today.
+
+    The cash_flow_forecasts table is date-keyed. After a few days, all rows
+    fall into the past and the CashView chart goes blank. This function runs
+    at startup and regenerates the rows whenever the most recent forecast_date
+    is before today.
+    """
+    from datetime import date
+    from config import get_supabase
+    sb = get_supabase()
+    today = date.today().isoformat()
+    try:
+        rows = (sb.table("cash_flow_forecasts")
+                .select("forecast_date", count="exact")
+                .gte("forecast_date", today)
+                .execute())
+        # Require at least 5 of the 7 expected daily rows to skip regeneration.
+        # A single old stale row >= today should not suppress a fresh write.
+        if (rows.count or 0) >= 5:
+            logger.info("Cash flow forecast is current; skipping regeneration.")
+            return
+    except Exception as e:
+        logger.warning(f"Could not probe cash_flow_forecasts: {e}")
+        return
+
+    logger.info("Cash flow forecast is stale or empty; regenerating…")
+    try:
+        from agents.cash_agent import _projected_inflows, _projected_outflows, _write_forecast
+        from db.supabase_client import db as _db
+        accounts = _db.get_cash_balances()
+        inflows  = _projected_inflows(days=7)
+        outflows = _projected_outflows(days=7)
+        _write_forecast(accounts, inflows, outflows)
+        logger.info("Cash flow forecast regenerated for today+7.")
+    except Exception as e:
+        logger.error(f"Forecast regeneration failed: {e}")
+
+
 def _best_amount_match(internal: dict, candidates: Iterable[dict]) -> dict | None:
     target = abs(float(internal.get("amount") or 0))
     best, best_diff = None, AMOUNT_TOLERANCE

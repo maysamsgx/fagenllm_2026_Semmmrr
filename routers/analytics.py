@@ -290,7 +290,7 @@ def get_evaluation_metrics():
         alloc = float(b.get("allocated") or 0)
         spent_v = float(b.get("spent") or 0)
         committed_v = float(b.get("committed") or 0)
-        util_pct = (spent_v / alloc * 100) if alloc > 0 else 0
+        util_pct = ((spent_v + committed_v) / alloc * 100) if alloc > 0 else 0
         util_vals.append(util_pct)
         if util_pct >= 100: over_budget += 1
         if util_pct >= 80:  at_risk += 1

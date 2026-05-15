@@ -723,11 +723,20 @@ def gen_cash_flow_forecasts(cash_accounts, ap_invoices, ar_invoices):
             d = date.fromisoformat(inv["due_date"])
             if d > TODAY: inflows[d] = inflows.get(d, 0) + float(inv["total_amount"]) * 0.7
 
+    # Base daily operational flows: recurring revenue collections + amortised opex
+    BASE_DAILY_IN  = 9_500.0   # ~daily revenue recognition
+    BASE_DAILY_OUT = 7_100.0   # ~daily payroll + opex
+
     for i in range(FORECAST_DAYS):
         d = TODAY + timedelta(days=i)
+        # Deterministic ±10 % shape so each day looks slightly different
+        var_in  = 1.0 + ((i * 7  + 2) % 5 - 2) * 0.05
+        var_out = 1.0 + ((i * 11 + 1) % 5 - 2) * 0.05
+        proj_in  = round(BASE_DAILY_IN  * var_in  + inflows.get(d, 0),  2)
+        proj_out = round(BASE_DAILY_OUT * var_out + outflows.get(d, 0), 2)
         forecasts.append({
             "id": gen_uuid(f"fc-{operating['id']}-{d.isoformat()}"), "forecast_date": d.isoformat(), "cash_account_id": operating["id"],
-            "projected_inflow":  round(inflows.get(d, 0), 2), "projected_outflow": round(outflows.get(d, 0), 2),
+            "projected_inflow":  proj_in, "projected_outflow": proj_out,
             "actual_inflow": None, "actual_outflow": None, "notes": None,
         })
     return forecasts

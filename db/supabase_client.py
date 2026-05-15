@@ -234,6 +234,12 @@ class SupabaseDB:
 
     def log_causal_link(self, cause_id: str, effect_id: str, rel_type: str, explanation: str, strength: float = 1.0):
         """Records a directed edge between two agent decisions."""
+        if not cause_id or not effect_id:
+            import logging
+            logging.getLogger("fagentllm").warning(
+                f"log_causal_link skipped: cause_id={cause_id!r}, effect_id={effect_id!r}"
+            )
+            return None
         link_data = {
             "cause_decision_id": cause_id,
             "effect_decision_id": effect_id,
@@ -246,7 +252,13 @@ class SupabaseDB:
     # -- Persistent Agent Memory & Vector Patterns (V4) --
 
     def store_memory(self, agent: str, content: Dict[str, Any], memory_type: str = "episodic", entity_id: str | None = None):
-        """Persist an episodic/temporal memory entry.
+        """Persist an episodic/temporal/procedural memory entry.
+
+        memory_type options:
+          "episodic"   — what happened (past decisions/outcomes)
+          "temporal"   — time-series metrics (utilisation snapshots, scores)
+          "semantic"   — pattern summaries (customer anomaly patterns)
+          "procedural" — which policy rules / formula weights were applied
 
         entity_id MUST be a valid UUID — callers that hold a department slug
         should call get_department_uuid(slug) first.
@@ -264,8 +276,14 @@ class SupabaseDB:
             logging.getLogger("fagentllm").warning(f"Could not store memory: {e}")
             return None
 
-    def get_recent_memories(self, agent: str, entity_id: str | None = None, limit: int = 5) -> List[Dict[str, Any]]:
+    def get_recent_memories(self, agent: str, entity_id: str | None = None, limit: int = 5, memory_type: str | None = None) -> List[Dict[str, Any]]:
         """Fetch the most-recent memory entries for an agent.
+
+        Pass memory_type to retrieve only a specific layer:
+          "procedural" — policy rules / formula weights applied in past runs
+          "episodic"   — past decision outcomes
+          "temporal"   — time-series utilisation snapshots
+          "semantic"   — LLM-derived pattern summaries
 
         entity_id MUST be a valid UUID — callers that hold a department slug
         should call get_department_uuid(slug) first.
@@ -274,6 +292,8 @@ class SupabaseDB:
             query = self._ensure_client().table("agent_memory").select("*").eq("agent", agent)
             if entity_id:
                 query = query.eq("entity_id", entity_id)
+            if memory_type:
+                query = query.eq("memory_type", memory_type)
             res = query.order("created_at", desc=True).limit(limit).execute()
             return res.data
         except Exception as e:

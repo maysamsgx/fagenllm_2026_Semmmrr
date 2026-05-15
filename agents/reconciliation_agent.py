@@ -127,12 +127,6 @@ def _run_reconciliation(state: FinancialState) -> FinancialState:
         from sklearn.metrics.pairwise import cosine_similarity
         import numpy as np
 
-        # Build a fast O(1) lookup from bank tx id → bank tx object.
-        # This is critical: pgvector RPC returns new dicts, not references to
-        # bank_txs entries. Without this map, matched=True would be set on the
-        # throwaway dict and never persisted to the DB.
-        bank_tx_by_id = {b["id"]: b for b in bank_txs}
-
         model = get_sentence_model()
 
         # Pre-compute embeddings for bank transactions that are missing them.
@@ -219,20 +213,26 @@ def _run_reconciliation(state: FinancialState) -> FinancialState:
                         best_candidate = cand
                         break
 
-            # Stage 2: PGVector semantic search
-            # Resolve the RPC result back to the original bank_txs object so that
-            # setting matched=True on it is reflected when we write updates to DB.
+            # Stage 2: In-memory cosine similarity over unmatched bank transactions.
+            # Replaces the pgvector RPC which searched ALL bank rows (matched + unmatched).
+            # With most rows already matched, count=5 results were exhausted by matched rows
+            # before reaching the genuinely-unmatched candidates. In-memory scan is also
+            # faster (no network round-trip) and only touches the current unmatched set.
             if best_sim < RECON.match_threshold and emb:
-                vector_matches = db.vector_search_transactions(emb, threshold=0.1, count=5, source="bank")
-                for v_match in vector_matches:
-                    if v_match["id"] not in matched_bank_ids:
-                        if v_match["similarity"] > best_sim:
-                            resolved = bank_tx_by_id.get(v_match["id"])
-                            if resolved:
-                                best_sim       = v_match["similarity"]
-                                match_type     = "vector"
-                                best_candidate = resolved
-                                break
+                emb_arr = np.array(emb, dtype=np.float32)
+                for btx in bank_txs:
+                    if btx["id"] in matched_bank_ids:
+                        continue
+                    btx_emb = btx.get("embedding")
+                    if not btx_emb:
+                        continue
+                    btx_arr = np.array(btx_emb, dtype=np.float32)
+                    denom = np.linalg.norm(emb_arr) * np.linalg.norm(btx_arr)
+                    sim = float(np.dot(emb_arr, btx_arr) / denom) if denom > 1e-10 else 0.0
+                    if sim > best_sim:
+                        best_sim       = sim
+                        match_type     = "vector"
+                        best_candidate = btx
 
             tx["sim_score"]  = best_sim
             tx["match_type"] = match_type
@@ -310,6 +310,7 @@ def _run_reconciliation(state: FinancialState) -> FinancialState:
     if not anomalies:
         from utils.contracts import ReconciliationOutput as _RO
         analysis = _RO(
+            decision="reconciliation_complete",
             is_systematic=False,
             technical_explanation=technical_summary,
             business_explanation="All transactions matched successfully. No anomalies to analyse.",
@@ -394,25 +395,30 @@ def _run_reconciliation(state: FinancialState) -> FinancialState:
     }]
 
     # ── Execution: persist match results to DB ────────────────────────────────
-    # Strip embeddings from the upsert payload — they're large and we don't want
-    # to accidentally overwrite a correctly-stored pgvector value with a Python list.
+    # Only send real DB columns — runtime-only keys (sim_score, match_type,
+    # embedding) are not DB columns and cause PostgREST to reject the whole batch.
+    _DB_TX_COLS = {
+        "id", "source", "reference", "amount", "currency", "transaction_date",
+        "description", "counterparty", "invoice_id", "cash_account_id",
+        "matched", "matched_to", "match_score", "discrepancy_flag", "discrepancy_type",
+    }
+
+    def _clean(tx: dict, matched: bool, mate_id: str | None, score: float) -> dict:
+        base = {k: v for k, v in tx.items() if k in _DB_TX_COLS}
+        base["matched"]     = matched
+        base["matched_to"]  = mate_id
+        base["match_score"] = round(score, 4)
+        return base
+
     updates = []
     for tx in internal_txs:
-        tx_update = {k: v for k, v in tx.items() if k != "embedding"}
-        tx_update["match_score"] = round(tx.get("sim_score", 0), 4)
-        tx_update["matched"]     = tx.get("matched", False)
-        tx_update["matched_to"]  = tx.get("matched_to")
-        updates.append(tx_update)
+        updates.append(_clean(tx, tx.get("matched", False), tx.get("matched_to"), tx.get("sim_score", 0)))
 
     # Use matched_bank_ids (the authoritative set) rather than tx.get("matched")
     # so that Stage 2 / Stage 3 bank-side matches are always included.
     for tx in bank_txs:
         if tx["id"] in matched_bank_ids:
-            tx_update = {k: v for k, v in tx.items() if k != "embedding"}
-            tx_update["match_score"] = round(tx.get("sim_score", 0), 4)
-            tx_update["matched"]     = True
-            tx_update["matched_to"]  = tx.get("matched_to")
-            updates.append(tx_update)
+            updates.append(_clean(tx, True, tx.get("matched_to"), tx.get("sim_score", 0)))
 
     if updates:
         try:

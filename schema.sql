@@ -1,5 +1,5 @@
 -- =============================================================
--- FAgentLLM — Supabase Schema v3 (10/10 Causal Perfection)
+-- FAgentLLM — Financial Intelligence Schema (10/10 Causal Perfection)
 -- =============================================================
 -- Improvements vs v2:
 --   1. Added 'payments' table to bridge invoices and transactions.
@@ -101,7 +101,7 @@ CREATE TABLE IF NOT EXISTS invoice_line_items (
     line_no     INT
 );
 
--- V3: Payments bridge (was missing in V2)
+-- BRIDGE: Payments bridge
 CREATE TABLE IF NOT EXISTS payments (
     id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     invoice_id      UUID REFERENCES invoices(id),

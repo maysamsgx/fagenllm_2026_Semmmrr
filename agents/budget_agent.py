@@ -50,18 +50,29 @@ def _inv_perceive(state: FinancialState) -> dict:
                 dept_id = inv_row.get("department_id")
     
     # Final fallback if still missing
-    dept_id = dept_id or "engineering" 
+    dept_id = dept_id or "engineering"
     period   = budget_ctx.get("period") or _current_period()
     amount   = float(invoice_ctx.get("amount", 0) or 0)
     budget   = db.get_budget(dept_id, period)
+    dept_uuid = db.get_department_uuid(dept_id)
+
+    # Procedural memory: check if this department was recently hard-stopped or alerted
+    prior_procedure = {}
+    if dept_uuid:
+        proc_mem = db.get_recent_memories("budget", dept_uuid, limit=1, memory_type="procedural")
+        if proc_mem:
+            prior_procedure = proc_mem[0].get("content", {})
+
     return {
-        "budget_ctx":  budget_ctx,
-        "invoice_ctx": invoice_ctx,
-        "dept_id":     dept_id,
-        "period":      period,
-        "inv_id":      inv_id,
-        "amount":      amount,
-        "budget":      budget,
+        "budget_ctx":       budget_ctx,
+        "invoice_ctx":      invoice_ctx,
+        "dept_id":          dept_id,
+        "dept_uuid":        dept_uuid,
+        "period":           period,
+        "inv_id":           inv_id,
+        "amount":           amount,
+        "budget":           budget,
+        "prior_procedure":  prior_procedure,
     }
 
 
@@ -187,25 +198,40 @@ def _inv_explain(state: FinancialState, percept: dict, verdict: dict) -> str:
 def _inv_execute(_state: FinancialState, percept: dict, verdict: dict) -> None:
     if verdict.get("no_budget"):
         return
-    budget = percept["budget"]
-    breach = verdict["breach"]
+    budget    = percept["budget"]
+    breach    = verdict["breach"]
+    hard_stop = verdict["hard_stop"]
     committed = verdict["committed"]
-    amount = percept["amount"]
+    amount    = percept["amount"]
+    dept_id   = percept["dept_id"]
+    dept_uuid = percept.get("dept_uuid")
+    util      = verdict["utilisation_pct"]
 
     if breach:
-        dept_id = percept["dept_id"]
-        util    = verdict["utilisation_pct"]
-        inv_id  = percept["inv_id"]
+        inv_id = percept["inv_id"]
         db.insert("budget_alerts", {
             "budget_id":      budget["id"],
             "utilisation_pct": round(util, 2),
             "alert_type":     "threshold_breach",
             "message": (
                 f"Department '{dept_id}' utilisation at {util:.1f}% "
-                f"after invoice ${percept['amount']:,.2f}."
+                f"after invoice ${amount:,.2f}."
             ),
             "triggered_by_invoice_id": inv_id if inv_id != "system" else None,
         })
+
+        # Procedural memory: record which policy rule fired and what action it enforced.
+        # Governance and future budget runs read this to verify consistent enforcement.
+        if dept_uuid:
+            db.store_memory("budget", {
+                "rule":                  "hard_stop" if hard_stop else "alert_threshold",
+                "hard_stop_threshold":   BUDGET.hard_stop_threshold,
+                "alert_threshold":       BUDGET.alert_threshold,
+                "utilisation_pct":       round(util, 2),
+                "period":                percept["period"],
+                "invoice_amount":        amount,
+                "enforced_action":       "invoice_blocked" if hard_stop else "escalated_to_manager",
+            }, memory_type="procedural", entity_id=dept_uuid)
 
     db.update("budgets", {"id": budget["id"]},
               {"committed": round(committed + amount, 2)})
@@ -318,17 +344,27 @@ def _rev_reason(_state: FinancialState, percept: dict):
 
     directive = load_directive("budget")
     
-    # Persistent Agent Memory: Fetch history for at-risk departments
+    # Persistent Agent Memory: Fetch temporal history + procedural rules for at-risk departments
     memory_context = ""
     for r in at_risk:
         dept = r["department"]
         dept_uuid = db.get_department_uuid(dept)
-        past_breaches = db.get_recent_memories("budget", dept_uuid, limit=2)
+        past_breaches = db.get_recent_memories("budget", dept_uuid, limit=2, memory_type="temporal")
+        past_procedures = db.get_recent_memories("budget", dept_uuid, limit=2, memory_type="procedural")
         if past_breaches:
-            memory_context += f" [Memory for {dept}: "
+            memory_context += f" [Temporal for {dept}: "
             for m in past_breaches:
                 c = m.get("content", {})
                 memory_context += f"In {c.get('period')}, utilisation reached {c.get('utilisation_pct')}%. "
+            memory_context += "] "
+        if past_procedures:
+            memory_context += f" [Procedure for {dept}: "
+            for pm in past_procedures:
+                c = pm.get("content", {})
+                memory_context += (
+                    f"Rule '{c.get('rule')}' fired at {c.get('utilisation_pct')}% "
+                    f"(enforced: {c.get('enforced_action')}). "
+                )
             memory_context += "] "
             
     return qwen_json(

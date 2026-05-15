@@ -4,41 +4,46 @@ The main entry point for our FastAPI app. This is what uvicorn runs.
 """
 
 import logging
+import os
+from contextlib import asynccontextmanager
 from typing import Annotated
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from utils.auth import create_access_token
 from fastapi.responses import RedirectResponse
-import os
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("fagentllm")
 
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    """Make sure every dashboard has data the first time the user opens it."""
+    if os.getenv("FAGENTLLM_SKIP_BOOTSTRAP", "").lower() not in ("1", "true", "yes"):
+        try:
+            from utils.bootstrap import seed_if_empty, ensure_initial_match_state, ensure_forecast_current
+            seed_if_empty()
+            ensure_initial_match_state()
+            ensure_forecast_current()
+        except Exception as e:
+            logger.error(f"Bootstrap failed: {e}")
+    else:
+        logger.info("FAGENTLLM_SKIP_BOOTSTRAP set; skipping data bootstrap.")
+    yield
+
+
 app = FastAPI(
-    title="FAgentLLM API",
-    description="Multi-agent LLM financial automation system (V3)",
-    version="0.3.0",
+    title="FAgentLLM Financial Intelligence",
+    description="Multi-agent autonomous financial orchestration with causal reasoning and system-level intelligence.",
+    version="0.4.0",
+    lifespan=lifespan,
 )
 
 @app.get("/")
 async def root():
     """Redirect root to /docs for easier navigation."""
     return RedirectResponse(url="/docs")
-
-
-@app.on_event("startup")
-def _bootstrap_data() -> None:
-    """Make sure every dashboard has data the first time the user opens it."""
-    if os.getenv("FAGENTLLM_SKIP_BOOTSTRAP", "").lower() in ("1", "true", "yes"):
-        logger.info("FAGENTLLM_SKIP_BOOTSTRAP set; skipping data bootstrap.")
-        return
-    try:
-        from utils.bootstrap import seed_if_empty, ensure_initial_match_state
-        seed_if_empty()
-        ensure_initial_match_state()
-    except Exception as e:
-        logger.error(f"Bootstrap failed: {e}")
 
 @app.post("/token")
 async def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
@@ -60,7 +65,7 @@ app.add_middleware(
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "system": "FAgentLLM v3 (10/10 Architecture)"}
+    return {"status": "ok", "system": "FAgentLLM Autonomous Financial Intelligence (10/10 Architecture)"}
 
 # -- Routers --
 from routers import invoice, budget, cash, reconciliation, credit, payment, departments, analytics, governance

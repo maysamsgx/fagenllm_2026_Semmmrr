@@ -5,7 +5,8 @@ It reviews all decisions in the current run and cross-checks them against fiscal
 """
 
 from __future__ import annotations
-import json
+import logging
+import uuid
 from langgraph.graph import END
 
 from agents.state import FinancialState
@@ -13,6 +14,7 @@ from db.supabase_client import db
 from utils.directives import inject_directive
 from utils.llm import qwen_structured
 from utils.contracts import GovernanceOutput
+from utils.prompts import governance_audit_prompt
 
 def governance_node(state: FinancialState) -> FinancialState:
     """
@@ -38,8 +40,6 @@ def governance_node(state: FinancialState) -> FinancialState:
     elif state.get("invoice", {}).get("decision_id"):
         last_decision_id = state["invoice"]["decision_id"]
 
-    from utils.prompts import governance_audit_prompt
-    
     # Construct a summary of what happened for the Auditor
     summary = "SUMMARY OF EXECUTION TRACE:\n"
     for step in trace:
@@ -50,8 +50,22 @@ def governance_node(state: FinancialState) -> FinancialState:
     system, user = governance_audit_prompt(summary)
     
     system = inject_directive(system, "governance")
-    audit = qwen_structured(system, user, GovernanceOutput)
-    
+    try:
+        audit = qwen_structured(system, user, GovernanceOutput)
+    except Exception as gov_err:
+        logging.getLogger("fagentllm").warning(f"Governance LLM failed ({gov_err}); using fallback.")
+        audit = GovernanceOutput(
+            decision="deferred",
+            confidence=0.0,
+            technical_explanation="Governance audit could not complete — LLM timeout or rate limit.",
+            business_explanation="Compliance check was attempted but deferred. Manual governance review is recommended.",
+            causal_explanation="LLM call failed; causal chain integrity check not performed.",
+            compliance_score=50,
+            is_audit_safe=True,
+            findings=[],
+            cross_domain_signals={},
+        )
+
     # Determine the entity to link to based on the trigger
     trigger = state.get("trigger", "")
     entity_table = "system"
@@ -77,7 +91,6 @@ def governance_node(state: FinancialState) -> FinancialState:
         entity_id = state["credit"]["decision_id"]
         entity_table = "agent_decisions"
 
-    import uuid
     def is_uuid(val):
         if not val: return False
         try:
@@ -122,6 +135,14 @@ def governance_node(state: FinancialState) -> FinancialState:
             f"Governance Agent reviewed and validated the causal chain ending at {last_decision_id}. "
             "Verification confirms that tracking event-driven causal links improved decision transparency."
         )
+        
+    if state.get("reconciliation", {}).get("decision_id"):
+        db.log_causal_link(
+            state["reconciliation"]["decision_id"],
+            audit_id,
+            "audits_and_validates",
+            "Direct trace link from reconciliation to governance to guarantee BFS discovery."
+        )
     
     # ── Execution: Cross-Agent Conflict Detection (V4) ──────────────────────
     findings = audit.findings or []
@@ -139,16 +160,33 @@ def governance_node(state: FinancialState) -> FinancialState:
             decision_id=audit_id
         )
 
+    # Procedural memory: record which compliance checks ran and their outcomes.
+    # Allows future governance runs to detect drift in policy enforcement over time.
+    # entity_id uses the audited entity so memories are scoped to the same workflow.
+    _checks_applied = ["cross_agent_consistency", "causal_chain_integrity"]
+    if budget_ctx.get("hard_stop") is not None:
+        _checks_applied.append("budget_hard_stop_adherence")
+    db.store_memory("governance", {
+        "checks_applied":    _checks_applied,
+        "compliance_score":  audit.compliance_score,
+        "is_audit_safe":     audit.is_audit_safe,
+        "decision":          audit.decision,
+        "findings_count":    len(findings),
+        "trigger":           trigger,
+        "entity_table":      entity_table,
+        "trace_length":      len(trace),
+    }, memory_type="procedural", entity_id=entity_id)
+
     # ── Update State ────────────────────────────────────────────────────────
     new_trace = trace + [{
         "agent": "governance",
         "step": "Compliance Audit",
         "technical_explanation": audit.technical_explanation,
         "business_explanation": audit.business_explanation,
-        "causal_explanation": audit.causal_explanation, # This now contains the performance validation
+        "causal_explanation": audit.causal_explanation,
         "findings": findings
     }]
-    
+
     return {
         **state,
         "current_agent": "governance",

@@ -103,8 +103,8 @@ def _assess_customer(state: FinancialState) -> FinancialState:
     from utils.llm import qwen_structured_with_reflection as qwen_structured
 
     # ── Cognitive Architecture: Memory (Persistent Memory Pattern) ──────────────────
-    # Fetch last 3 risk assessments for this customer to provide historical context
-    past_memories = db.get_recent_memories("credit", customer_id, limit=3)
+    # Fetch last 3 episodic risk assessments for historical context
+    past_memories = db.get_recent_memories("credit", customer_id, limit=3, memory_type="episodic")
     history_ctx = ""
     if past_memories:
         history_ctx = "\nHISTORICAL CONTEXT (Past Decisions):\n"
@@ -113,6 +113,20 @@ def _assess_customer(state: FinancialState) -> FinancialState:
             created_at = m.get("created_at")
             ts = created_at[:10] if created_at else "YYYY-MM-DD"
             history_ctx += f"- {ts}: Score {c.get('score')}, Risk {c.get('risk_level')}. Decision: {c.get('decision')}\n"
+
+    # Procedural memory: check if weights or penalties were applied differently before.
+    # This lets the LLM reasoning note if scoring behaviour has changed for this customer.
+    past_procedure = db.get_recent_memories("credit", customer_id, limit=1, memory_type="procedural")
+    proc_ctx = ""
+    if past_procedure:
+        pc = past_procedure[0].get("content", {})
+        proc_ctx = (
+            f"\nPROCEDURAL CONTEXT (Last Scoring Formula):\n"
+            f"- Weights: delay={pc.get('delay_weight')}, outstanding={pc.get('outstanding_weight')}\n"
+            f"- Penalty applied: {pc.get('penalty_applied')}pt "
+            f"(anomaly_count={pc.get('anomaly_count')}, rule={pc.get('penalty_rule')})\n"
+            f"- Result: score={pc.get('final_score')}, risk={pc.get('risk_level')}\n"
+        )
     f1 = float(customer.get("payment_delay_avg", 5.0))
     f2 = float(customer.get("total_outstanding", 5000.0)) / 1000.0
     
@@ -175,19 +189,34 @@ def _assess_customer(state: FinancialState) -> FinancialState:
         pass  # graceful degradation
 
     base_system, user = _crp(customer, payment_history, score, recon_summary, f1, f2, f3)
-    # Inject historical memory context into the user prompt
+    # Inject episodic + procedural context so the LLM reasons about consistency
     if history_ctx:
         user = history_ctx + "\n" + user
-        
+    if proc_ctx:
+        user = proc_ctx + "\n" + user
+
     system = inject_directive(base_system, "credit")
     assessment = qwen_structured(system, user, DecisionOutput)
 
-    # Store this assessment in memory for future runs (Episodic Memory)
+    # Store this assessment in episodic memory for future runs
     db.store_memory("credit", {
         "score": round(score, 2),
         "risk_level": risk_level,
         "decision": assessment.decision
     }, memory_type="episodic", entity_id=customer_id)
+
+    # Procedural memory: record the exact formula weights and penalty applied this run.
+    # Future runs read this to verify scoring consistency and detect drift.
+    db.store_memory("credit", {
+        "penalty_rule":       "calculate_dynamic_penalty",
+        "delay_weight":       CREDIT.delay_weight,
+        "outstanding_weight": CREDIT.outstanding_weight,
+        "base_score":         CREDIT.base_score,
+        "penalty_applied":    round(f3, 2),
+        "anomaly_count":      anomaly_count,
+        "final_score":        round(score, 2),
+        "risk_level":         risk_level,
+    }, memory_type="procedural", entity_id=customer_id)
 
     input_state = {
         "current_score": score,
