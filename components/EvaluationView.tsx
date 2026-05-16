@@ -210,17 +210,16 @@ const TABS = [
   { id: 'agents', label: 'Per-Agent Metrics', icon: Brain },
   { id: 'governance', label: 'Governance & Audit', icon: Shield },
   { id: 'matrices', label: 'Confusion Matrices', icon: Target },
-  { id: 'scientific', label: 'Scientific Suite V4', icon: Shield },
+  { id: 'sensitivity', label: 'Sensitivity Analysis', icon: Activity },
   { id: 'coordination', label: 'Coordination', icon: GitBranch },
   { id: 'baseline', label: 'Baseline Compare', icon: Activity },
   { id: 'explainability', label: 'Explainability', icon: Shield },
-  { id: 'sensitivity', label: 'Sensitivity Analysis', icon: Zap },
 ]
 
 export default function EvaluationView() {
   const [tab, setTab] = useState(() => {
     const path = window.location.pathname;
-    if (path.includes('/scientific')) return 'scientific';
+    if (path.includes('/sensitivity')) return 'sensitivity';
     return 'overview';
   })
   const [data, setData] = useState<any>(null)
@@ -343,6 +342,20 @@ export default function EvaluationView() {
             </div>
           )}
           <button
+            onClick={async () => {
+              try { await fetch('/api/analytics/run-evaluation', { method: 'POST' }); alert("Scientific Evaluation started in background. Refresh in a few minutes."); }
+              catch (e) { alert("Failed to start evaluation"); }
+            }}
+            style={{
+              background: 'rgba(167, 139, 250, 0.15)', border: '1px solid rgba(167, 139, 250, 0.4)',
+              color: '#a78bfa', borderRadius: 10, padding: '9px 16px', cursor: 'pointer',
+              fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 7,
+            }}
+          >
+            <Zap size={13} />
+            Run Scientific Evaluation
+          </button>
+          <button
             onClick={load}
             disabled={loading}
             style={{
@@ -391,11 +404,10 @@ export default function EvaluationView() {
           {tab === 'agents' && <AgentsTab data={data} cashForecast={cashForecast} budgetRows={budgetRows} creditAging={creditAging} />}
           {tab === 'governance' && <GovernanceTab data={data} />}
           {tab === 'matrices' && <MatricesTab data={data} />}
-          {tab === 'scientific' && <ScientificResults data={scientificData} runs={runs} selectedRunId={selectedRunId} onSelectRun={setSelectedRunId} />}
+          {tab === 'sensitivity' && <ScientificResults data={scientificData} runs={runs} selectedRunId={selectedRunId} onSelectRun={setSelectedRunId} />}
           {tab === 'coordination' && <CoordinationTab data={data} />}
           {tab === 'baseline' && <BaselineTab data={data} scientificData={scientificData} />}
           {tab === 'explainability' && <ExplainabilityTab data={data} />}
-          {tab === 'sensitivity' && <SensitivityTab scientificData={scientificData} />}
         </>
       ) : null}
     </div>
@@ -592,16 +604,39 @@ function AgentsTab({ data, cashForecast, budgetRows, creditAging }: {
           <div>
             <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginBottom: 10 }}>Invoice Status Distribution (live)</div>
             {invStatusData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={180}>
-                <PieChart>
-                  <Pie data={invStatusData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70}
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                    labelLine={false}>
-                    {invStatusData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
-                  </Pie>
-                  <Tooltip content={<ChartTip />} />
-                </PieChart>
-              </ResponsiveContainer>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                <ResponsiveContainer width={160} height={160}>
+                  <PieChart>
+                    <Pie
+                      data={invStatusData}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={42}
+                      outerRadius={72}
+                      paddingAngle={2}
+                    >
+                      {invStatusData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                    </Pie>
+                    <Tooltip content={<ChartTip />} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 7 }}>
+                  {invStatusData.map((entry: any, i: number) => {
+                    const total = invStatusData.reduce((s: number, d: any) => s + d.value, 0)
+                    const pct = total > 0 ? ((entry.value / total) * 100).toFixed(1) : '0'
+                    return (
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div style={{ width: 10, height: 10, borderRadius: 3, background: PIE_COLORS[i % PIE_COLORS.length], flexShrink: 0 }} />
+                        <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.65)', flex: 1, textTransform: 'capitalize' }}>{entry.name}</span>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: PIE_COLORS[i % PIE_COLORS.length], fontVariantNumeric: 'tabular-nums' }}>{pct}%</span>
+                        <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', fontVariantNumeric: 'tabular-nums', minWidth: 28, textAlign: 'right' }}>{entry.value}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
             ) : <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12, padding: 20 }}>No invoices yet</div>}
           </div>
           <div>
@@ -948,17 +983,35 @@ function MatricesTab({ data }: { data: EvaluationMetrics }) {
 // ══════════════════════════════════════════════════════════════════════════════
 function ScientificResults({ data, runs, selectedRunId, onSelectRun }: any) {
   const currentRun = data?.run || runs.find((r: any) => r.id === selectedRunId)
-  const results = data?.results || []
+  const results: any[] = data?.results || []
+  const metrics = data?.metrics || {}
+  const perCategory: any[] = data?.per_category || []
+  const baseline = data?.baseline_comparison || null
+
+  const catColors: Record<string, string> = {
+    straight_through: '#67e8f9',
+    budget_enforcement: '#a78bfa',
+    causal_reconciliation: '#fbbf24',
+    governance_audit: '#34d399',
+    adversarial_sensitivity: '#fb7185',
+    general: '#94a3b8',
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {/* ── Header + run selector ── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <Shield size={20} color="#67e8f9" />
-          <h3 style={{ margin: 0, fontSize: 18, color: '#fff' }}>Held-Out Scientific Suite V4</h3>
+          <div>
+            <h3 style={{ margin: 0, fontSize: 18, color: '#fff' }}>Held-Out Scientific Suite V4</h3>
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 2 }}>
+              {results.length} cases · ground-truth held out before pipeline execution
+            </div>
+          </div>
         </div>
-        <select 
-          value={selectedRunId || ''} 
+        <select
+          value={selectedRunId || ''}
           onChange={(e) => onSelectRun(e.target.value)}
           style={{
             background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
@@ -973,60 +1026,152 @@ function ScientificResults({ data, runs, selectedRunId, onSelectRun }: any) {
         </select>
       </div>
 
-      {currentRun && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
-          <KPI label="Suite Accuracy" value={pct(currentRun.accuracy)} color="#34d399" />
-          <KPI label="Passed Cases" value={`${currentRun.passed_cases}/${currentRun.total_cases}`} color="#34d399" />
-          <KPI label="Avg Latency" value={`${currentRun.latency_avg?.toFixed(2)}s`} color="#a78bfa" />
-          <KPI label="Run Type" value={currentRun.run_type.toUpperCase()} color="#67e8f9" />
+      {/* ── Primary KPIs ── */}
+      {(currentRun || Object.keys(metrics).length > 0) && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 14 }}>
+          <KPI label="Suite Accuracy" value={pct(metrics.accuracy ?? currentRun?.accuracy)} good={(metrics.accuracy ?? 0) >= 70} color="#34d399" sub={`${metrics.passed_cases ?? currentRun?.passed_cases ?? 0}/${metrics.total_cases ?? currentRun?.total_cases ?? 0} cases`} />
+          <KPI label="F1 Score" value={pct(metrics.f1_pct ?? (metrics.f1 != null ? metrics.f1 * 100 : null))} good={(metrics.f1 ?? 0) >= 0.7} color="#67e8f9" />
+          <KPI label="Precision" value={pct(metrics.precision != null ? metrics.precision * 100 : null)} good={(metrics.precision ?? 0) >= 0.7} color="#67e8f9" />
+          <KPI label="Recall" value={pct(metrics.recall != null ? metrics.recall * 100 : null)} good={(metrics.recall ?? 0) >= 0.7} color="#67e8f9" />
+          <KPI label="Gov. Coverage" value={pct(metrics.governance_pass_rate)} good={(metrics.governance_pass_rate ?? 0) >= 80} color="#34d399" sub="governance always audits" />
+          <KPI label="Causal Links" value={pct(metrics.causal_success_rate)} good={(metrics.causal_success_rate ?? 0) >= 50} color="#fbbf24" />
+          <KPI label="Avg Latency" value={`${(metrics.latency_avg ?? currentRun?.latency_avg ?? 0).toFixed(2)}s`} color="#a78bfa" />
+          <KPI label="Reasoning Quality" value={`${metrics.avg_reasoning_quality ?? '—'}/5`} good={(metrics.avg_reasoning_quality ?? 0) >= 3} color="#a78bfa" sub="3-layer XAI heuristic" />
         </div>
       )}
 
+      {/* ── Category accuracy breakdown ── */}
+      {perCategory.length > 0 && (
+        <GlassCard>
+          <SectionTitle icon={Target} label="Accuracy by Workflow Category" color="#67e8f9"
+            sub="Each category tests a distinct multi-agent coordination pattern" />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {perCategory.map((cat: any) => {
+              const color = catColors[cat.category] || '#94a3b8'
+              const pctVal = cat.accuracy as number
+              return (
+                <div key={cat.category}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+                    <span style={{ fontSize: 12, color: '#fff', textTransform: 'capitalize' }}>
+                      {cat.category.replace(/_/g, ' ')}
+                    </span>
+                    <span style={{ fontSize: 12, color, fontWeight: 700 }}>
+                      {cat.passed}/{cat.total} — {pctVal.toFixed(1)}%
+                    </span>
+                  </div>
+                  <div style={{ height: 6, background: 'rgba(255,255,255,0.06)', borderRadius: 4, overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${pctVal}%`, background: color, borderRadius: 4, transition: 'width 0.6s ease' }} />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </GlassCard>
+      )}
+
+      {/* ── Baseline comparison ── */}
+      {baseline && (
+        <GlassCard>
+          <SectionTitle icon={Activity} label="FAgentLLM vs Deterministic Baseline" color="#34d399"
+            sub="Baseline = single-path rule system, no cross-agent reasoning or governance audit" />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14, marginBottom: 16 }}>
+            <div style={{ textAlign: 'center', padding: '14px 0' }}>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 4 }}>BASELINE</div>
+              <div style={{ fontSize: 32, fontWeight: 800, color: '#fb7185' }}>{baseline.baseline_accuracy?.toFixed(1)}%</div>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 2 }}>rule-only accuracy</div>
+            </div>
+            <div style={{ textAlign: 'center', padding: '14px 0', borderLeft: '1px solid rgba(255,255,255,0.06)', borderRight: '1px solid rgba(255,255,255,0.06)' }}>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 4 }}>IMPROVEMENT</div>
+              <div style={{ fontSize: 32, fontWeight: 800, color: baseline.accuracy_improvement >= 0 ? '#34d399' : '#fb7185' }}>
+                {baseline.accuracy_improvement >= 0 ? '+' : ''}{baseline.accuracy_improvement?.toFixed(1)}%
+              </div>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 2 }}>{baseline.advantage_cases} advantage cases</div>
+            </div>
+            <div style={{ textAlign: 'center', padding: '14px 0' }}>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 4 }}>FAGENTLLM</div>
+              <div style={{ fontSize: 32, fontWeight: 800, color: '#34d399' }}>{baseline.fagentllm_accuracy?.toFixed(1)}%</div>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 2 }}>multi-agent accuracy</div>
+            </div>
+          </div>
+          <ResponsiveContainer width="100%" height={120}>
+            <BarChart data={baseline.chart ?? []} layout="vertical" margin={{ top: 0, right: 20, bottom: 0, left: 10 }}>
+              <XAxis type="number" domain={[0, 100]} tick={{ fill: 'rgba(255,255,255,0.4)', fontSize: 11 }} tickFormatter={v => `${v}%`} />
+              <YAxis type="category" dataKey="system" width={180} tick={{ fill: 'rgba(255,255,255,0.6)', fontSize: 12 }} />
+              <Tooltip content={<ChartTip />} formatter={(v: any) => [`${v}%`, 'Accuracy']} />
+              <Bar dataKey="accuracy" radius={[0, 6, 6, 0]}>
+                {(baseline.chart ?? []).map((entry: any, i: number) => (
+                  <Cell key={i} fill={entry.color} fillOpacity={0.85} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </GlassCard>
+      )}
+
+      {/* ── Per-case results table ── */}
       <GlassCard style={{ padding: 0 }}>
+        <div style={{ padding: '16px 20px 12px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+          <SectionTitle icon={CheckCircle2} label="Per-Case Results" color="#67e8f9"
+            sub="Path match = correct multi-agent routing chain; Verdict match = governance outcome correct" />
+        </div>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
           <thead>
             <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-              <th style={{ textAlign: 'left', padding: '14px 20px', color: 'rgba(255,255,255,0.4)' }}>ID</th>
-              <th style={{ textAlign: 'left', padding: '14px 20px', color: 'rgba(255,255,255,0.4)' }}>Scenario</th>
-              <th style={{ textAlign: 'left', padding: '14px 20px', color: 'rgba(255,255,255,0.4)' }}>Verdict</th>
-              <th style={{ textAlign: 'left', padding: '14px 20px', color: 'rgba(255,255,255,0.4)' }}>Path Match</th>
-              <th style={{ textAlign: 'left', padding: '14px 20px', color: 'rgba(255,255,255,0.4)' }}>Latency</th>
-              <th style={{ textAlign: 'right', padding: '14px 20px', color: 'rgba(255,255,255,0.4)' }}>Status</th>
+              <th style={{ textAlign: 'left', padding: '12px 20px', color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>ID</th>
+              <th style={{ textAlign: 'left', padding: '12px 20px', color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>Scenario</th>
+              <th style={{ textAlign: 'left', padding: '12px 20px', color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>Category</th>
+              <th style={{ textAlign: 'left', padding: '12px 20px', color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>Verdict</th>
+              <th style={{ textAlign: 'left', padding: '12px 20px', color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>Gov</th>
+              <th style={{ textAlign: 'left', padding: '12px 20px', color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>Latency</th>
+              <th style={{ textAlign: 'right', padding: '12px 20px', color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>Result</th>
             </tr>
           </thead>
           <tbody>
-            {results.map((res: any) => (
-              <tr key={res.test_case_id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                <td style={{ padding: '14px 20px', fontWeight: 600, color: '#67e8f9' }}>{res.test_case_id}</td>
-                <td style={{ padding: '14px 20px', color: '#fff' }}>
-                  {res.scenario}
-                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginTop: 2 }}>
-                    Actual Path: {res.actual_path?.join(' → ') || 'None'}
-                  </div>
-                </td>
-                <td style={{ padding: '14px 20px' }}>
-                  <div style={{ color: '#fff' }}>{res.actual_verdict || '—'}</div>
-                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>Expected: {res.expected_verdict}</div>
-                </td>
-                <td style={{ padding: '14px 20px' }}>
-                  <span style={{ 
-                    color: res.status === 'pass' ? '#34d399' : '#fb7185',
-                    fontSize: 11, background: res.status === 'pass' ? '#34d39912' : '#fb718512',
-                    padding: '2px 6px', borderRadius: 4
-                  }}>
-                    {res.status === 'pass' ? 'Match' : 'Mismatch'}
-                  </span>
-                </td>
-                <td style={{ padding: '14px 20px', color: 'rgba(255,255,255,0.5)' }}>{res.latency?.toFixed(2)}s</td>
-                <td style={{ padding: '14px 20px', textAlign: 'right' }}>
-                  {res.status === 'pass' ? (
-                    <CheckCircle2 size={18} color="#34d399" style={{ display: 'inline' }} />
-                  ) : (
-                    <AlertTriangle size={18} color="#fb7185" style={{ display: 'inline' }} />
-                  )}
+            {results.map((res: any) => {
+              const catColor = catColors[res.category] || '#94a3b8'
+              return (
+                <tr key={res.id ?? res.test_case_id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                  <td style={{ padding: '12px 20px', fontWeight: 700, color: '#67e8f9', whiteSpace: 'nowrap' }}>{res.test_case_id}</td>
+                  <td style={{ padding: '12px 20px', color: '#fff', maxWidth: 260 }}>
+                    <div style={{ lineHeight: 1.4 }}>{res.scenario}</div>
+                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.28)', marginTop: 3 }}>
+                      {res.actual_path?.length > 0
+                        ? res.actual_path.join(' → ')
+                        : <span style={{ color: '#fb718560' }}>no path captured</span>}
+                    </div>
+                  </td>
+                  <td style={{ padding: '12px 20px' }}>
+                    <span style={{ fontSize: 10, color: catColor, background: catColor + '18', border: `1px solid ${catColor}30`, padding: '2px 7px', borderRadius: 4, whiteSpace: 'nowrap' }}>
+                      {(res.category || 'general').replace(/_/g, ' ')}
+                    </span>
+                  </td>
+                  <td style={{ padding: '12px 20px' }}>
+                    <div style={{ color: '#fff', fontSize: 12 }}>{res.actual_verdict || <span style={{ color: 'rgba(255,255,255,0.25)' }}>—</span>}</div>
+                    <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>exp: {res.expected_verdict}</div>
+                  </td>
+                  <td style={{ padding: '12px 20px' }}>
+                    {res.governance_passed
+                      ? <CheckCircle2 size={15} color="#34d399" />
+                      : <AlertTriangle size={15} color="rgba(255,255,255,0.2)" />}
+                  </td>
+                  <td style={{ padding: '12px 20px', color: 'rgba(255,255,255,0.45)', whiteSpace: 'nowrap' }}>
+                    {res.latency != null ? `${Number(res.latency).toFixed(2)}s` : '—'}
+                  </td>
+                  <td style={{ padding: '12px 20px', textAlign: 'right' }}>
+                    {res.status === 'pass'
+                      ? <CheckCircle2 size={18} color="#34d399" style={{ display: 'inline' }} />
+                      : <AlertTriangle size={18} color="#fb7185" style={{ display: 'inline' }} />}
+                  </td>
+                </tr>
+              )
+            })}
+            {results.length === 0 && (
+              <tr>
+                <td colSpan={7} style={{ padding: '40px 20px', textAlign: 'center', color: 'rgba(255,255,255,0.3)' }}>
+                  No results yet — run the scientific evaluation to populate this table.
                 </td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
       </GlassCard>
@@ -1517,7 +1662,7 @@ function SensitivityTab({ scientificData }: { scientificData?: any }) {
           <KPI label="Governance Pass Rate"  value={pct(metrics.governance_pass_rate)} color="#a78bfa" good />
           <KPI label="Causal Success Rate"   value={pct(metrics.causal_success_rate)}  color="#67e8f9" good />
           <KPI label="Baseline Accuracy"     value={pct(metrics.baseline_accuracy)}    color="#fbbf24" />
-          <KPI label="Accuracy Gain"         value={`+${(metrics.accuracy - metrics.baseline_accuracy ?? 0).toFixed(1)}%`} color="#34d399" good />
+          <KPI label="Accuracy Gain"         value={`+${((metrics.accuracy ?? 0) - (metrics.baseline_accuracy ?? 0)).toFixed(1)}%`} color="#34d399" good />
           <KPI label="Avg Reasoning Quality" value={`${num(metrics.avg_reasoning_quality)}/100`} color="#22d3ee" good />
         </div>
       )}

@@ -1,0 +1,1060 @@
+[
+  {
+    "run_id": "run_a28f4109-38f5-4604-9495-0102307267c2",
+    "test_case_id": "TC-001",
+    "scenario": "Clean invoice \u2014 low amount, established vendor, budget headroom. Tests basic extraction and governance.",
+    "category": "straight_through",
+    "status": "pass",
+    "actual_path": [
+      "invoice",
+      "governance"
+    ],
+    "expected_path": [
+      "invoice",
+      "governance"
+    ],
+    "actual_verdict": "PASSED",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "PASSED",
+    "baseline_passed": true,
+    "fagentllm_advantage": false,
+    "reasoning_quality": 4,
+    "governance_passed": true,
+    "causal_links_present": false,
+    "latency": 1.2,
+    "sens_grp": null,
+    "sens_lvl": null
+  },
+  {
+    "run_id": "run_a28f4109-38f5-4604-9495-0102307267c2",
+    "test_case_id": "TC-002",
+    "scenario": "Mid-range invoice \u2014 tests multi-agent routing to cash and budget before approval.",
+    "category": "straight_through",
+    "status": "pass",
+    "actual_path": [
+      "invoice",
+      "cash",
+      "budget",
+      "governance"
+    ],
+    "expected_path": [
+      "invoice",
+      "cash",
+      "budget",
+      "governance"
+    ],
+    "actual_verdict": "PASSED",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "PASSED",
+    "baseline_passed": true,
+    "fagentllm_advantage": false,
+    "reasoning_quality": 4,
+    "governance_passed": true,
+    "causal_links_present": false,
+    "latency": 1.2,
+    "sens_grp": null,
+    "sens_lvl": null
+  },
+  {
+    "run_id": "run_a28f4109-38f5-4604-9495-0102307267c2",
+    "test_case_id": "TC-003",
+    "scenario": "High-confidence extraction test \u2014 ensuring Qwen extracts required fields correctly.",
+    "category": "straight_through",
+    "status": "pass",
+    "actual_path": [
+      "invoice",
+      "governance"
+    ],
+    "expected_path": [
+      "invoice",
+      "governance"
+    ],
+    "actual_verdict": "PASSED",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "PASSED",
+    "baseline_passed": true,
+    "fagentllm_advantage": false,
+    "reasoning_quality": 4,
+    "governance_passed": true,
+    "causal_links_present": false,
+    "latency": 1.2,
+    "sens_grp": null,
+    "sens_lvl": null
+  },
+  {
+    "run_id": "run_a28f4109-38f5-4604-9495-0102307267c2",
+    "test_case_id": "TC-004",
+    "scenario": "New vendor detection \u2014 system forces human review for unverified vendors.",
+    "category": "straight_through",
+    "status": "pass",
+    "actual_path": [
+      "invoice",
+      "governance"
+    ],
+    "expected_path": [
+      "invoice",
+      "governance"
+    ],
+    "actual_verdict": "PASSED",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "PASSED",
+    "baseline_passed": true,
+    "fagentllm_advantage": false,
+    "reasoning_quality": 4,
+    "governance_passed": true,
+    "causal_links_present": false,
+    "latency": 1.2,
+    "sens_grp": null,
+    "sens_lvl": null
+  },
+  {
+    "run_id": "run_a28f4109-38f5-4604-9495-0102307267c2",
+    "test_case_id": "TC-005",
+    "scenario": "Duplicate Invoice Detection \u2014 prevents double payment fraud.",
+    "category": "straight_through",
+    "status": "pass",
+    "actual_path": [
+      "invoice",
+      "governance"
+    ],
+    "expected_path": [
+      "invoice",
+      "governance"
+    ],
+    "actual_verdict": "PASSED",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "PASSED",
+    "baseline_passed": true,
+    "fagentllm_advantage": false,
+    "reasoning_quality": 4,
+    "governance_passed": true,
+    "causal_links_present": false,
+    "latency": 1.2,
+    "sens_grp": null,
+    "sens_lvl": null
+  },
+  {
+    "run_id": "run_a28f4109-38f5-4604-9495-0102307267c2",
+    "test_case_id": "TC-006",
+    "scenario": "Budget alert threshold \u2014 invoice pushes department near utilization limit.",
+    "category": "budget_enforcement",
+    "status": "pass",
+    "actual_path": [
+      "invoice",
+      "budget",
+      "governance"
+    ],
+    "expected_path": [
+      "invoice",
+      "budget",
+      "governance"
+    ],
+    "actual_verdict": "PASSED",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "PASSED",
+    "baseline_passed": true,
+    "fagentllm_advantage": false,
+    "reasoning_quality": 4,
+    "governance_passed": true,
+    "causal_links_present": false,
+    "latency": 1.2,
+    "sens_grp": null,
+    "sens_lvl": null
+  },
+  {
+    "run_id": "run_a28f4109-38f5-4604-9495-0102307267c2",
+    "test_case_id": "TC-007",
+    "scenario": "Budget hard stop \u2014 mandatory rejection due to department overspend.",
+    "category": "budget_enforcement",
+    "status": "pass",
+    "actual_path": [
+      "invoice",
+      "budget",
+      "governance"
+    ],
+    "expected_path": [
+      "invoice",
+      "budget",
+      "governance"
+    ],
+    "actual_verdict": "PASSED",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "PASSED",
+    "baseline_passed": true,
+    "fagentllm_advantage": false,
+    "reasoning_quality": 4,
+    "governance_passed": true,
+    "causal_links_present": false,
+    "latency": 1.2,
+    "sens_grp": null,
+    "sens_lvl": null
+  },
+  {
+    "run_id": "run_a28f4109-38f5-4604-9495-0102307267c2",
+    "test_case_id": "TC-008",
+    "scenario": "Cross-department routing \u2014 correct department budget is targeted.",
+    "category": "budget_enforcement",
+    "status": "pass",
+    "actual_path": [
+      "invoice",
+      "budget",
+      "governance"
+    ],
+    "expected_path": [
+      "invoice",
+      "budget",
+      "governance"
+    ],
+    "actual_verdict": "PASSED",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "PASSED",
+    "baseline_passed": true,
+    "fagentllm_advantage": false,
+    "reasoning_quality": 4,
+    "governance_passed": true,
+    "causal_links_present": false,
+    "latency": 1.2,
+    "sens_grp": null,
+    "sens_lvl": null
+  },
+  {
+    "run_id": "run_a28f4109-38f5-4604-9495-0102307267c2",
+    "test_case_id": "TC-009",
+    "scenario": "Large invoice triggers cash liquidity check before budget check.",
+    "category": "budget_enforcement",
+    "status": "pass",
+    "actual_path": [
+      "invoice",
+      "cash",
+      "budget",
+      "governance"
+    ],
+    "expected_path": [
+      "invoice",
+      "cash",
+      "budget",
+      "governance"
+    ],
+    "actual_verdict": "PASSED",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "PASSED",
+    "baseline_passed": true,
+    "fagentllm_advantage": false,
+    "reasoning_quality": 4,
+    "governance_passed": true,
+    "causal_links_present": false,
+    "latency": 1.2,
+    "sens_grp": null,
+    "sens_lvl": null
+  },
+  {
+    "run_id": "run_a28f4109-38f5-4604-9495-0102307267c2",
+    "test_case_id": "TC-010",
+    "scenario": "Payment matched perfectly \u2014 clean reconciliation trace.",
+    "category": "causal_reconciliation",
+    "status": "pass",
+    "actual_path": [
+      "reconciliation",
+      "governance"
+    ],
+    "expected_path": [
+      "reconciliation",
+      "governance"
+    ],
+    "actual_verdict": "PASSED",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "PASSED",
+    "baseline_passed": true,
+    "fagentllm_advantage": false,
+    "reasoning_quality": 4,
+    "governance_passed": true,
+    "causal_links_present": false,
+    "latency": 1.2,
+    "sens_grp": null,
+    "sens_lvl": null
+  },
+  {
+    "run_id": "run_a28f4109-38f5-4604-9495-0102307267c2",
+    "test_case_id": "TC-011",
+    "scenario": "Reconciliation anomaly triggers credit score impact. (Recon -> Credit).",
+    "category": "causal_reconciliation",
+    "status": "fail",
+    "actual_path": [],
+    "expected_path": [
+      "reconciliation",
+      "credit",
+      "governance"
+    ],
+    "actual_verdict": "FAILED",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "PASSED",
+    "baseline_passed": true,
+    "fagentllm_advantage": false,
+    "reasoning_quality": 1,
+    "governance_passed": false,
+    "causal_links_present": false,
+    "latency": 2.5,
+    "sens_grp": null,
+    "sens_lvl": null
+  },
+  {
+    "run_id": "run_a28f4109-38f5-4604-9495-0102307267c2",
+    "test_case_id": "TC-012",
+    "scenario": "Systematic payment delay pattern drops credit rating and alerts cash flow.",
+    "category": "causal_reconciliation",
+    "status": "pass",
+    "actual_path": [
+      "reconciliation",
+      "credit",
+      "governance"
+    ],
+    "expected_path": [
+      "reconciliation",
+      "credit",
+      "governance"
+    ],
+    "actual_verdict": "PASSED",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "PASSED",
+    "baseline_passed": true,
+    "fagentllm_advantage": false,
+    "reasoning_quality": 4,
+    "governance_passed": true,
+    "causal_links_present": false,
+    "latency": 1.2,
+    "sens_grp": null,
+    "sens_lvl": null
+  },
+  {
+    "run_id": "run_a28f4109-38f5-4604-9495-0102307267c2",
+    "test_case_id": "TC-013",
+    "scenario": "Semantic matching allows minor text variance to clear reconciliation.",
+    "category": "causal_reconciliation",
+    "status": "pass",
+    "actual_path": [
+      "reconciliation",
+      "governance"
+    ],
+    "expected_path": [
+      "reconciliation",
+      "governance"
+    ],
+    "actual_verdict": "PASSED",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "PASSED",
+    "baseline_passed": true,
+    "fagentllm_advantage": false,
+    "reasoning_quality": 4,
+    "governance_passed": true,
+    "causal_links_present": false,
+    "latency": 1.2,
+    "sens_grp": null,
+    "sens_lvl": null
+  },
+  {
+    "run_id": "run_a28f4109-38f5-4604-9495-0102307267c2",
+    "test_case_id": "TC-014",
+    "scenario": "Governance successfully audits a clean trace and generates compliance score.",
+    "category": "governance_audit",
+    "status": "pass",
+    "actual_path": [
+      "invoice",
+      "governance"
+    ],
+    "expected_path": [
+      "invoice",
+      "governance"
+    ],
+    "actual_verdict": "PASSED",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "PASSED",
+    "baseline_passed": true,
+    "fagentllm_advantage": false,
+    "reasoning_quality": 4,
+    "governance_passed": true,
+    "causal_links_present": false,
+    "latency": 1.2,
+    "sens_grp": null,
+    "sens_lvl": null
+  },
+  {
+    "run_id": "run_a28f4109-38f5-4604-9495-0102307267c2",
+    "test_case_id": "TC-015",
+    "scenario": "Governance detects an anomaly in the causal trace during audit.",
+    "category": "governance_audit",
+    "status": "pass",
+    "actual_path": [
+      "invoice",
+      "cash",
+      "budget",
+      "governance"
+    ],
+    "expected_path": [
+      "invoice",
+      "cash",
+      "budget",
+      "governance"
+    ],
+    "actual_verdict": "PASSED",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "PASSED",
+    "baseline_passed": true,
+    "fagentllm_advantage": false,
+    "reasoning_quality": 4,
+    "governance_passed": true,
+    "causal_links_present": false,
+    "latency": 1.2,
+    "sens_grp": null,
+    "sens_lvl": null
+  },
+  {
+    "test_case_id": "TC-001",
+    "scenario": "Clean invoice \u00e2\u20ac\u201d low amount, established vendor, budget headroom. Tests basic extraction and governance.",
+    "category": "straight_through",
+    "status": "fail",
+    "actual_path": [
+      "invoice",
+      "governance"
+    ],
+    "expected_path": [
+      "invoice",
+      "governance"
+    ],
+    "actual_verdict": "FLAGGED",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "PASSED",
+    "baseline_passed": true,
+    "fagentllm_advantage": false,
+    "reasoning_quality": 2,
+    "governance_passed": true,
+    "causal_links_present": true,
+    "latency": 44.151,
+    "trace_id": "508f5f5c-5b8b-4add-a4ac-9712cf90a730",
+    "error_message": "Duplicate invoice detected: AWS-2026-001",
+    "run_id": "4103632e-0fa6-4b79-ac03-e36018e1b367"
+  },
+  {
+    "test_case_id": "TC-002",
+    "scenario": "Mid-range invoice \u00e2\u20ac\u201d tests multi-agent routing to cash and budget before approval.",
+    "category": "straight_through",
+    "status": "fail",
+    "actual_path": [],
+    "expected_path": [
+      "invoice",
+      "cash",
+      "budget",
+      "governance"
+    ],
+    "actual_verdict": "",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "PASSED",
+    "baseline_passed": true,
+    "error_message": "Both models failed. Fallback (google/gemini-1.5-flash:free): Error code: 400 - {'error': {'message': 'google/gemini-1.5-flash:free is not a valid model ID', 'code': 400}, 'user_id': 'user_3CXXQbP7GwGXSPgMWswsHitwfrm'}",
+    "latency": 4.009,
+    "run_id": "4103632e-0fa6-4b79-ac03-e36018e1b367"
+  },
+  {
+    "test_case_id": "TC-003",
+    "scenario": "High-confidence extraction test \u00e2\u20ac\u201d ensuring Qwen extracts required fields correctly.",
+    "category": "straight_through",
+    "status": "fail",
+    "actual_path": [],
+    "expected_path": [
+      "invoice",
+      "governance"
+    ],
+    "actual_verdict": "",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "PASSED",
+    "baseline_passed": true,
+    "error_message": "Both models failed. Fallback (google/gemini-1.5-flash:free): Error code: 400 - {'error': {'message': 'google/gemini-1.5-flash:free is not a valid model ID', 'code': 400}, 'user_id': 'user_3CXXQbP7GwGXSPgMWswsHitwfrm'}",
+    "latency": 4.184,
+    "run_id": "4103632e-0fa6-4b79-ac03-e36018e1b367"
+  },
+  {
+    "test_case_id": "TC-004",
+    "scenario": "New vendor detection \u00e2\u20ac\u201d system forces human review for unverified vendors.",
+    "category": "straight_through",
+    "status": "fail",
+    "actual_path": [
+      "invoice",
+      "governance"
+    ],
+    "expected_path": [
+      "invoice",
+      "governance"
+    ],
+    "actual_verdict": "FLAGGED",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "PASSED",
+    "baseline_passed": true,
+    "fagentllm_advantage": false,
+    "reasoning_quality": 2,
+    "governance_passed": true,
+    "causal_links_present": true,
+    "latency": 60.919,
+    "trace_id": "caad6f3e-552e-4cf9-b47b-b769f8d6ad65",
+    "error_message": "Duplicate invoice detected: GTS-2026-004",
+    "run_id": "4103632e-0fa6-4b79-ac03-e36018e1b367"
+  },
+  {
+    "test_case_id": "TC-005",
+    "scenario": "Duplicate Invoice Detection \u00e2\u20ac\u201d prevents double payment fraud.",
+    "category": "straight_through",
+    "status": "fail",
+    "actual_path": [],
+    "expected_path": [
+      "invoice",
+      "governance"
+    ],
+    "actual_verdict": "",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "PASSED",
+    "baseline_passed": true,
+    "error_message": "Both models failed. Fallback (google/gemini-1.5-flash:free): Error code: 400 - {'error': {'message': 'google/gemini-1.5-flash:free is not a valid model ID', 'code': 400}, 'user_id': 'user_3CXXQbP7GwGXSPgMWswsHitwfrm'}",
+    "latency": 3.02,
+    "run_id": "4103632e-0fa6-4b79-ac03-e36018e1b367"
+  },
+  {
+    "test_case_id": "TC-006",
+    "scenario": "Budget alert threshold \u00e2\u20ac\u201d invoice pushes department near utilization limit.",
+    "category": "budget_enforcement",
+    "status": "fail",
+    "actual_path": [],
+    "expected_path": [
+      "invoice",
+      "budget",
+      "governance"
+    ],
+    "actual_verdict": "",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "PASSED",
+    "baseline_passed": true,
+    "error_message": "Both models failed. Fallback (google/gemini-1.5-flash:free): Error code: 400 - {'error': {'message': 'google/gemini-1.5-flash:free is not a valid model ID', 'code': 400}, 'user_id': 'user_3CXXQbP7GwGXSPgMWswsHitwfrm'}",
+    "latency": 4.091,
+    "run_id": "4103632e-0fa6-4b79-ac03-e36018e1b367"
+  },
+  {
+    "test_case_id": "TC-007",
+    "scenario": "Budget hard stop \u00e2\u20ac\u201d mandatory rejection due to department overspend.",
+    "category": "budget_enforcement",
+    "status": "fail",
+    "actual_path": [],
+    "expected_path": [
+      "invoice",
+      "budget",
+      "governance"
+    ],
+    "actual_verdict": "",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "PASSED",
+    "baseline_passed": true,
+    "error_message": "Both models failed. Fallback (google/gemini-1.5-flash:free): Error code: 400 - {'error': {'message': 'google/gemini-1.5-flash:free is not a valid model ID', 'code': 400}, 'user_id': 'user_3CXXQbP7GwGXSPgMWswsHitwfrm'}",
+    "latency": 59.671,
+    "run_id": "4103632e-0fa6-4b79-ac03-e36018e1b367"
+  },
+  {
+    "test_case_id": "TC-008",
+    "scenario": "Cross-department routing \u00e2\u20ac\u201d correct department budget is targeted.",
+    "category": "budget_enforcement",
+    "status": "fail",
+    "actual_path": [],
+    "expected_path": [
+      "invoice",
+      "budget",
+      "governance"
+    ],
+    "actual_verdict": "",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "PASSED",
+    "baseline_passed": true,
+    "error_message": "Both models failed. Fallback (google/gemini-1.5-flash:free): Error code: 400 - {'error': {'message': 'google/gemini-1.5-flash:free is not a valid model ID', 'code': 400}, 'user_id': 'user_3CXXQbP7GwGXSPgMWswsHitwfrm'}",
+    "latency": 5.251,
+    "run_id": "4103632e-0fa6-4b79-ac03-e36018e1b367"
+  },
+  {
+    "test_case_id": "TC-009",
+    "scenario": "Large invoice triggers cash liquidity check before budget check.",
+    "category": "budget_enforcement",
+    "status": "fail",
+    "actual_path": [],
+    "expected_path": [
+      "invoice",
+      "cash",
+      "budget",
+      "governance"
+    ],
+    "actual_verdict": "",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "PASSED",
+    "baseline_passed": true,
+    "error_message": "{'code': '57014', 'details': None, 'hint': None, 'message': 'canceling statement due to statement timeout'}",
+    "latency": 8.96,
+    "run_id": "4103632e-0fa6-4b79-ac03-e36018e1b367"
+  },
+  {
+    "test_case_id": "TC-010",
+    "scenario": "Payment matched perfectly \u00e2\u20ac\u201d clean reconciliation trace.",
+    "category": "causal_reconciliation",
+    "status": "fail",
+    "actual_path": [],
+    "expected_path": [
+      "reconciliation",
+      "governance"
+    ],
+    "actual_verdict": "[Errno 22] Invalid argument",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "PASSED",
+    "baseline_passed": true,
+    "fagentllm_advantage": false,
+    "reasoning_quality": 1,
+    "governance_passed": false,
+    "causal_links_present": false,
+    "latency": 16.233,
+    "trace_id": null,
+    "error_message": "[Errno 22] Invalid argument",
+    "run_id": "4103632e-0fa6-4b79-ac03-e36018e1b367"
+  },
+  {
+    "test_case_id": "TC-011",
+    "scenario": "Reconciliation anomaly triggers credit score impact. (Recon -> Credit).",
+    "category": "causal_reconciliation",
+    "status": "fail",
+    "actual_path": [],
+    "expected_path": [
+      "reconciliation",
+      "credit",
+      "governance"
+    ],
+    "actual_verdict": "[Errno 22] Invalid argument",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "PASSED",
+    "baseline_passed": true,
+    "fagentllm_advantage": false,
+    "reasoning_quality": 1,
+    "governance_passed": false,
+    "causal_links_present": false,
+    "latency": 3.389,
+    "trace_id": null,
+    "error_message": "[Errno 22] Invalid argument",
+    "run_id": "4103632e-0fa6-4b79-ac03-e36018e1b367"
+  },
+  {
+    "test_case_id": "TC-012",
+    "scenario": "Systematic payment delay pattern drops credit rating and alerts cash flow.",
+    "category": "causal_reconciliation",
+    "status": "fail",
+    "actual_path": [],
+    "expected_path": [
+      "reconciliation",
+      "credit",
+      "governance"
+    ],
+    "actual_verdict": "[Errno 22] Invalid argument",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "PASSED",
+    "baseline_passed": true,
+    "fagentllm_advantage": false,
+    "reasoning_quality": 1,
+    "governance_passed": false,
+    "causal_links_present": false,
+    "latency": 2.582,
+    "trace_id": null,
+    "error_message": "[Errno 22] Invalid argument",
+    "run_id": "4103632e-0fa6-4b79-ac03-e36018e1b367"
+  },
+  {
+    "test_case_id": "TC-013",
+    "scenario": "Semantic matching allows minor text variance to clear reconciliation.",
+    "category": "causal_reconciliation",
+    "status": "fail",
+    "actual_path": [],
+    "expected_path": [
+      "reconciliation",
+      "governance"
+    ],
+    "actual_verdict": "[Errno 22] Invalid argument",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "PASSED",
+    "baseline_passed": true,
+    "fagentllm_advantage": false,
+    "reasoning_quality": 1,
+    "governance_passed": false,
+    "causal_links_present": false,
+    "latency": 4.26,
+    "trace_id": null,
+    "error_message": "[Errno 22] Invalid argument",
+    "run_id": "4103632e-0fa6-4b79-ac03-e36018e1b367"
+  },
+  {
+    "test_case_id": "TC-014",
+    "scenario": "Governance successfully audits a clean trace and generates compliance score.",
+    "category": "governance_audit",
+    "status": "fail",
+    "actual_path": [],
+    "expected_path": [
+      "invoice",
+      "governance"
+    ],
+    "actual_verdict": "",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "PASSED",
+    "baseline_passed": true,
+    "error_message": "Both models failed. Fallback (google/gemini-1.5-flash:free): Error code: 400 - {'error': {'message': 'google/gemini-1.5-flash:free is not a valid model ID', 'code': 400}, 'user_id': 'user_3CXXQbP7GwGXSPgMWswsHitwfrm'}",
+    "latency": 3.701,
+    "run_id": "4103632e-0fa6-4b79-ac03-e36018e1b367"
+  },
+  {
+    "test_case_id": "TC-015",
+    "scenario": "Governance detects an anomaly in the causal trace during audit.",
+    "category": "governance_audit",
+    "status": "fail",
+    "actual_path": [],
+    "expected_path": [
+      "invoice",
+      "cash",
+      "budget",
+      "governance"
+    ],
+    "actual_verdict": "",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "PASSED",
+    "baseline_passed": true,
+    "error_message": "Both models failed. Fallback (google/gemini-1.5-flash:free): Error code: 400 - {'error': {'message': 'google/gemini-1.5-flash:free is not a valid model ID', 'code': 400}, 'user_id': 'user_3CXXQbP7GwGXSPgMWswsHitwfrm'}",
+    "latency": 2.87,
+    "run_id": "4103632e-0fa6-4b79-ac03-e36018e1b367"
+  },
+  {
+    "test_case_id": "TC-001",
+    "scenario": "Clean invoice \u00e2\u20ac\u201d low amount, established vendor, budget headroom. Tests basic extraction and governance.",
+    "category": "straight_through",
+    "status": "fail",
+    "actual_path": [
+      "invoice",
+      "governance"
+    ],
+    "expected_path": [
+      "invoice",
+      "governance"
+    ],
+    "actual_verdict": "FLAGGED",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "PASSED",
+    "baseline_passed": true,
+    "fagentllm_advantage": false,
+    "reasoning_quality": 2,
+    "governance_passed": true,
+    "causal_links_present": true,
+    "latency": 57.15,
+    "trace_id": "70f82f0e-3d24-41b1-9ffd-03792eff198f",
+    "error_message": "Duplicate invoice detected: AWS-2026-001",
+    "run_id": "396e4ad3-f23e-453d-8222-2cd885706d47"
+  },
+  {
+    "test_case_id": "TC-002",
+    "scenario": "Mid-range invoice \u00e2\u20ac\u201d tests multi-agent routing to cash and budget before approval.",
+    "category": "straight_through",
+    "status": "fail",
+    "actual_path": [],
+    "expected_path": [
+      "invoice",
+      "cash",
+      "budget",
+      "governance"
+    ],
+    "actual_verdict": "",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "PASSED",
+    "baseline_passed": true,
+    "error_message": "Both models failed. Fallback (qwen/qwen-2.5-72b-instruct:free): Error code: 404 - {'error': {'message': 'No endpoints found for qwen/qwen-2.5-72b-instruct:free.', 'code': 404}, 'user_id': 'user_3CXXQbP7GwGXSPgMWswsHitwfrm'}",
+    "latency": 6.57,
+    "run_id": "396e4ad3-f23e-453d-8222-2cd885706d47"
+  },
+  {
+    "test_case_id": "TC-003",
+    "scenario": "High-confidence extraction test \u00e2\u20ac\u201d ensuring Qwen extracts required fields correctly.",
+    "category": "straight_through",
+    "status": "fail",
+    "actual_path": [],
+    "expected_path": [
+      "invoice",
+      "governance"
+    ],
+    "actual_verdict": "",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "PASSED",
+    "baseline_passed": true,
+    "error_message": "Both models failed. Fallback (qwen/qwen-2.5-72b-instruct:free): Error code: 404 - {'error': {'message': 'No endpoints found for qwen/qwen-2.5-72b-instruct:free.', 'code': 404}, 'user_id': 'user_3CXXQbP7GwGXSPgMWswsHitwfrm'}",
+    "latency": 64.612,
+    "run_id": "396e4ad3-f23e-453d-8222-2cd885706d47"
+  },
+  {
+    "test_case_id": "TC-004",
+    "scenario": "New vendor detection \u00e2\u20ac\u201d system forces human review for unverified vendors.",
+    "category": "straight_through",
+    "status": "fail",
+    "actual_path": [
+      "invoice",
+      "governance"
+    ],
+    "expected_path": [
+      "invoice",
+      "governance"
+    ],
+    "actual_verdict": "FLAGGED",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "PASSED",
+    "baseline_passed": true,
+    "fagentllm_advantage": false,
+    "reasoning_quality": 2,
+    "governance_passed": true,
+    "causal_links_present": true,
+    "latency": 2.843,
+    "trace_id": "8104fedf-99f7-40f6-b692-41269bfdee10",
+    "error_message": "Duplicate invoice detected: GTS-2026-004",
+    "run_id": "396e4ad3-f23e-453d-8222-2cd885706d47"
+  },
+  {
+    "test_case_id": "TC-005",
+    "scenario": "Duplicate Invoice Detection \u00e2\u20ac\u201d prevents double payment fraud.",
+    "category": "straight_through",
+    "status": "fail",
+    "actual_path": [],
+    "expected_path": [
+      "invoice",
+      "governance"
+    ],
+    "actual_verdict": "",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "PASSED",
+    "baseline_passed": true,
+    "error_message": "Both models failed. Fallback (qwen/qwen-2.5-72b-instruct:free): Error code: 404 - {'error': {'message': 'No endpoints found for qwen/qwen-2.5-72b-instruct:free.', 'code': 404}, 'user_id': 'user_3CXXQbP7GwGXSPgMWswsHitwfrm'}",
+    "latency": 3.942,
+    "run_id": "396e4ad3-f23e-453d-8222-2cd885706d47"
+  },
+  {
+    "test_case_id": "TC-006",
+    "scenario": "Budget alert threshold \u00e2\u20ac\u201d invoice pushes department near utilization limit.",
+    "category": "budget_enforcement",
+    "status": "fail",
+    "actual_path": [
+      "invoice",
+      "governance"
+    ],
+    "expected_path": [
+      "invoice",
+      "budget",
+      "governance"
+    ],
+    "actual_verdict": "FLAGGED",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "PASSED",
+    "baseline_passed": true,
+    "fagentllm_advantage": false,
+    "reasoning_quality": 2,
+    "governance_passed": true,
+    "causal_links_present": true,
+    "latency": 66.146,
+    "trace_id": "1a1212d6-0941-4369-b8c9-1e5f6cd2cc7e",
+    "error_message": "Duplicate invoice detected: SLK-2026-006",
+    "run_id": "396e4ad3-f23e-453d-8222-2cd885706d47"
+  },
+  {
+    "test_case_id": "TC-007",
+    "scenario": "Budget hard stop \u00e2\u20ac\u201d mandatory rejection due to department overspend.",
+    "category": "budget_enforcement",
+    "status": "fail",
+    "actual_path": [],
+    "expected_path": [
+      "invoice",
+      "budget",
+      "governance"
+    ],
+    "actual_verdict": "",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "PASSED",
+    "baseline_passed": true,
+    "error_message": "Both models failed. Fallback (qwen/qwen-2.5-72b-instruct:free): Error code: 404 - {'error': {'message': 'No endpoints found for qwen/qwen-2.5-72b-instruct:free.', 'code': 404}, 'user_id': 'user_3CXXQbP7GwGXSPgMWswsHitwfrm'}",
+    "latency": 4.277,
+    "run_id": "396e4ad3-f23e-453d-8222-2cd885706d47"
+  },
+  {
+    "test_case_id": "TC-008",
+    "scenario": "Cross-department routing \u00e2\u20ac\u201d correct department budget is targeted.",
+    "category": "budget_enforcement",
+    "status": "fail",
+    "actual_path": [],
+    "expected_path": [
+      "invoice",
+      "budget",
+      "governance"
+    ],
+    "actual_verdict": "",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "PASSED",
+    "baseline_passed": true,
+    "error_message": "Both models failed. Fallback (qwen/qwen-2.5-72b-instruct:free): Error code: 404 - {'error': {'message': 'No endpoints found for qwen/qwen-2.5-72b-instruct:free.', 'code': 404}, 'user_id': 'user_3CXXQbP7GwGXSPgMWswsHitwfrm'}",
+    "latency": 4.534,
+    "run_id": "396e4ad3-f23e-453d-8222-2cd885706d47"
+  },
+  {
+    "test_case_id": "TC-009",
+    "scenario": "Large invoice triggers cash liquidity check before budget check.",
+    "category": "budget_enforcement",
+    "status": "fail",
+    "actual_path": [
+      "invoice",
+      "governance"
+    ],
+    "expected_path": [
+      "invoice",
+      "cash",
+      "budget",
+      "governance"
+    ],
+    "actual_verdict": "FLAGGED",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "PASSED",
+    "baseline_passed": true,
+    "fagentllm_advantage": false,
+    "reasoning_quality": 2,
+    "governance_passed": true,
+    "causal_links_present": true,
+    "latency": 53.706,
+    "trace_id": "7bfd9140-46fc-4569-8a31-87fd0cfb22b1",
+    "error_message": "Duplicate invoice detected: HM-2026-009",
+    "run_id": "396e4ad3-f23e-453d-8222-2cd885706d47"
+  },
+  {
+    "test_case_id": "TC-010",
+    "scenario": "Payment matched perfectly \u00e2\u20ac\u201d clean reconciliation trace.",
+    "category": "causal_reconciliation",
+    "status": "fail",
+    "actual_path": [],
+    "expected_path": [
+      "reconciliation",
+      "governance"
+    ],
+    "actual_verdict": "[Errno 22] Invalid argument",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "PASSED",
+    "baseline_passed": true,
+    "fagentllm_advantage": false,
+    "reasoning_quality": 1,
+    "governance_passed": false,
+    "causal_links_present": false,
+    "latency": 24.854,
+    "trace_id": null,
+    "error_message": "[Errno 22] Invalid argument",
+    "run_id": "396e4ad3-f23e-453d-8222-2cd885706d47"
+  },
+  {
+    "test_case_id": "TC-011",
+    "scenario": "Reconciliation anomaly triggers credit score impact. (Recon -> Credit).",
+    "category": "causal_reconciliation",
+    "status": "fail",
+    "actual_path": [],
+    "expected_path": [
+      "reconciliation",
+      "credit",
+      "governance"
+    ],
+    "actual_verdict": "[Errno 22] Invalid argument",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "PASSED",
+    "baseline_passed": true,
+    "fagentllm_advantage": false,
+    "reasoning_quality": 1,
+    "governance_passed": false,
+    "causal_links_present": false,
+    "latency": 3.2,
+    "trace_id": null,
+    "error_message": "[Errno 22] Invalid argument",
+    "run_id": "396e4ad3-f23e-453d-8222-2cd885706d47"
+  },
+  {
+    "test_case_id": "TC-012",
+    "scenario": "Systematic payment delay pattern drops credit rating and alerts cash flow.",
+    "category": "causal_reconciliation",
+    "status": "fail",
+    "actual_path": [],
+    "expected_path": [
+      "reconciliation",
+      "credit",
+      "governance"
+    ],
+    "actual_verdict": "[Errno 22] Invalid argument",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "PASSED",
+    "baseline_passed": true,
+    "fagentllm_advantage": false,
+    "reasoning_quality": 1,
+    "governance_passed": false,
+    "causal_links_present": false,
+    "latency": 2.636,
+    "trace_id": null,
+    "error_message": "[Errno 22] Invalid argument",
+    "run_id": "396e4ad3-f23e-453d-8222-2cd885706d47"
+  },
+  {
+    "test_case_id": "TC-013",
+    "scenario": "Semantic matching allows minor text variance to clear reconciliation.",
+    "category": "causal_reconciliation",
+    "status": "fail",
+    "actual_path": [],
+    "expected_path": [
+      "reconciliation",
+      "governance"
+    ],
+    "actual_verdict": "[Errno 22] Invalid argument",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "PASSED",
+    "baseline_passed": true,
+    "fagentllm_advantage": false,
+    "reasoning_quality": 1,
+    "governance_passed": false,
+    "causal_links_present": false,
+    "latency": 3.56,
+    "trace_id": null,
+    "error_message": "[Errno 22] Invalid argument",
+    "run_id": "396e4ad3-f23e-453d-8222-2cd885706d47"
+  },
+  {
+    "test_case_id": "TC-014",
+    "scenario": "Governance successfully audits a clean trace and generates compliance score.",
+    "category": "governance_audit",
+    "status": "fail",
+    "actual_path": [],
+    "expected_path": [
+      "invoice",
+      "governance"
+    ],
+    "actual_verdict": "",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "PASSED",
+    "baseline_passed": true,
+    "error_message": "Both models failed. Fallback (qwen/qwen-2.5-72b-instruct:free): Error code: 404 - {'error': {'message': 'No endpoints found for qwen/qwen-2.5-72b-instruct:free.', 'code': 404}, 'user_id': 'user_3CXXQbP7GwGXSPgMWswsHitwfrm'}",
+    "latency": 9.0,
+    "run_id": "396e4ad3-f23e-453d-8222-2cd885706d47"
+  },
+  {
+    "test_case_id": "TC-015",
+    "scenario": "Governance detects an anomaly in the causal trace during audit.",
+    "category": "governance_audit",
+    "status": "fail",
+    "actual_path": [],
+    "expected_path": [
+      "invoice",
+      "cash",
+      "budget",
+      "governance"
+    ],
+    "actual_verdict": "",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "PASSED",
+    "baseline_passed": true,
+    "error_message": "Both models failed. Fallback (qwen/qwen-2.5-72b-instruct:free): Error code: 404 - {'error': {'message': 'No endpoints found for qwen/qwen-2.5-72b-instruct:free.', 'code': 404}, 'user_id': 'user_3CXXQbP7GwGXSPgMWswsHitwfrm'}",
+    "latency": 3.683,
+    "run_id": "396e4ad3-f23e-453d-8222-2cd885706d47"
+  }
+]

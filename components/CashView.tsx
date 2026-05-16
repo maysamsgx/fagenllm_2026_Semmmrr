@@ -72,7 +72,7 @@ export default function CashView() {
           <AgentAvatar agent="cash" active={running} />
           <div>
             <h2>Cash Management</h2>
-            <p className="view-sub">C<sub>t+1</sub> = C<sub>t</sub> + I<sub>t</sub> − O<sub>t</sub> &nbsp;·&nbsp; 7-day liquidity forecast</p>
+            <p className="view-sub">C<sub>t+1</sub> = C<sub>t</sub> + I<sub>t</sub> − O<sub>t</sub> &nbsp;·&nbsp; 50-day liquidity forecast</p>
           </div>
         </div>
         <button
@@ -117,7 +117,7 @@ export default function CashView() {
 
       <Card>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
-          <h3>7-Day Cash Flow Forecast</h3>
+          <h3>50-Day Cash Flow Forecast</h3>
           <div style={{ display: 'flex', gap: 14, fontSize: 11, color: 'var(--text-3)' }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
               <TrendingUp size={12} color="#34d399" /> Inflows

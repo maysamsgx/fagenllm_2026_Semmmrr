@@ -5,7 +5,7 @@ Central configuration and client initialisation for FAgentLLM.
 Provider map:
   - Qwen3-32B           : Groq         (fast inference, free tier)
   - Baidu OCR Fast      : OpenRouter   (free, model: baidu/qianfan-ocr-fast)
-  - Fallback LLM        : OpenRouter   (free, model: gpt-oss-20b)
+  - Fallback LLM        : OpenRouter   (free, model: baidu/cobuddy)
   - Database + Storage  : Supabase
 """
 
@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     # OpenRouter Models (Final Fallback)
     openrouter_api_key: str = ""
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
-    openrouter_fallback_model: str = "openai/gpt-oss-20b:free"
+    openrouter_fallback_model: str = "baidu/cobuddy:free"
     ocr_model: str = "baidu/qianfan-ocr-fast:free"
 
     # App

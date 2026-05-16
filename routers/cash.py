@@ -68,9 +68,9 @@ def _build_forecast_rows(accounts: list, inflows: float, outflows: float, days: 
 
 
 @router.get("/forecast")
-def get_forecast(days: int = Query(7, le=30)):
+def get_forecast(days: int = Query(50, le=60)):
     """
-    Returns 7-day cash flow forecast rows for the dashboard chart.
+    Returns 50-day cash flow forecast rows for the dashboard chart.
 
     Strategy:
     1. Try to load persisted rows from cash_flow_forecasts that already have

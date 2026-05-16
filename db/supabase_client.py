@@ -206,6 +206,7 @@ class SupabaseDB:
                            input_state: Dict[str, Any] | None = None,
                            output_action: Dict[str, Any] | None = None,
                            confidence: float = 100.0) -> str:
+        confidence = min(100.0, max(0.0, float(confidence or 0)))
         # Fan a single `reasoning` shortcut into all three slots so the trace
         # panel never has an empty event.
         if reasoning and not (technical_explanation or business_explanation or causal_explanation):

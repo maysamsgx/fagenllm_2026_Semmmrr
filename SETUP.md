@@ -75,7 +75,7 @@ WORKHORSE_MODEL=llama-3.1-8b-instant       # Workhorse Tier (High-speed)
 # Fallback & OCR
 OPENROUTER_API_KEY=sk-or-v1-...
 OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
-OPENROUTER_FALLBACK_MODEL=openai/gpt-oss-20b:free
+OPENROUTER_FALLBACK_MODEL=baidu/cobuddy:free
 OCR_MODEL=baidu/qianfan-ocr-fast:free
 ```
 

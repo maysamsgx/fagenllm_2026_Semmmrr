@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, BackgroundTasks
 from db.supabase_client import db
 from datetime import date
 import json
@@ -6,17 +6,28 @@ from config import get_supabase
 
 router = APIRouter()
 
+@router.post("/run-evaluation")
+def trigger_evaluation(background_tasks: BackgroundTasks):
+    from evaluation.evaluator import run_evaluation
+    import asyncio
+    def _run():
+        try:
+            asyncio.run(run_evaluation("UI Triggered Scientific Run"))
+        except Exception as e:
+            print(f"Eval Run Error: {e}")
+    background_tasks.add_task(_run)
+    return {"status": "started"}
+
 @router.get("/evaluation-runs")
 def list_evaluation_runs():
     """List all scientific evaluation runs (newest first) for the run-selector dropdown."""
-    return (
-        db._ensure_client()
-        .table("evaluation_runs")
-        .select("*")
-        .order("created_at", desc=True)
-        .execute()
-        .data
-    )
+    import os, json
+    runs_file = os.path.join(os.path.dirname(__file__), "..", "evaluation", "evaluation_runs.json")
+    if not os.path.exists(runs_file): return []
+    with open(runs_file, "r", encoding="utf-8") as f:
+        runs = json.load(f)
+    runs.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+    return runs
 
 
 @router.get("/scientific-evaluation")
@@ -36,15 +47,26 @@ def get_scientific_evaluation(run_id: str = None):
     client = db._ensure_client()
 
     # ── Resolve run ───────────────────────────────────────────────────────────
+    import os, json
+    runs_file = os.path.join(os.path.dirname(__file__), "..", "evaluation", "evaluation_runs.json")
+    res_file = os.path.join(os.path.dirname(__file__), "..", "evaluation", "evaluation_results.json")
+    
+    if not os.path.exists(runs_file) or not os.path.exists(res_file):
+        return {"error": "No evaluation runs found. Run python -m evaluation.evaluator first."}
+        
+    with open(runs_file, "r", encoding="utf-8") as f:
+        all_runs = json.load(f)
+    with open(res_file, "r", encoding="utf-8") as f:
+        all_results = json.load(f)
+        
     if not run_id:
-        runs = client.table("evaluation_runs").select("*").order("created_at", desc=True).limit(1).execute()
-        if not runs.data:
-            return {"error": "No evaluation runs found. Run python -m evaluation.evaluator first."}
-        run_id = runs.data[0]["id"]
+        all_runs.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+        if not all_runs:
+            return {"error": "No evaluation runs found."}
+        run_id = all_runs[0]["id"]
 
-    run_row = client.table("evaluation_runs").select("*").eq("id", run_id).execute()
-    run = run_row.data[0] if run_row.data else {}
-    results = client.table("evaluation_results").select("*").eq("run_id", run_id).execute().data or []
+    run = next((r for r in all_runs if r["id"] == run_id), {})
+    results = [r for r in all_results if r.get("run_id") == run_id]
 
     # ── Confusion matrix (PASSED = Positive) ─────────────────────────────────
     def _pos(v: str) -> bool:

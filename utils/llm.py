@@ -103,7 +103,7 @@ def _groq_raw_call(
     ----------
     use_reasoning_effort : bool
         Must be False for models that do not support the reasoning_effort
-        parameter (e.g. gpt-oss-20b).
+        parameter (e.g. baidu/cobuddy).
     """
     client = _groq_client()
     # 45 s hard ceiling — prevents the reconciliation background task from
@@ -184,7 +184,7 @@ def _call_groq_with_fallback(
     tier: str = "reasoning"
 ) -> tuple[str, str]:
     """
-    Call primary model (Qwen3); on failure retry with fallback (gpt-oss-20b).
+    Call primary model (Qwen3); on failure retry with fallback (baidu/cobuddy).
 
     max_tokens is intentionally kept at 1024 for workhorse/structured calls
     so that total request tokens (input ~2-3k + output) stays under Groq's
@@ -205,6 +205,7 @@ def _call_groq_with_fallback(
 
     # Primary attempt
     try:
+        model_name = s.qwen_model if tier == "reasoning" else s.workhorse_model
         raw = _qwen_chat_json(messages, temperature=temperature,
                               force_json=force_json, max_tokens=max_tokens,
                               tier=tier)
@@ -212,15 +213,16 @@ def _call_groq_with_fallback(
             return raw, "primary"
         logger.warning(
             "Primary model (%s) returned non-JSON output; activating fallback (%s).",
-            s.qwen_model, s.openrouter_fallback_model,
+            model_name, s.openrouter_fallback_model,
         )
     except Exception as exc:
+        model_name = s.qwen_model if tier == "reasoning" else s.workhorse_model
         logger.warning(
             "Primary model (%s) raised %s: %s — activating fallback (%s).",
-            s.qwen_model, type(exc).__name__, exc, s.openrouter_fallback_model,
+            model_name, type(exc).__name__, exc, s.openrouter_fallback_model,
         )
 
-    # Fallback attempt (openai/gpt-oss-20b:free via OpenRouter)
+    # Fallback attempt (baidu/cobuddy:free via OpenRouter)
     # OpenRouter has no strict TPM cap, so we give it more room
     try:
         raw = _openrouter_raw_call(messages, model=s.openrouter_fallback_model,

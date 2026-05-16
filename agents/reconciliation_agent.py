@@ -11,6 +11,7 @@ Matching thresholds live in directives/policies.py (RECON).
 """
 
 from __future__ import annotations
+import json
 import uuid
 from datetime import date
 from langgraph.graph import END
@@ -191,6 +192,12 @@ def _run_reconciliation(state: FinancialState) -> FinancialState:
             # Compute embedding for this internal tx on demand.
             # Save is deferred — we batch-upsert all new embeddings after the loop.
             emb = tx.get("embedding")
+            # Supabase returns pgvector columns as a JSON string; parse it
+            if isinstance(emb, str):
+                try:
+                    emb = json.loads(emb)
+                except (ValueError, TypeError):
+                    emb = None
             if not emb and model:
                 try:
                     emb = model.encode(tx_to_string(tx)).tolist()
@@ -226,6 +233,12 @@ def _run_reconciliation(state: FinancialState) -> FinancialState:
                     btx_emb = btx.get("embedding")
                     if not btx_emb:
                         continue
+                    # Supabase returns pgvector columns as a JSON string; parse it
+                    if isinstance(btx_emb, str):
+                        try:
+                            btx_emb = json.loads(btx_emb)
+                        except (ValueError, TypeError):
+                            continue
                     btx_arr = np.array(btx_emb, dtype=np.float32)
                     denom = np.linalg.norm(emb_arr) * np.linalg.norm(btx_arr)
                     sim = float(np.dot(emb_arr, btx_arr) / denom) if denom > 1e-10 else 0.0
