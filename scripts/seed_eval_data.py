@@ -1,5 +1,5 @@
 import os
-from db.supabase_client import db
+from execution.db.supabase_client import db
 
 def seed_scientific_data():
     print("--- Seeding Scientific Evaluation Data V6 (Conflict-Resistant) ---")

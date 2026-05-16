@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Query, BackgroundTasks, HTTPException
-from db.supabase_client import db
+from execution.db.supabase_client import db
 from config import get_supabase
 
 router = APIRouter()
@@ -139,8 +139,8 @@ def get_credit_trace(customer_id: str):
 @router.post("/assess/{customer_id}")
 def assess_customer(customer_id: str):
     """Synchronous assessment for immediate UI feedback."""
-    from agents.graph import graph
-    from agents.state import initial_state
+    from orchestration.agents.graph import graph
+    from orchestration.agents.state import initial_state
     
     try:
         # Pass customer_id as entity_id so initial_state sets trigger_entity_id correctly

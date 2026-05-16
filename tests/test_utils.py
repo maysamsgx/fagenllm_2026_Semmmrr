@@ -1,4 +1,4 @@
-from utils.llm import _strip_reasoning, _coerce_json
+from execution.llm import _strip_reasoning, _coerce_json
 from utils.contracts import DecisionOutput
 
 def test_strip_reasoning():

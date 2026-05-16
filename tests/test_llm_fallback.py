@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import patch
-from utils.llm import qwen_structured
+from execution.llm import qwen_structured
 from utils.contracts import DecisionOutput
 
 def test_llm_fallback_mechanism():

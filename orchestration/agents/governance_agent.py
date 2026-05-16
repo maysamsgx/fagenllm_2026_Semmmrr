@@ -9,12 +9,12 @@ import logging
 import uuid
 from langgraph.graph import END
 
-from agents.state import FinancialState
-from db.supabase_client import db
-from utils.directives import inject_directive
-from utils.llm import qwen_structured
+from orchestration.agents.state import FinancialState
+from execution.db.supabase_client import db
+from directive.directives import inject_directive
+from execution.llm import qwen_structured
 from utils.contracts import GovernanceOutput
-from utils.prompts import governance_audit_prompt
+from directive.prompts import governance_audit_prompt
 
 def governance_node(state: FinancialState) -> FinancialState:
     """

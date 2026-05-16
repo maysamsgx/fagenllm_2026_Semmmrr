@@ -5,7 +5,7 @@ from datetime import datetime
 # Add parent directory to path so we can import modules
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from db.supabase_client import db
+from execution.db.supabase_client import db
 from utils.bootstrap import ensure_initial_match_state
 
 def run_real_recon_catchup():

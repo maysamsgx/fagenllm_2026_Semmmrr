@@ -1,9 +1,9 @@
 import pytest
 import uuid
 import importlib
-from agents.graph import graph
-from agents.state import initial_state
-from db.supabase_client import db
+from orchestration.agents.graph import graph
+from orchestration.agents.state import initial_state
+from execution.db.supabase_client import db
 
 @pytest.fixture(autouse=True)
 def mock_db(monkeypatch):
@@ -70,10 +70,10 @@ def mock_db(monkeypatch):
         def get(self, key, default=None):
             return getattr(self, key, default)
         
-    # Patch utils.llm directly — agents that use local `from utils.llm import ...`
+    # Patch utils.llm directly — agents that use local `from execution.llm import ...`
     # inside function bodies bypass module-level attribute patches on the agent namespace.
     # Patching the source module intercepts all consumers regardless of import style.
-    import utils.llm
+    import execution.llm
     monkeypatch.setattr(utils.llm, "qwen_json", lambda *a, **kw: mock_json, raising=False)
     monkeypatch.setattr(utils.llm, "qwen_structured", lambda *a, **kw: MockStruct(), raising=False)
     monkeypatch.setattr(utils.llm, "ocr_invoice", lambda *a, **kw: "MOCK OCR", raising=False)
@@ -122,7 +122,7 @@ def mock_db(monkeypatch):
     monkeypatch.setattr("agents.supervisor.router_node", mock_node)
 
     # Force graph recompilation with the mocks
-    import agents.graph
+    import orchestration.agents.graph
     importlib.reload(agents.graph)
 
     # Mock db.select so reconciliation gets transactions to process (not empty → not early-exit)
@@ -174,8 +174,8 @@ def test_spending_path_invoice_cash_budget():
     3. Budget Agent performs deterministic utilisation checks and committed-funds locking.
     4. Governance Agent reviews the entire causal chain against fiscal policy.
     """
-    from agents.graph import graph
-    from agents.state import initial_state
+    from orchestration.agents.graph import graph
+    from orchestration.agents.state import initial_state
     
     # --- SETUP ---
     trigger = "invoice_uploaded"

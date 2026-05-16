@@ -3,7 +3,7 @@ Unit tests for every deterministic calculation in FAgentLLM.
 No DB, no LLM calls — pure math verified against known inputs.
 """
 import pytest
-from directives.policies import CASH, CREDIT, BUDGET, INVOICE
+from directive.policies import CASH, CREDIT, BUDGET, INVOICE
 
 
 # ── Cash Agent: C_(t+1) formula ───────────────────────────────────────────────

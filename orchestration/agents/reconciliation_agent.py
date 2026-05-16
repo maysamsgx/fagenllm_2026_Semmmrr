@@ -16,11 +16,11 @@ import uuid
 from datetime import date
 from langgraph.graph import END
 
-from agents.state import FinancialState
+from orchestration.agents.state import FinancialState
 from config import get_supabase
-from db.supabase_client import db
-from directives.policies import RECON
-from utils.directives import inject_directive
+from execution.db.supabase_client import db
+from directive.policies import RECON
+from directive.directives import inject_directive
 
 # Nil UUID used for system-level decisions that have no real entity row.
 _NIL_UUID = "00000000-0000-0000-0000-000000000000"
@@ -313,8 +313,8 @@ def _run_reconciliation(state: FinancialState) -> FinancialState:
 
     # ── Orchestration: LLM anomaly analysis ────────────────────────────────────
     from utils.contracts import ReconciliationOutput
-    from utils.llm import qwen_structured
-    from utils.prompts import reconciliation_anomaly_prompt
+    from execution.llm import qwen_structured
+    from directive.prompts import reconciliation_anomaly_prompt
 
     # Fast-path: if everything matched, skip the LLM call entirely.
     # Qwen3 on Groq free tier is the single largest latency contributor (~60-120 s

@@ -23,15 +23,15 @@ NOTE on node naming:
 """
 
 from langgraph.graph import StateGraph, END
-from agents.state import FinancialState
+from orchestration.agents.state import FinancialState
 
-from agents.supervisor import router_node
-from agents.invoice_agent import invoice_node
-from agents.budget_agent import budget_node
-from agents.reconciliation_agent import reconciliation_node
-from agents.credit_agent import credit_node
-from agents.cash_agent import cash_node
-from agents.governance_agent import governance_node
+from orchestration.agents.supervisor import router_node
+from orchestration.agents.invoice_agent import invoice_node
+from orchestration.agents.budget_agent import budget_node
+from orchestration.agents.reconciliation_agent import reconciliation_node
+from orchestration.agents.credit_agent import credit_node
+from orchestration.agents.cash_agent import cash_node
+from orchestration.agents.governance_agent import governance_node
 
 # Mapping the short names we use in the code to the actual node names in the graph.
 NODE_MAP = {

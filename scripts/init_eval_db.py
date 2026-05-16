@@ -6,7 +6,7 @@ If the tables are missing, this script prints the exact SQL to paste into
 the Supabase SQL Editor — we cannot execute DDL directly via the REST API.
 """
 
-from db.supabase_client import db
+from execution.db.supabase_client import db
 
 # Full DDL for both tables. Also used as documentation of the schema.
 EVAL_TABLES_SQL = """

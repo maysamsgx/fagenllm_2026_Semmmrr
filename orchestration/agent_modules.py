@@ -28,7 +28,7 @@ import logging
 from dataclasses import dataclass
 from typing import Callable, Any
 
-from agents.state import FinancialState
+from orchestration.agents.state import FinancialState
 
 logger = logging.getLogger("fagentllm")
 

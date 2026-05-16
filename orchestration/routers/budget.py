@@ -2,7 +2,7 @@
 
 from datetime import date
 from fastapi import APIRouter, BackgroundTasks, Query, HTTPException
-from db.supabase_client import db
+from execution.db.supabase_client import db
 from config import get_supabase
 
 router = APIRouter()
@@ -13,8 +13,8 @@ def run_budget_review(background_tasks: BackgroundTasks,
                      department_id: str | None = Query(None),
                      period: str | None = Query(None)):
     """Trigger a budget review through the supervisor."""
-    from agents.graph import graph
-    from agents.state import initial_state
+    from orchestration.agents.graph import graph
+    from orchestration.agents.state import initial_state
 
     run_period = period or current_period()
     entity = department_id or "all"
@@ -95,9 +95,9 @@ def reset_committed(period: str = Query(...)):
 @router.post("/whatif")
 def budget_whatif(department_id: str = Query(...), amount: float = Query(...), period: str = Query(None)):
     """Hypothetical budget impact: what happens if we approve $amount for department?"""
-    from directives.policies import BUDGET
-    from utils.directives import load_directive
-    from utils.llm import qwen_json
+    from directive.policies import BUDGET
+    from directive.directives import load_directive
+    from execution.llm import qwen_json
 
     resolved_period = period or current_period()
     budget = db.get_budget(department_id, resolved_period)

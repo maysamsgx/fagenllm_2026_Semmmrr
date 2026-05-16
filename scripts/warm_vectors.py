@@ -10,8 +10,8 @@ the text encoding here is byte-for-byte identical to what the agent encodes at
 query time.  Divergent encodings produce cosine similarity ~0 and break Stage 2.
 """
 
-from agents.reconciliation_agent import get_sentence_model, tx_to_string
-from db.supabase_client import db
+from orchestration.agents.reconciliation_agent import get_sentence_model, tx_to_string
+from execution.db.supabase_client import db
 from dotenv import load_dotenv
 
 load_dotenv()

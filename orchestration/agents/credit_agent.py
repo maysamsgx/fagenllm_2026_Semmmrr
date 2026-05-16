@@ -4,7 +4,7 @@ Credit Agent — checks if our customers are actually paying on time
 and flags them if they're becoming a risk.
 
 DOE Layer: Orchestration.
-  - Decision is deterministic (formula from directives/policies.py CREDIT)
+  - Decision is deterministic (formula from directive/policies.py CREDIT)
   - LLM generates the explanation only (Execution layer stays clean)
   - Directive injected into LLM prompt via utils/directives.inject_directive
 """
@@ -13,10 +13,10 @@ from __future__ import annotations
 from datetime import date
 from langgraph.graph import END
 
-from agents.state import FinancialState
-from db.supabase_client import db
-from directives.policies import CREDIT
-from utils.directives import inject_directive
+from orchestration.agents.state import FinancialState
+from execution.db.supabase_client import db
+from directive.policies import CREDIT
+from directive.directives import inject_directive
 
 
 def calculate_penalty(risk_level: str | None, delay_days: float) -> float:
@@ -100,7 +100,7 @@ def _assess_customer(state: FinancialState) -> FinancialState:
         return {**state, "next_agent": END, "error": "Customer not found"}
 
     from utils.contracts import DecisionOutput
-    from utils.llm import qwen_structured_with_reflection as qwen_structured
+    from execution.llm import qwen_structured_with_reflection as qwen_structured
 
     # ── Cognitive Architecture: Memory (Persistent Memory Pattern) ──────────────────
     # Fetch last 3 episodic risk assessments for historical context
@@ -161,8 +161,8 @@ def _assess_customer(state: FinancialState) -> FinancialState:
 
     # ── LLM reasoning (Orchestration — explanation only) ─────────────────────
     # Fetch REAL payment history from receivables to give the LLM accurate behavioral data
-    from utils.prompts import credit_risk_prompt as _crp
-    from db.supabase_client import db as _db
+    from directive.prompts import credit_risk_prompt as _crp
+    from execution.db.supabase_client import db as _db
     
     payment_history = []
     try:

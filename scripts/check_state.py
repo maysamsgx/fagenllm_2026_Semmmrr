@@ -1,6 +1,6 @@
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-from db.supabase_client import db
+from execution.db.supabase_client import db
 
 client = db._ensure_client()
 

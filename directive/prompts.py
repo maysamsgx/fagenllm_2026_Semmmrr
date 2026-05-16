@@ -1,7 +1,7 @@
 """
 utils/prompts.py
 All Qwen3 prompt templates for FAgentLLM.
-Numeric thresholds are sourced from directives/policies.py — never hardcoded here.
+Numeric thresholds are sourced from directive/policies.py — never hardcoded here.
 
 Each prompt is a function that takes runtime values and returns
 (system_prompt, user_prompt) ready to pass to qwen_json() or qwen_explain().
@@ -109,7 +109,7 @@ def invoice_approval_routing_prompt(invoice: dict, cash_ok: bool, budget_ok: boo
     Thresholds are aligned with budget_agent.py ALERT_THRESHOLD (95%) and
     HARD_STOP_THRESHOLD (100%). Rejection only triggers at 100%+ utilisation.
     """
-    from directives.policies import INVOICE, BUDGET  # lazy import — avoids IDE path issues
+    from directive.policies import INVOICE, BUDGET  # lazy import — avoids IDE path issues
 
     system = """You are a financial controller determining invoice approval routing.
 Apply the exact approval thresholds listed below. Do NOT reject an invoice solely
@@ -204,7 +204,7 @@ def reconciliation_anomaly_prompt(unmatched: list[dict], period: str) -> tuple[s
     Generate enterprise forensic-grade intelligence for reconciliation anomalies.
     Produces 3 XAI fields in professional treasury operations language.
     """
-    from directives.policies import RECON  # lazy import
+    from directive.policies import RECON  # lazy import
 
     # Enrich with similarity scores and counterparty data
     if unmatched:

@@ -6,7 +6,7 @@ Handles triggering runs and pulling the latest match reports.
 
 from fastapi import APIRouter, Query, BackgroundTasks
 from pydantic import BaseModel
-from db.supabase_client import db
+from execution.db.supabase_client import db
 from config import get_supabase
 
 class ResolveRequest(BaseModel):
@@ -23,8 +23,8 @@ def run_reconciliation(background_tasks: BackgroundTasks,
     logger = logging.getLogger("fagentllm")
     logger.info("RECEIVED POST /api/reconciliation/run")
     from datetime import date
-    from agents.graph import graph
-    from agents.state import initial_state
+    from orchestration.agents.graph import graph
+    from orchestration.agents.state import initial_state
 
     run_period = period or f"{date.today().year}-Q{(date.today().month-1)//3+1}"
 

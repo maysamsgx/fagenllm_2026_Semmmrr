@@ -8,9 +8,9 @@ import uuid
 from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks, Query
 from pydantic import BaseModel
 
-from db.supabase_client import db
-from agents.graph import graph
-from agents.state import initial_state
+from execution.db.supabase_client import db
+from orchestration.agents.graph import graph
+from orchestration.agents.state import initial_state
 from config import get_supabase
 
 router = APIRouter()
@@ -124,8 +124,8 @@ def approve_invoice(invoice_id: str, body: ApproveRequest):
     
     # Scenario 1, Step 7: Update cash flow forecast to reflect the newly committed liability
     try:
-        from agents.graph import graph
-        from agents.state import initial_state
+        from orchestration.agents.graph import graph
+        from orchestration.agents.state import initial_state
         state = initial_state("cash_position_refresh", invoice_id)
         graph.invoke(state)
     except Exception:

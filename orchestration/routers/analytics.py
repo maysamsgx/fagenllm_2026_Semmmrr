@@ -1,5 +1,5 @@
 from fastapi import APIRouter, BackgroundTasks
-from db.supabase_client import db
+from execution.db.supabase_client import db
 from datetime import date
 import json
 from config import get_supabase

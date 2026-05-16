@@ -8,13 +8,13 @@ from __future__ import annotations
 from datetime import date
 from langgraph.graph import END
 
-from agents.state import FinancialState
-from db.supabase_client import db
-from directives.policies import BUDGET
-from utils.directives import inject_directive
-from utils.llm import qwen_json, ocr_invoice
+from orchestration.agents.state import FinancialState
+from execution.db.supabase_client import db
+from directive.policies import BUDGET
+from directive.directives import inject_directive
+from execution.llm import qwen_json, ocr_invoice
 from utils.security import mask_pii
-from utils.prompts import (
+from directive.prompts import (
     invoice_extract_prompt,
     invoice_approval_routing_prompt,
 )
@@ -379,7 +379,7 @@ def _handle_approval_routing(state: FinancialState, invoice_id: str, invoice_ctx
 
     # ── LLM routing for non-hard-stop cases ──────────────────────────────────
     from utils.contracts import DecisionOutput
-    from utils.llm import qwen_structured_with_reflection as qwen_structured
+    from execution.llm import qwen_structured_with_reflection as qwen_structured
 
     ap_system, ap_user = invoice_approval_routing_prompt(
         invoice_ctx, cash_ok, budget_ok, utilisation_pct

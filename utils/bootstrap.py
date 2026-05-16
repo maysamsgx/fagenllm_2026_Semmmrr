@@ -143,8 +143,8 @@ def ensure_forecast_current() -> None:
 
     logger.info("Cash flow forecast is stale or empty; regenerating…")
     try:
-        from agents.cash_agent import _projected_inflows, _projected_outflows, _write_forecast
-        from db.supabase_client import db as _db
+        from orchestration.agents.cash_agent import _projected_inflows, _projected_outflows, _write_forecast
+        from execution.db.supabase_client import db as _db
         accounts = _db.get_cash_balances()
         inflows  = _projected_inflows(days=7)
         outflows = _projected_outflows(days=7)

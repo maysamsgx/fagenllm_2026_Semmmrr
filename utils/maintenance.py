@@ -1,4 +1,4 @@
-from db.supabase_client import db
+from execution.db.supabase_client import db
 import logging
 
 logging.basicConfig(level=logging.INFO)

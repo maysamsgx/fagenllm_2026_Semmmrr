@@ -3,7 +3,7 @@
 from datetime import date, timedelta
 
 from fastapi import APIRouter, BackgroundTasks, Query
-from db.supabase_client import db
+from execution.db.supabase_client import db
 from config import get_supabase
 
 router = APIRouter()
@@ -12,8 +12,8 @@ router = APIRouter()
 @router.post("/run")
 def run_cash_refresh(background_tasks: BackgroundTasks):
     """Trigger a cash position refresh through the supervisor."""
-    from agents.graph import graph
-    from agents.state import initial_state
+    from orchestration.agents.graph import graph
+    from orchestration.agents.state import initial_state
 
     def _run():
         state = initial_state("cash_position_refresh", "cash-refresh")
@@ -36,7 +36,7 @@ def _build_forecast_rows(accounts: list, inflows: float, outflows: float, days: 
     This NEVER fails because it does NOT write to the DB.
     Always returns `projected_balance` so the chart renders.
     """
-    from directives.policies import CASH
+    from directive.policies import CASH
 
     n = max(days, CASH.forecast_days, 1)
     daily_in  = inflows  / n if n else inflows
@@ -80,8 +80,8 @@ def get_forecast(background_tasks: BackgroundTasks, days: int = Query(50, le=60)
     3. Attempt a best-effort background persist so future loads are faster,
        but NEVER block the response on DB writes.
     """
-    from agents.cash_agent import _projected_inflows, _projected_outflows
-    from directives.policies import CASH
+    from orchestration.agents.cash_agent import _projected_inflows, _projected_outflows
+    from directive.policies import CASH
 
     start_dt = date.today().isoformat()
     end_dt   = (date.today() + timedelta(days=days)).isoformat()
@@ -125,7 +125,7 @@ def get_forecast(background_tasks: BackgroundTasks, days: int = Query(50, le=60)
 
     # ── Step 3: Best-effort persist (fire-and-forget, never blocks) ──────────
     def _persist():
-        from agents.cash_agent import _write_forecast
+        from orchestration.agents.cash_agent import _write_forecast
         _write_forecast(accounts, inflows, outflows)
 
     background_tasks.add_task(_persist)
@@ -142,10 +142,10 @@ def cash_scenario(
     What-If: what happens to liquidity if we pay $amount right now?
     Returns deterministic numbers + LLM narrative (mirrors /budget/whatif).
     """
-    from agents.cash_agent import _projected_inflows, _projected_outflows
-    from directives.policies import CASH
-    from utils.directives import load_directive
-    from utils.llm import qwen_json
+    from orchestration.agents.cash_agent import _projected_inflows, _projected_outflows
+    from directive.policies import CASH
+    from directive.directives import load_directive
+    from execution.llm import qwen_json
 
     accounts      = db.get_cash_balances()
     total_balance = sum(float(a.get("current_balance", 0) or 0) for a in accounts)

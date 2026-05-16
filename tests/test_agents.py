@@ -1,9 +1,9 @@
 import pytest
-from agents.budget_agent import _inv_decide
-from agents.credit_agent import calculate_penalty
-from agents.cash_agent import _decide as cash_decide
-from agents.reconciliation_agent import _find_customers
-from agents.invoice_agent import REQUIRED_FIELDS
+from orchestration.agents.budget_agent import _inv_decide
+from orchestration.agents.credit_agent import calculate_penalty
+from orchestration.agents.cash_agent import _decide as cash_decide
+from orchestration.agents.reconciliation_agent import _find_customers
+from orchestration.agents.invoice_agent import REQUIRED_FIELDS
 
 def test_invoice_agent_isolated_logic():
     """Test small, isolated logic component: Invoice field requirements."""
@@ -69,7 +69,7 @@ def test_cash_agent_isolated_logic():
 def test_reconciliation_agent_isolated_logic():
     """Test small, isolated logic component: Customer-anomaly matching."""
     # Mock database return for customers
-    import db.supabase_client as db_module
+    import execution.db.supabase_client as db_module
     from unittest.mock import patch
     
     mock_customers = [

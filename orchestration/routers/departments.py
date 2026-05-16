@@ -1,7 +1,7 @@
 """routers/departments.py — Departments lookup endpoint."""
 
 from fastapi import APIRouter
-from db.supabase_client import db
+from execution.db.supabase_client import db
 
 router = APIRouter()
 

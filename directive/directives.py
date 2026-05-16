@@ -7,7 +7,7 @@ Orchestration layer (agents/*.py). Each agent passes the relevant directive
 to its LLM calls so the model reasons within defined business boundaries.
 
 Usage:
-    from utils.directives import load_directive
+    from directive.directives import load_directive
     directive = load_directive("budget")   # loads directives/budget_policy.md
     system_prompt = f"## Policy\\n{directive}\\n\\n{base_system}"
 """

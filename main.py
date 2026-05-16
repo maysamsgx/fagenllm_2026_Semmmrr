@@ -73,7 +73,7 @@ def health():
     return {"status": "ok", "system": "FAgentLLM Autonomous Financial Intelligence (10/10 Architecture)"}
 
 # -- Routers --
-from routers import invoice, budget, cash, reconciliation, credit, payment, departments, analytics, governance
+from orchestration.routers import invoice, budget, cash, reconciliation, credit, payment, departments, analytics, governance
 
 app.include_router(invoice.router,        prefix="/api/invoice",        tags=["Invoice"])
 app.include_router(budget.router,         prefix="/api/budget",         tags=["Budget"])

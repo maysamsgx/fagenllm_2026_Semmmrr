@@ -115,6 +115,76 @@ After this, the reconciliation agent automatically computes embeddings for any n
 
 ---
 
+## 📁 Repository Structure
+
+The codebase is organized according to the **DOE Framework** — each top-level directory maps directly to one of the three architectural layers. This makes it immediately clear *where* any given piece of logic belongs and *why* it lives there.
+
+```
+semmmrr/
+│
+├── 📂 directive/                    # ◈ DIRECTIVE LAYER — Policy, Rules & Prompts
+│   ├── policies.py                  #   Deterministic Python constants (weights, thresholds)
+│   ├── directives.py                #   Policy injection engine (loads .md → LLM system prompt)
+│   ├── prompts.py                   #   All structured LLM prompt templates (per agent)
+│   ├── budget_policy.md             #   Natural language policy: budget guardrails
+│   ├── cash_policy.md               #   Natural language policy: liquidity rules
+│   ├── credit_policy.md             #   Natural language policy: credit scoring rules
+│   ├── governance_policy.md         #   Natural language policy: audit & compliance gates
+│   ├── invoice_policy.md            #   Natural language policy: invoice validation rules
+│   └── reconciliation_policy.md     #   Natural language policy: reconciliation thresholds
+│
+├── 📂 orchestration/                # ◈ ORCHESTRATION LAYER — Routing & Agent Coordination
+│   ├── agent_modules.py             #   Formal 6-module architecture (Perception→Explanation)
+│   ├── 📂 agents/                   #   Domain-expert agent logic (LangGraph nodes)
+│   │   ├── state.py                 #     FinancialState TypedDict — the shared memory hub
+│   │   ├── graph.py                 #     LangGraph state machine wiring & node registration
+│   │   ├── supervisor.py            #     Macro-router: decides which agent runs next
+│   │   ├── invoice_agent.py         #     Invoice extraction, validation & fraud detection
+│   │   ├── budget_agent.py          #     Budget variance analysis & policy enforcement
+│   │   ├── cash_agent.py            #     Liquidity forecasting & AR cash flow projection
+│   │   ├── reconciliation_agent.py  #     4-stage hybrid reconciliation & anomaly detection
+│   │   ├── credit_agent.py          #     Forensic credit risk scoring & collection staging
+│   │   └── governance_agent.py      #     Compliance audit gate — reviews all agent actions
+│   └── 📂 routers/                  #   FastAPI route handlers (HTTP → agent workflows)
+│       ├── invoice.py
+│       ├── budget.py
+│       ├── cash.py
+│       ├── credit.py
+│       ├── reconciliation.py
+│       ├── governance.py
+│       ├── analytics.py
+│       └── departments.py
+│
+├── 📂 execution/                    # ◈ EXECUTION LAYER — Side-Effects, DB & LLM Calls
+│   ├── llm.py                       #   LLM client: Groq key rotation, failover, reflection
+│   └── 📂 db/
+│       └── supabase_client.py       #   All DB I/O: select, insert, update, causal logging
+│
+├── 📂 utils/                        # Shared cross-cutting utilities (auth, contracts, etc.)
+│   ├── contracts.py                 #   Pydantic output schemas (DecisionOutput, etc.)
+│   ├── auth.py                      #   API key authentication middleware
+│   ├── security.py                  #   Request security helpers
+│   ├── bootstrap.py                 #   App startup checks & initialization
+│   └── maintenance.py              #   Scheduled maintenance helpers
+│
+├── 📂 evaluation/                   # 16-case held-out scientific evaluation suite
+├── 📂 tests/                        # Unit & integration tests
+├── 📂 scripts/                      # One-off operational scripts (seed, warm vectors, etc.)
+├── 📂 data/                         # Static reference data & CSVs
+├── 📂 components/                   # React UI components
+├── 📂 public/                       # Static frontend assets
+│
+├── main.py                          # FastAPI application entry point
+├── config.py                        # Centralised settings (env vars, API keys)
+├── schema.sql                       # Full Supabase PostgreSQL schema
+├── requirements.txt                 # Python dependencies
+└── package.json                     # Node/React dependencies
+```
+
+> **Design Principle:** No code in `orchestration/` directly writes to the database. No code in `directive/` calls the LLM. No code in `execution/` contains routing or agent logic. This strict separation is what makes the system auditable, testable, and safe for autonomous financial operations.
+
+---
+
 ## 🏗️ System Architecture
 
 FAgentLLM is built on a **Supervisor-led Multi-Agent Orchestration** model using **LangGraph**. The architecture emphasizes modularity, shared state consistency, and causal explainability.
@@ -193,6 +263,13 @@ sequenceDiagram
 To prevent "LLM Hallucinations" in financial contexts, the system employs a **Hybrid Execution Model**:
 *   **LLM (Qwen3):** Handles qualitative reasoning, semantic interpretation, and complex decision-routing.
 *   **Math Engine:** All budget subtractions, cash-flow totals, and risk score calculations are enforced via **Hard Python Logic**, ensuring 100% mathematical integrity.
+
+### 5. The DOE Framework (Directive, Orchestration, Execution)
+FAgentLLM strictly adheres to the **DOE Framework**, a three-layer software architecture designed to constrain AI outputs and ensure enterprise-grade business reliability. This separation of concerns guarantees that LLMs handle complex reasoning, while strict policies and execution protocols remain deterministic.
+
+*   **Directive Layer (The "What" & "Why"):** Houses business rules, guardrails, and natural language policies (e.g., `credit_policy.md`) injected into prompts, along with their deterministic Python formula counterparts.
+*   **Orchestration Layer (The "How" & "Thinking"):** The cognitive engine powered by LangGraph. It maps the 6-module agent architecture (Perception, Reasoning, Decision, Communication), coordinating state and workflows between domain agents without directly mutating external systems.
+*   **Execution Layer (The "Action" & "Memory"):** Handles all real-world side effects, tool calls, API integrations, and database modifications. This isolation ensures the reasoning layer never accidentally mutates financial data, executing and logging all actions with strict causal tracking.
 
 ---
 

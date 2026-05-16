@@ -13,10 +13,10 @@ from __future__ import annotations
 from datetime import date
 from langgraph.graph import END
 
-from agents.state import FinancialState
-from db.supabase_client import db
-from directives.policies import BUDGET
-from utils.agent_modules import AgentPipeline, run_agent_pipeline
+from orchestration.agents.state import FinancialState
+from execution.db.supabase_client import db
+from directive.policies import BUDGET
+from orchestration.agent_modules import AgentPipeline, run_agent_pipeline
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -309,8 +309,8 @@ def _rev_reason(_state: FinancialState, percept: dict):
     Synthesizes current spending data with historical 'temporal' memory 
     to provide CFO-level insights and reallocation suggestions.
     """
-    from utils.directives import load_directive
-    from utils.llm import qwen_json
+    from directive.directives import load_directive
+    from execution.llm import qwen_json
 
     budgets = percept["budgets"]
     if not budgets:

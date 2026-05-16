@@ -1,7 +1,7 @@
 import asyncio
 import sys
 from evaluation.evaluator import _build_state, TEST_CASES
-from agents.graph import graph
+from orchestration.agents.graph import graph
 
 async def run():
     state = _build_state(TEST_CASES[1])

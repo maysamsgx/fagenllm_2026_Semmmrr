@@ -1,9 +1,9 @@
 import os
 import uuid
 import pytest
-from db.supabase_client import db
-from agents.graph import graph
-from agents.state import initial_state
+from execution.db.supabase_client import db
+from orchestration.agents.graph import graph
+from orchestration.agents.state import initial_state
 from langgraph.graph import END
 
 def test_multi_customer_reconciliation_loop():
@@ -54,7 +54,7 @@ def test_budget_reallocation_persistence():
     """Test Phase 1/3: Verify budget reallocations are persisted to DB."""
     print("\n--- Testing Budget Reallocation Persistence ---")
     
-    from agents.budget_agent import budget_node
+    from orchestration.agents.budget_agent import budget_node
     
     # Create donor and at-risk budgets
     db.insert("departments", {"id": "donor_dept", "name": "Donor Dept"})
@@ -80,7 +80,7 @@ def test_governance_conflict_detection():
     """Test Phase 3: Verify Auditor detects agent conflicts."""
     print("\n--- Testing Governance Conflict Detection ---")
     
-    from agents.governance_agent import governance_node
+    from orchestration.agents.governance_agent import governance_node
     
     # Case: Budget Hard Stop + Invoice Approved
     inv_id = str(uuid.uuid4())
