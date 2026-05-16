@@ -10,10 +10,10 @@ const AGENTS = [
 ]
 
 const UPDATES = [
-  { tag: 'V4.0', title: 'Causal Performance Lift', desc: 'Validated claim: Causal event-driven orchestration improves decision quality by 22%. Downstream agents now leverage upstream "causal context" for superior risk mitigation.' },
-  { tag: 'V3.2', title: 'Multi-Tiered OCR Pipeline', desc: 'Implemented cascading document ingestion. Defaults to PyMuPDF, escalating to Baidu Qianfan Cloud APIs, with a local Tesseract failover.' },
-  { tag: 'CORE', title: 'LLM Failover Protocol', desc: 'Introduced automatic model routing. Inference shifts from primary Qwen3 nodes to GPT endpoints during rate limits.' },
-  { tag: 'XAI', title: 'Causal Graph Execution', desc: 'Reconciliation discrepancies now write directly to the causal event bus, automatically triggering deterministic credit reassessments.' },
+  { tag: 'REFL', title: 'Reflection LLM Engine', desc: 'Agents now think before they act. A recursive self-correction loop catches logic gaps early and kills bad data dead in its tracks.' },
+  { tag: 'VISION', title: 'Multi-Tiered OCR', desc: 'Cascading document ingestion that doesn\'t quit. It defaults to PyMuPDF, escalates to Baidu Qianfan Cloud, and hits local Tesseract as a fallback.' },
+  { tag: 'XAI', title: 'Causal Graph Execution', desc: 'Deep cross-domain logic. Discrepancies write straight to the event bus, automatically triggering deterministic risk and credit updates on the fly.' },
+  { tag: 'CORE', title: 'Smart LLM Failover', desc: 'Zero downtime when rate limits hit. The backend automatically reroutes inference traffic from our primary Qwen3 nodes straight over to Baidu CoBuddy.' },
 ]
 
 // 3D Tilt Card Component
@@ -273,7 +273,7 @@ export default function OverviewView({ onNavigate }: { onNavigate?: (id: string)
               <span className="tech-badge">LangGraph Stateful DAG</span>
               <span className="tech-badge">FastAPI Async Backend</span>
               <span className="tech-badge">Pydantic Validation</span>
-              <span className="tech-badge">XAI Causal Engine</span>
+              <span className="tech-badge">8-Tab Research Dashboard</span>
             </div>
           </div>
           <div>
@@ -281,7 +281,7 @@ export default function OverviewView({ onNavigate }: { onNavigate?: (id: string)
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <span className="tech-badge">Qwen3-32B Inference</span>
               <span className="tech-badge">Baidu CoBuddy Fallback</span>
-              <span className="tech-badge">Recursive Self-Correction</span>
+              <span className="tech-badge">Reflection LLM Engine</span>
               <span className="tech-badge">Multi-Agent Routing</span>
             </div>
           </div>
@@ -297,9 +297,9 @@ export default function OverviewView({ onNavigate }: { onNavigate?: (id: string)
           <div>
             <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginBottom: '12px', letterSpacing: '0.05em', fontFamily: "'JetBrains Mono', monospace" }}>STORAGE & UI</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <span className="tech-badge">Supabase Cloud DB</span>
-              <span className="tech-badge">PostgreSQL Realtime</span>
-              <span className="tech-badge">React 18 + Vite</span>
+              <span className="tech-badge">Local JSON Audit Store</span>
+              <span className="tech-badge">Supabase Operational DB</span>
+              <span className="tech-badge">React 18 + Vite Dashboard</span>
               <span className="tech-badge">Glassmorphism UI</span>
             </div>
           </div>

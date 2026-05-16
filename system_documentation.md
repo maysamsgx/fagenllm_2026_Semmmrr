@@ -313,8 +313,10 @@ FAgentLLM uses its own native causal graph stored in Supabase (`agent_decisions`
 *   DSO (Days Sales Outstanding): `(total_open_AR / revenue_90d) × 90`
 
 ### 5.2 Thesis Evaluation Suite (`EvaluationView.tsx`)
-The `EvaluationView` component provides a professional-grade, research-oriented reporting interface including:
-*   Quantitative performance metrics against baseline benchmarks
+The `EvaluationView` component provides a professional-grade, 8-tab research-oriented reporting interface including:
+*   **16-Case Held-Out Testing Suite:** A strict adversarial testing pipeline injecting financial anomalies (tax mismatches, fraud) to validate safe-fail mechanics.
+*   **Local JSON Audit Storage:** Evaluation results are strategically decoupled from the live Supabase database and written to local JSON files. This ensures 100% scientific reproducibility for thesis-grade metrics.
+*   Quantitative performance metrics (Radar charts, Confusion matrices) against baseline benchmarks
 *   Sensitivity analysis across key policy thresholds
 *   Scenario-based testing results (invoice fraud, budget breach, credit escalation)
 *   Academic-standard discussion of system limitations and theoretical implications
@@ -369,6 +371,26 @@ The backend bootstraps data automatically on first startup. The CORS policy allo
 2.  **Collection Automation:** External communication pathways (Email/SMS via Twilio/SendGrid) for the Credit Agent to actively execute its generated collection workflows.
 3.  **PgVector Scaling:** Upgrading reconciliation from batch TF-IDF + MiniLM to a fully persistent vector-DB-first architecture, enabling semantic matching across the entire transaction history rather than just the current unmatched batch. The `tx_to_string` encoder and `bank_tx_by_id` resolution pattern introduced in the current version provide the correct foundation for this migration.
 4.  **Multi-Tenant Architecture:** Extending `FinancialState` and the budget/credit policy objects to support multiple independent organisations within the same deployment.
+5.  **Multimodal Vision-Language Models (VLMs):** Exploring native VLM document ingestion to bypass traditional OCR pipelines entirely, reducing latency and point-of-failure risks.
+6.  **Local Model Fine-Tuning:** Leveraging the newly decoupled JSON Audit Store to automatically fine-tune local models (such as Llama 3) for highly specialized financial edge-case handling without reliance on cloud inference APIs.
+
+### 8.1 Enterprise Production Feasibility & Infrastructure Roadmap
+While FAgentLLM successfully demonstrates causal multi-agent orchestration, industry studies indicate that up to 80% of AI agent projects stall before reaching production. This failure is rarely due to the underlying LLM's cognitive limits, but rather the fragility of the surrounding engineering environment. To ensure FAgentLLM can scale into a production-grade enterprise deployment, future development will focus on the following engineering pillars:
+
+7.  **Enterprise-Grade Integration & Orchestration:**
+    *   **MCP Integration:** Replacing direct database queries with the Model Context Protocol (MCP) to establish a standardized, secure bridge between the FAgentLLM orchestration layer and legacy ERP systems.
+    *   **Asynchronous Messaging:** Transitioning from synchronous LangGraph state-passing to distributed message brokers. Implementing Apache Kafka will allow the six agents to scale horizontally and process thousands of simultaneous financial events, while RabbitMQ could serve simpler, lower-latency workflows.
+    *   **Containerized Isolation:** Migrating the agent ecosystem to a fully containerized Docker and Kubernetes architecture, ensuring fault isolation if a specific agent (e.g., the Invoice Agent) experiences high traffic.
+
+8.  **Data Governance and Compliance Constraints:**
+    *   A primary limitation of financial AI research is data availability. While this project utilized synthetic data to ensure GDPR and SOC compliance, future iterations must implement cryptographic anonymization pipelines to allow the system to ingest real-world, highly sensitive financial ledgers safely.
+
+9.  **Mitigating Silent Failures & Workflow Degradation:**
+    *   In multi-agent systems, errors compound rapidly; a 10-step workflow where each agent is 85% accurate results in a system-wide success rate of only 20%. Furthermore, LLMs tend to "fail silently" by producing confident hallucinations, instantly eroding business trust.
+    *   To counteract this, future FAgentLLM builds will incorporate **Advanced Observability** (integrating Prometheus and the ELK Stack). This will trace the LangGraph state deeply, utilizing "LLM-as-a-judge" modules to instantly flag logical degradation before an agent executes a faulty action.
+
+10. **Strict Permission Boundaries & Human-in-the-Loop (HITL):**
+    *   Future versions will enforce rigid operational boundaries. **Read operations** (like budget forecasting) will remain fully autonomous. **Write operations** (like invoice extraction) will execute with extensive logging. However, **Destructive operations**—such as issuing massive credit penalties or executing high-value wire transfers—will automatically halt the LangGraph state and mandate explicit Human-in-the-Loop (HITL) approval via the Governance Agent.
 
 ---
 
