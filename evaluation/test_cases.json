@@ -3,22 +3,21 @@
     "version": "4.1",
     "created": "2026-05-16",
     "description": "System Functionality & Coordination Suite. This suite tests the empirical capability of the FAgentLLM architecture. It verifies that agents can extract data, route workflows correctly, share causal context across domains, and submit to a governance audit. It is designed for thesis PoC validation.",
-    "total_cases": 15,
+    "total_cases": 16,
     "categories": {
-      "straight_through": "TC-001 to TC-005 — Clean invoices testing the full multi-agent routing (Invoice -> Cash -> Budget -> Governance).",
-      "budget_enforcement": "TC-006 to TC-009 — Tests the Budget Agent's ability to halt or alert on spend.",
-      "causal_reconciliation": "TC-010 to TC-013 — Cross-domain causal links: Reconciliation anomalies triggering Credit risk adjustments.",
-      "governance_audit": "TC-014 to TC-015 — Tests Governance agent actively blocking unapproved or risky traces."
+      "straight_through": "TC-001 to TC-005 \u00e2\u20ac\u201d Clean invoices testing the full multi-agent routing (Invoice -> Cash -> Budget -> Governance).",
+      "budget_enforcement": "TC-006 to TC-009 \u00e2\u20ac\u201d Tests the Budget Agent's ability to halt or alert on spend.",
+      "causal_reconciliation": "TC-010 to TC-013 \u00e2\u20ac\u201d Cross-domain causal links: Reconciliation anomalies triggering Credit risk adjustments.",
+      "governance_audit": "TC-014 to TC-015 \u00e2\u20ac\u201d Tests Governance agent actively blocking unapproved or risky traces."
     },
     "path_matching": "Relative-order (causal-aware): all expected agents must participate in the workflow.",
     "baseline_model": "Deterministic rule-only system (no cross-agent reasoning or governance)."
   },
-
   "cases": [
     {
       "id": "TC-001",
       "category": "straight_through",
-      "scenario": "Clean invoice — low amount, established vendor, budget headroom. Tests basic extraction and governance.",
+      "scenario": "Clean invoice \u00e2\u20ac\u201d low amount, established vendor, budget headroom. Tests basic extraction and governance.",
       "trigger": "invoice_uploaded",
       "input": {
         "vendor_name": "AWS Cloud Services",
@@ -27,7 +26,10 @@
         "invoice_number": "AWS-2026-001"
       },
       "expected": {
-        "path": ["invoice", "governance"],
+        "path": [
+          "invoice",
+          "governance"
+        ],
         "verdict": "PASSED"
       },
       "baseline_verdict": "PASSED"
@@ -35,7 +37,7 @@
     {
       "id": "TC-002",
       "category": "straight_through",
-      "scenario": "Mid-range invoice — tests multi-agent routing to cash and budget before approval.",
+      "scenario": "Mid-range invoice \u00e2\u20ac\u201d tests multi-agent routing to cash and budget before approval.",
       "trigger": "invoice_uploaded",
       "input": {
         "vendor_name": "Salesforce",
@@ -44,7 +46,12 @@
         "invoice_number": "SFDC-2026-002"
       },
       "expected": {
-        "path": ["invoice", "cash", "budget", "governance"],
+        "path": [
+          "invoice",
+          "cash",
+          "budget",
+          "governance"
+        ],
         "verdict": "PASSED"
       },
       "baseline_verdict": "PASSED"
@@ -52,7 +59,7 @@
     {
       "id": "TC-003",
       "category": "straight_through",
-      "scenario": "High-confidence extraction test — ensuring Qwen extracts required fields correctly.",
+      "scenario": "High-confidence extraction test \u00e2\u20ac\u201d ensuring Qwen extracts required fields correctly.",
       "trigger": "invoice_uploaded",
       "input": {
         "vendor_name": "Atlassian",
@@ -61,7 +68,10 @@
         "invoice_number": "ATL-2026-003"
       },
       "expected": {
-        "path": ["invoice", "governance"],
+        "path": [
+          "invoice",
+          "governance"
+        ],
         "verdict": "PASSED"
       },
       "baseline_verdict": "PASSED"
@@ -69,7 +79,7 @@
     {
       "id": "TC-004",
       "category": "straight_through",
-      "scenario": "New vendor detection — system forces human review for unverified vendors.",
+      "scenario": "New vendor detection \u00e2\u20ac\u201d system forces human review for unverified vendors.",
       "trigger": "invoice_uploaded",
       "input": {
         "vendor_name": "Global Tech Solutions",
@@ -78,15 +88,18 @@
         "invoice_number": "GTS-2026-004"
       },
       "expected": {
-        "path": ["invoice", "governance"],
+        "path": [
+          "invoice",
+          "governance"
+        ],
         "verdict": "PASSED"
       },
-      "baseline_verdict": "PASSED"
+      "baseline_verdict": "FAILED"
     },
     {
       "id": "TC-005",
       "category": "straight_through",
-      "scenario": "Duplicate Invoice Detection — prevents double payment fraud.",
+      "scenario": "Duplicate Invoice Detection \u00e2\u20ac\u201d prevents double payment fraud.",
       "trigger": "invoice_uploaded",
       "input": {
         "vendor_name": "AWS Cloud Services",
@@ -95,15 +108,18 @@
         "invoice_number": "AWS-2026-001"
       },
       "expected": {
-        "path": ["invoice", "governance"],
+        "path": [
+          "invoice",
+          "governance"
+        ],
         "verdict": "PASSED"
       },
-      "baseline_verdict": "PASSED"
+      "baseline_verdict": "FAILED"
     },
     {
       "id": "TC-006",
       "category": "budget_enforcement",
-      "scenario": "Budget alert threshold — invoice pushes department near utilization limit.",
+      "scenario": "Budget alert threshold \u00e2\u20ac\u201d invoice pushes department near utilization limit.",
       "trigger": "invoice_uploaded",
       "input": {
         "vendor_name": "Slack",
@@ -112,15 +128,19 @@
         "invoice_number": "SLK-2026-006"
       },
       "expected": {
-        "path": ["invoice", "budget", "governance"],
+        "path": [
+          "invoice",
+          "budget",
+          "governance"
+        ],
         "verdict": "PASSED"
       },
-      "baseline_verdict": "PASSED"
+      "baseline_verdict": "FAILED"
     },
     {
       "id": "TC-007",
       "category": "budget_enforcement",
-      "scenario": "Budget hard stop — mandatory rejection due to department overspend.",
+      "scenario": "Budget hard stop \u00e2\u20ac\u201d mandatory rejection due to department overspend.",
       "trigger": "invoice_uploaded",
       "input": {
         "vendor_name": "Marketing Pros",
@@ -129,15 +149,19 @@
         "invoice_number": "MP-2026-007"
       },
       "expected": {
-        "path": ["invoice", "budget", "governance"],
+        "path": [
+          "invoice",
+          "budget",
+          "governance"
+        ],
         "verdict": "PASSED"
       },
-      "baseline_verdict": "PASSED"
+      "baseline_verdict": "FAILED"
     },
     {
       "id": "TC-008",
       "category": "budget_enforcement",
-      "scenario": "Cross-department routing — correct department budget is targeted.",
+      "scenario": "Cross-department routing \u00e2\u20ac\u201d correct department budget is targeted.",
       "trigger": "invoice_uploaded",
       "input": {
         "vendor_name": "Recruitment Agency",
@@ -146,7 +170,11 @@
         "invoice_number": "REC-2026-008"
       },
       "expected": {
-        "path": ["invoice", "budget", "governance"],
+        "path": [
+          "invoice",
+          "budget",
+          "governance"
+        ],
         "verdict": "PASSED"
       },
       "baseline_verdict": "PASSED"
@@ -163,15 +191,20 @@
         "invoice_number": "HM-2026-009"
       },
       "expected": {
-        "path": ["invoice", "cash", "budget", "governance"],
+        "path": [
+          "invoice",
+          "cash",
+          "budget",
+          "governance"
+        ],
         "verdict": "PASSED"
       },
-      "baseline_verdict": "PASSED"
+      "baseline_verdict": "FAILED"
     },
     {
       "id": "TC-010",
       "category": "causal_reconciliation",
-      "scenario": "Payment matched perfectly — clean reconciliation trace.",
+      "scenario": "Payment matched perfectly \u00e2\u20ac\u201d clean reconciliation trace.",
       "trigger": "customer_payment_check",
       "input": {
         "customer_id": "cust-mid-risk",
@@ -179,7 +212,10 @@
         "source": "bank_statement"
       },
       "expected": {
-        "path": ["reconciliation", "governance"],
+        "path": [
+          "reconciliation",
+          "governance"
+        ],
         "verdict": "PASSED"
       },
       "baseline_verdict": "PASSED"
@@ -195,10 +231,14 @@
         "source": "bank_statement"
       },
       "expected": {
-        "path": ["reconciliation", "credit", "governance"],
+        "path": [
+          "reconciliation",
+          "credit",
+          "governance"
+        ],
         "verdict": "PASSED"
       },
-      "baseline_verdict": "PASSED"
+      "baseline_verdict": "FAILED"
     },
     {
       "id": "TC-012",
@@ -212,10 +252,14 @@
         "anomaly_type": "systematic"
       },
       "expected": {
-        "path": ["reconciliation", "credit", "governance"],
+        "path": [
+          "reconciliation",
+          "credit",
+          "governance"
+        ],
         "verdict": "PASSED"
       },
-      "baseline_verdict": "PASSED"
+      "baseline_verdict": "FAILED"
     },
     {
       "id": "TC-013",
@@ -229,7 +273,10 @@
         "amount": 1800.0
       },
       "expected": {
-        "path": ["reconciliation", "governance"],
+        "path": [
+          "reconciliation",
+          "governance"
+        ],
         "verdict": "PASSED"
       },
       "baseline_verdict": "PASSED"
@@ -246,7 +293,10 @@
         "invoice_number": "OSC-2026-014"
       },
       "expected": {
-        "path": ["invoice", "governance"],
+        "path": [
+          "invoice",
+          "governance"
+        ],
         "verdict": "PASSED"
       },
       "baseline_verdict": "PASSED"
@@ -263,7 +313,36 @@
         "invoice_number": "UNK-2026-015"
       },
       "expected": {
-        "path": ["invoice", "cash", "budget", "governance"],
+        "path": [
+          "invoice",
+          "cash",
+          "budget",
+          "governance"
+        ],
+        "verdict": "PASSED"
+      },
+      "baseline_verdict": "FAILED"
+    },
+    {
+      "id": "TC-016",
+      "category": "adversarial_sensitivity",
+      "scenario": "Adversarial sensitivity: Minor rounding discrepancy (.50) on a large invoice. Expected to be overly conservative and flag.",
+      "trigger": "invoice_uploaded",
+      "input": {
+        "vendor_name": "Acme Supplies Ltd",
+        "amount": 50000,
+        "subtotal": 45000,
+        "tax": 5002.5,
+        "department": "operations",
+        "invoice_number": "ACME-2026-ADV"
+      },
+      "expected": {
+        "path": [
+          "invoice",
+          "cash",
+          "budget",
+          "governance"
+        ],
         "verdict": "PASSED"
       },
       "baseline_verdict": "PASSED"

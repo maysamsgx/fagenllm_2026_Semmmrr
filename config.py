@@ -35,7 +35,8 @@ class Settings(BaseSettings):
     workhorse_model: str = "llama-3.1-8b-instant"
 
     # OpenRouter Models (Final Fallback)
-    openrouter_api_key: str = ""
+    openrouter_api_key: str = ""          # baidu/cobuddy:free  — fallback LLM
+    openrouter_ocr_api_key: str = ""      # baidu/qianfan-ocr-fast:free — OCR
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
     openrouter_fallback_model: str = "baidu/cobuddy:free"
     ocr_model: str = "baidu/qianfan-ocr-fast:free"
@@ -108,11 +109,14 @@ def get_ocr_client() -> ChatOpenAI:
     """
     Baidu Qianfan-OCR-Fast via OpenRouter.
     Send invoice image as base64 data URL in the message content.
+    Uses its own dedicated API key (OPENROUTER_OCR_API_KEY).
     """
     s = get_settings()
+    # Use the OCR-specific key; fall back to the shared key if not set
+    ocr_key = s.openrouter_ocr_api_key or s.openrouter_api_key
     return ChatOpenAI(
         model=s.ocr_model,
-        api_key=s.openrouter_api_key,
+        api_key=ocr_key,
         base_url=s.openrouter_base_url,
         temperature=0.0,
         max_tokens=2048,

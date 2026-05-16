@@ -17,6 +17,7 @@ env:
   GROQ_API_KEY_2: ${{ secrets.GROQ_API_KEY_2 }}
   GROQ_API_KEY_3: ${{ secrets.GROQ_API_KEY_3 }}
   OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+  OPENROUTER_OCR_API_KEY: ${{ secrets.OPENROUTER_OCR_API_KEY }}
   # Primary model is qwen3-32b for all agents — this must stay consistent with production
   QWEN_MODEL: qwen/qwen3-32b
   # Fallback uses same provider (Groq) but smaller model only when primary is unavailable

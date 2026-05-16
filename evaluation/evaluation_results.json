@@ -1056,5 +1056,107 @@
     "error_message": "Both models failed. Fallback (qwen/qwen-2.5-72b-instruct:free): Error code: 404 - {'error': {'message': 'No endpoints found for qwen/qwen-2.5-72b-instruct:free.', 'code': 404}, 'user_id': 'user_3CXXQbP7GwGXSPgMWswsHitwfrm'}",
     "latency": 3.683,
     "run_id": "396e4ad3-f23e-453d-8222-2cd885706d47"
+  },
+  {
+    "test_case_id": "TC-001",
+    "scenario": "Clean invoice \u00e2\u20ac\u201d low amount, established vendor, budget headroom. Tests basic extraction and governance.",
+    "category": "straight_through",
+    "status": "pass",
+    "actual_path": [
+      "invoice",
+      "governance"
+    ],
+    "expected_path": [
+      "invoice",
+      "governance"
+    ],
+    "actual_verdict": "PASSED",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "PASSED",
+    "baseline_passed": true,
+    "fagentllm_advantage": false,
+    "reasoning_quality": 2,
+    "governance_passed": true,
+    "causal_links_present": true,
+    "latency": 9.335,
+    "trace_id": "1dca53ce-a236-4d7e-8599-c2771e4b61ff",
+    "error_message": "Duplicate invoice detected: AWS-2026-001",
+    "run_id": "31da9e18-d409-4d9f-832c-79881be2de49"
+  },
+  {
+    "test_case_id": "TC-002",
+    "scenario": "Mid-range invoice \u00e2\u20ac\u201d tests multi-agent routing to cash and budget before approval.",
+    "category": "straight_through",
+    "status": "fail",
+    "actual_path": [
+      "invoice",
+      "governance"
+    ],
+    "expected_path": [
+      "invoice",
+      "cash",
+      "budget",
+      "governance"
+    ],
+    "actual_verdict": "PASSED",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "PASSED",
+    "baseline_passed": true,
+    "fagentllm_advantage": false,
+    "reasoning_quality": 2,
+    "governance_passed": true,
+    "causal_links_present": true,
+    "latency": 3.439,
+    "trace_id": "096ab222-c9ff-487e-840f-0e2341423c68",
+    "error_message": "Duplicate invoice detected: SFDC-2026-002",
+    "run_id": "31da9e18-d409-4d9f-832c-79881be2de49"
+  },
+  {
+    "test_case_id": "TC-001",
+    "scenario": "Clean invoice \u00e2\u20ac\u201d low amount, established vendor, budget headroom. Tests basic extraction and governance.",
+    "category": "straight_through",
+    "status": "pass",
+    "actual_path": [
+      "invoice",
+      "cash",
+      "budget",
+      "governance"
+    ],
+    "expected_path": [
+      "invoice",
+      "governance"
+    ],
+    "actual_verdict": "PASSED",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "PASSED",
+    "baseline_passed": true,
+    "fagentllm_advantage": false,
+    "reasoning_quality": 5,
+    "governance_passed": true,
+    "causal_links_present": true,
+    "latency": 35.173,
+    "trace_id": "31984e99-545f-4997-9de6-8de4a627fba0",
+    "error_message": null,
+    "run_id": "d0714bb9-b341-4144-9033-197e30b3fd5f"
+  },
+  {
+    "test_case_id": "TC-002",
+    "scenario": "Mid-range invoice \u00e2\u20ac\u201d tests multi-agent routing to cash and budget before approval.",
+    "category": "straight_through",
+    "status": "fail",
+    "actual_path": [],
+    "expected_path": [
+      "invoice",
+      "cash",
+      "budget",
+      "governance"
+    ],
+    "actual_verdict": "",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "PASSED",
+    "baseline_passed": true,
+    "error_message": "RetryError[<Future at 0x1aa42307f90 state=finished raised APIError>]",
+    "latency": 51.222,
+    "run_id": "d0714bb9-b341-4144-9033-197e30b3fd5f"
   }
 ]

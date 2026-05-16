@@ -36,6 +36,7 @@ import uuid
 from agents.graph import graph
 from agents.state import FinancialState
 from db.supabase_client import db
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 logger = logging.getLogger("fagentllm.evaluator")
 
@@ -69,6 +70,11 @@ _CASES_PATH = os.path.join(os.path.dirname(__file__), "test_cases.json")
 with open(_CASES_PATH, "r") as _f:
     _eval_data = json.load(_f)
     TEST_CASES: List[Dict[str, Any]] = _eval_data.get("cases", [])
+    
+    # Enable Smoke Test Mode via Environment Variable
+    if os.environ.get("SMOKE_TEST") == "true":
+        TEST_CASES = TEST_CASES[:2]
+
 
 
 # ── DB insert helper (auto-strips columns absent from the live schema) ────────
@@ -180,6 +186,10 @@ def _reasoning_quality(trace: List[Dict]) -> int:
 
 
 # ── Main evaluation runner ────────────────────────────────────────────────────
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=2, min=4, max=15))
+async def _invoke_graph_with_retry(state, timeout: float):
+    return await asyncio.wait_for(graph.ainvoke(state), timeout=timeout)
+
 async def run_evaluation(run_name: str = "FAgentLLM System Functionality PoC") -> str:
     """
     Executes the full held-out test suite and writes results to Supabase.
@@ -208,12 +218,13 @@ async def run_evaluation(run_name: str = "FAgentLLM System Functionality PoC") -
         print(f"[{i+1:02d}/{len(TEST_CASES)}] {case['id']} — {case['scenario'][:55]}  ({key_label})")
 
         # ── Build initial state ─────────────────────────────────────────────
-        state    = _build_state(case)
+        run_suffix = run_id[:6]
+        state    = _build_state(case, run_suffix=run_suffix)
         baseline = _baseline_passes(case)
 
         start_time = time.time()
         try:
-            final_state = await asyncio.wait_for(graph.ainvoke(state), timeout=90.0)
+            final_state = await _invoke_graph_with_retry(state, timeout=90.0)
             latency = round(time.time() - start_time, 3)
 
             # Flatten trace (handles operator.add concatenation artefacts)
@@ -469,7 +480,7 @@ async def run_evaluation(run_name: str = "FAgentLLM System Functionality PoC") -
 
 
 # ── State builder ─────────────────────────────────────────────────────────────
-def _build_state(case: Dict) -> FinancialState:
+def _build_state(case: Dict, run_suffix: str = "") -> FinancialState:
     """Constructs a LangGraph-compatible initial state from a test case."""
     trigger     = case["trigger"]
     inp         = case["input"]
@@ -495,13 +506,19 @@ def _build_state(case: Dict) -> FinancialState:
             or inv_data.get("no")
             or f"TEST-{case['id']}"
         )
+        if run_suffix:
+            inv_no = f"{inv_no}-{run_suffix}"
         dept = inv_data.get("department") or inv_data.get("dept") or "engineering"
         ocr_text = (
             f"VENDOR: {vendor_name}\n"
             f"AMOUNT: {inv_data.get('amount', 0)}\n"
             f"NUMBER: {inv_no}\n"
-            f"DEPT: {dept}"
+            f"DEPT: {dept}\n"
         )
+        if "subtotal" in inv_data:
+            ocr_text += f"SUBTOTAL: {inv_data['subtotal']}\n"
+        if "tax" in inv_data:
+            ocr_text += f"TAX: {inv_data['tax']}\n"
         try:
             inv_res = db.insert("invoices", {
                 "status":         "pending",

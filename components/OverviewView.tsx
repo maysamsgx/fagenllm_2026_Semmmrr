@@ -202,7 +202,7 @@ export default function OverviewView({ onNavigate }: { onNavigate?: (id: string)
           fontStyle: 'italic', color: 'var(--text-2)', letterSpacing: '0.01em',
           lineHeight: 1.4, maxWidth: '650px', margin: '0 auto 28px',
         }}>
-          Five + One Agents, One Vision:<br />
+          Six Agents, One Vision:<br />
           <span style={{ color: '#67e8f9', textShadow: '0 0 20px rgba(103,232,249,.3)' }}>Smarter Finance, Better Decisions.</span>
         </p>
         <p style={{ fontSize: '14px', color: 'var(--text-3)', maxWidth: '580px', margin: '0 auto', lineHeight: 1.8, fontWeight: 400 }}>
