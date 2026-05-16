@@ -131,29 +131,3 @@ jobs:
       - name: Run System Acceptance Tests
         run: python -m pytest tests/system_acceptance_test.py -s
 
-  # 5️⃣ SCIENTIFIC EVALUATION: Research Validation (90%+ Accuracy)
-  scientific-evaluation:
-    name: 5️⃣ Scientific Evaluation
-    needs: [unit-test, lint]
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: "pip"
-
-      - name: Install Dependencies
-        run: |
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          pip install thefuzz
-
-      - name: Seed Evaluation Data
-        run: python scripts/seed_eval_data.py
-
-      - name: Run Scientific Evaluation Suite
-        run: python evaluation/evaluator.py

@@ -280,7 +280,8 @@ def _assess_customer(state: FinancialState) -> FinancialState:
         _advance_collection_stages(customer_id)
 
     # ── Communication: Append to reasoning trace for UI visibility ──────────
-    new_trace = [{
+    trace = state.get("reasoning_trace", [])
+    new_trace = trace + [{
         "agent":                 "credit",
         "step":                  "Forensic Risk Assessment",
         "event_type":            "risk_assessed",
