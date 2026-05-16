@@ -1,6 +1,6 @@
 
 [MASTER]
-ignore=venv,tests,scratch
+ignore=venv,tests,scratch,node_modules,dist
 disable=
     C0114, # missing-module-docstring
     C0115, # missing-class-docstring

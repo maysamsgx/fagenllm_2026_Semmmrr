@@ -74,9 +74,9 @@ def mock_db(monkeypatch):
     # inside function bodies bypass module-level attribute patches on the agent namespace.
     # Patching the source module intercepts all consumers regardless of import style.
     import execution.llm
-    monkeypatch.setattr(utils.llm, "qwen_json", lambda *a, **kw: mock_json, raising=False)
-    monkeypatch.setattr(utils.llm, "qwen_structured", lambda *a, **kw: MockStruct(), raising=False)
-    monkeypatch.setattr(utils.llm, "ocr_invoice", lambda *a, **kw: "MOCK OCR", raising=False)
+    monkeypatch.setattr(execution.llm, "qwen_json", lambda *a, **kw: mock_json, raising=False)
+    monkeypatch.setattr(execution.llm, "qwen_structured", lambda *a, **kw: MockStruct(), raising=False)
+    monkeypatch.setattr(execution.llm, "ocr_invoice", lambda *a, **kw: "MOCK OCR", raising=False)
 
     # Define the mock node behavior
     def mock_node(state):
@@ -113,17 +113,17 @@ def mock_db(monkeypatch):
         }
 
     # Also patch agent-level bindings for agents that import at module top-level
-    monkeypatch.setattr("agents.invoice_agent.invoice_node", mock_node)
-    monkeypatch.setattr("agents.cash_agent.cash_node", mock_node)
-    monkeypatch.setattr("agents.budget_agent.budget_node", mock_node)
-    monkeypatch.setattr("agents.reconciliation_agent.reconciliation_node", mock_node)
-    monkeypatch.setattr("agents.credit_agent.credit_node", mock_node)
-    monkeypatch.setattr("agents.governance_agent.governance_node", mock_node)
-    monkeypatch.setattr("agents.supervisor.router_node", mock_node)
+    monkeypatch.setattr("orchestration.agents.invoice_agent.invoice_node", mock_node)
+    monkeypatch.setattr("orchestration.agents.cash_agent.cash_node", mock_node)
+    monkeypatch.setattr("orchestration.agents.budget_agent.budget_node", mock_node)
+    monkeypatch.setattr("orchestration.agents.reconciliation_agent.reconciliation_node", mock_node)
+    monkeypatch.setattr("orchestration.agents.credit_agent.credit_node", mock_node)
+    monkeypatch.setattr("orchestration.agents.governance_agent.governance_node", mock_node)
+    monkeypatch.setattr("orchestration.agents.supervisor.router_node", mock_node)
 
     # Force graph recompilation with the mocks
     import orchestration.agents.graph
-    importlib.reload(agents.graph)
+    importlib.reload(orchestration.agents.graph)
 
     # Mock db.select so reconciliation gets transactions to process (not empty → not early-exit)
     MOCK_TX = {

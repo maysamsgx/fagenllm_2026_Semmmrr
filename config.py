@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     # Groq Configuration (Rate Limit Solution)
     # Provide multiple keys as a comma-separated string: "key1,key2,key3"
     groq_api_keys: str = "" 
+    groq_api_key: str = "" 
     groq_base_url: str = "https://api.groq.com/openai/v1"
     
     # Tiered Model Strategy

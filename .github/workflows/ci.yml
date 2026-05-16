@@ -12,6 +12,7 @@ env:
   SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
   SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
   GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+  GROQ_API_KEYS: ${{ secrets.GROQ_API_KEYS || secrets.GROQ_API_KEY }}
   # GROQ_API_KEY_2 and _3 enable round-robin rotation in the evaluator.
   # Add these in GitHub → Settings → Secrets → Actions before running the evaluation job.
   GROQ_API_KEY_2: ${{ secrets.GROQ_API_KEY_2 }}
