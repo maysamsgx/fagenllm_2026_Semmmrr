@@ -14,6 +14,11 @@ from utils.auth import create_access_token
 from fastapi.responses import RedirectResponse
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+# Ensure the default stream handler uses UTF-8 on Windows
+import sys
+for handler in logging.root.handlers:
+    if isinstance(handler, logging.StreamHandler):
+        handler.setStream(sys.stdout) # sys.stdout was already reconfigured in evaluator.py if run there
 logger = logging.getLogger("fagentllm")
 
 

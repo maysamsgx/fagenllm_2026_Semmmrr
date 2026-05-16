@@ -68,7 +68,7 @@ def _build_forecast_rows(accounts: list, inflows: float, outflows: float, days: 
 
 
 @router.get("/forecast")
-def get_forecast(days: int = Query(50, le=60)):
+def get_forecast(background_tasks: BackgroundTasks, days: int = Query(50, le=60)):
     """
     Returns 50-day cash flow forecast rows for the dashboard chart.
 
@@ -124,11 +124,11 @@ def get_forecast(days: int = Query(50, le=60)):
     forecast = _build_forecast_rows(accounts, inflows, outflows, days)
 
     # ── Step 3: Best-effort persist (fire-and-forget, never blocks) ──────────
-    try:
+    def _persist():
         from agents.cash_agent import _write_forecast
         _write_forecast(accounts, inflows, outflows)
-    except Exception:
-        pass  # In-memory data is already computed above — this is non-critical
+
+    background_tasks.add_task(_persist)
 
     return {"days": days, "forecast": forecast}
 

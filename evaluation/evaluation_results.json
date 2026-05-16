@@ -1158,5 +1158,306 @@
     "error_message": "RetryError[<Future at 0x1aa42307f90 state=finished raised APIError>]",
     "latency": 51.222,
     "run_id": "d0714bb9-b341-4144-9033-197e30b3fd5f"
+  },
+  {
+    "test_case_id": "TC-001",
+    "scenario": "Clean invoice \u00e2\u20ac\u201d low amount, established vendor, budget headroom. Tests basic extraction and governance.",
+    "category": "straight_through",
+    "status": "fail",
+    "actual_path": [],
+    "expected_path": [
+      "invoice",
+      "governance"
+    ],
+    "actual_verdict": "",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "PASSED",
+    "baseline_passed": true,
+    "error_message": "'charmap' codec can't encode character '\\u2192' in position 77: character maps to <undefined>",
+    "latency": 27.918,
+    "run_id": "866e31f7-054f-4eb7-8139-d5dae8e159ab"
+  },
+  {
+    "test_case_id": "TC-002",
+    "scenario": "Mid-range invoice \u00e2\u20ac\u201d tests multi-agent routing to cash and budget before approval.",
+    "category": "straight_through",
+    "status": "fail",
+    "actual_path": [],
+    "expected_path": [
+      "invoice",
+      "cash",
+      "budget",
+      "governance"
+    ],
+    "actual_verdict": "",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "PASSED",
+    "baseline_passed": true,
+    "error_message": "RetryError[<Future at 0x1a54ab25f10 state=finished raised APIError>]",
+    "latency": 75.002,
+    "run_id": "866e31f7-054f-4eb7-8139-d5dae8e159ab"
+  },
+  {
+    "test_case_id": "TC-003",
+    "scenario": "High-confidence extraction test \u00e2\u20ac\u201d ensuring Qwen extracts required fields correctly.",
+    "category": "straight_through",
+    "status": "fail",
+    "actual_path": [],
+    "expected_path": [
+      "invoice",
+      "governance"
+    ],
+    "actual_verdict": "",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "PASSED",
+    "baseline_passed": true,
+    "error_message": "'charmap' codec can't encode character '\\u2192' in position 77: character maps to <undefined>",
+    "latency": 25.572,
+    "run_id": "866e31f7-054f-4eb7-8139-d5dae8e159ab"
+  },
+  {
+    "test_case_id": "TC-004",
+    "scenario": "New vendor detection \u00e2\u20ac\u201d system forces human review for unverified vendors.",
+    "category": "straight_through",
+    "status": "fail",
+    "actual_path": [],
+    "expected_path": [
+      "invoice",
+      "governance"
+    ],
+    "actual_verdict": "",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "FAILED",
+    "baseline_passed": false,
+    "error_message": "RetryError[<Future at 0x1a54ab042d0 state=finished raised APIError>]",
+    "latency": 64.563,
+    "run_id": "866e31f7-054f-4eb7-8139-d5dae8e159ab"
+  },
+  {
+    "test_case_id": "TC-005",
+    "scenario": "Duplicate Invoice Detection \u00e2\u20ac\u201d prevents double payment fraud.",
+    "category": "straight_through",
+    "status": "fail",
+    "actual_path": [],
+    "expected_path": [
+      "invoice",
+      "governance"
+    ],
+    "actual_verdict": "",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "FAILED",
+    "baseline_passed": false,
+    "error_message": "'charmap' codec can't encode character '\\u2192' in position 77: character maps to <undefined>",
+    "latency": 21.109,
+    "run_id": "866e31f7-054f-4eb7-8139-d5dae8e159ab"
+  },
+  {
+    "test_case_id": "TC-006",
+    "scenario": "Budget alert threshold \u00e2\u20ac\u201d invoice pushes department near utilization limit.",
+    "category": "budget_enforcement",
+    "status": "fail",
+    "actual_path": [],
+    "expected_path": [
+      "invoice",
+      "budget",
+      "governance"
+    ],
+    "actual_verdict": "",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "FAILED",
+    "baseline_passed": false,
+    "error_message": "RetryError[<Future at 0x1a54ab324d0 state=finished raised APIError>]",
+    "latency": 53.782,
+    "run_id": "866e31f7-054f-4eb7-8139-d5dae8e159ab"
+  },
+  {
+    "test_case_id": "TC-007",
+    "scenario": "Budget hard stop \u00e2\u20ac\u201d mandatory rejection due to department overspend.",
+    "category": "budget_enforcement",
+    "status": "fail",
+    "actual_path": [],
+    "expected_path": [
+      "invoice",
+      "budget",
+      "governance"
+    ],
+    "actual_verdict": "",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "FAILED",
+    "baseline_passed": false,
+    "error_message": "RetryError[<Future at 0x1a546847890 state=finished raised APIError>]",
+    "latency": 63.56,
+    "run_id": "866e31f7-054f-4eb7-8139-d5dae8e159ab"
+  },
+  {
+    "test_case_id": "TC-008",
+    "scenario": "Cross-department routing \u00e2\u20ac\u201d correct department budget is targeted.",
+    "category": "budget_enforcement",
+    "status": "fail",
+    "actual_path": [],
+    "expected_path": [
+      "invoice",
+      "budget",
+      "governance"
+    ],
+    "actual_verdict": "",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "PASSED",
+    "baseline_passed": true,
+    "error_message": "'charmap' codec can't encode character '\\u2717' in position 23: character maps to <undefined>",
+    "latency": 24.417,
+    "run_id": "866e31f7-054f-4eb7-8139-d5dae8e159ab"
+  },
+  {
+    "test_case_id": "TC-009",
+    "scenario": "Large invoice triggers cash liquidity check before budget check.",
+    "category": "budget_enforcement",
+    "status": "fail",
+    "actual_path": [],
+    "expected_path": [
+      "invoice",
+      "cash",
+      "budget",
+      "governance"
+    ],
+    "actual_verdict": "",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "FAILED",
+    "baseline_passed": false,
+    "error_message": "RetryError[<Future at 0x1a54aa6a2d0 state=finished raised RuntimeError>]",
+    "latency": 92.846,
+    "run_id": "866e31f7-054f-4eb7-8139-d5dae8e159ab"
+  },
+  {
+    "test_case_id": "TC-010",
+    "scenario": "Payment matched perfectly \u00e2\u20ac\u201d clean reconciliation trace.",
+    "category": "causal_reconciliation",
+    "status": "fail",
+    "actual_path": [],
+    "expected_path": [
+      "reconciliation",
+      "governance"
+    ],
+    "actual_verdict": "",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "PASSED",
+    "baseline_passed": true,
+    "error_message": "'charmap' codec can't encode character '\\u2717' in position 12: character maps to <undefined>",
+    "latency": 57.623,
+    "run_id": "866e31f7-054f-4eb7-8139-d5dae8e159ab"
+  },
+  {
+    "test_case_id": "TC-011",
+    "scenario": "Reconciliation anomaly triggers credit score impact. (Recon -> Credit).",
+    "category": "causal_reconciliation",
+    "status": "fail",
+    "actual_path": [],
+    "expected_path": [
+      "reconciliation",
+      "credit",
+      "governance"
+    ],
+    "actual_verdict": "",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "FAILED",
+    "baseline_passed": false,
+    "error_message": "'charmap' codec can't encode character '\\u2717' in position 12: character maps to <undefined>",
+    "latency": 4.931,
+    "run_id": "866e31f7-054f-4eb7-8139-d5dae8e159ab"
+  },
+  {
+    "test_case_id": "TC-012",
+    "scenario": "Systematic payment delay pattern drops credit rating and alerts cash flow.",
+    "category": "causal_reconciliation",
+    "status": "fail",
+    "actual_path": [],
+    "expected_path": [
+      "reconciliation",
+      "credit",
+      "governance"
+    ],
+    "actual_verdict": "",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "FAILED",
+    "baseline_passed": false,
+    "error_message": "'charmap' codec can't encode character '\\u2717' in position 12: character maps to <undefined>",
+    "latency": 3.209,
+    "run_id": "866e31f7-054f-4eb7-8139-d5dae8e159ab"
+  },
+  {
+    "test_case_id": "TC-013",
+    "scenario": "Semantic matching allows minor text variance to clear reconciliation.",
+    "category": "causal_reconciliation",
+    "status": "fail",
+    "actual_path": [],
+    "expected_path": [
+      "reconciliation",
+      "governance"
+    ],
+    "actual_verdict": "",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "PASSED",
+    "baseline_passed": true,
+    "error_message": "'charmap' codec can't encode character '\\u2717' in position 12: character maps to <undefined>",
+    "latency": 2.841,
+    "run_id": "866e31f7-054f-4eb7-8139-d5dae8e159ab"
+  },
+  {
+    "test_case_id": "TC-014",
+    "scenario": "Governance successfully audits a clean trace and generates compliance score.",
+    "category": "governance_audit",
+    "status": "fail",
+    "actual_path": [],
+    "expected_path": [
+      "invoice",
+      "governance"
+    ],
+    "actual_verdict": "",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "PASSED",
+    "baseline_passed": true,
+    "error_message": "'charmap' codec can't encode character '\\u2717' in position 23: character maps to <undefined>",
+    "latency": 27.201,
+    "run_id": "866e31f7-054f-4eb7-8139-d5dae8e159ab"
+  },
+  {
+    "test_case_id": "TC-015",
+    "scenario": "Governance detects an anomaly in the causal trace during audit.",
+    "category": "governance_audit",
+    "status": "fail",
+    "actual_path": [],
+    "expected_path": [
+      "invoice",
+      "cash",
+      "budget",
+      "governance"
+    ],
+    "actual_verdict": "",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "FAILED",
+    "baseline_passed": false,
+    "error_message": "RetryError[<Future at 0x1a54687e0d0 state=finished raised RuntimeError>]",
+    "latency": 112.618,
+    "run_id": "866e31f7-054f-4eb7-8139-d5dae8e159ab"
+  },
+  {
+    "test_case_id": "TC-016",
+    "scenario": "Adversarial sensitivity: Minor rounding discrepancy (.50) on a large invoice. Expected to be overly conservative and flag.",
+    "category": "adversarial_sensitivity",
+    "status": "fail",
+    "actual_path": [],
+    "expected_path": [
+      "invoice",
+      "cash",
+      "budget",
+      "governance"
+    ],
+    "actual_verdict": "",
+    "expected_verdict": "PASSED",
+    "baseline_verdict": "PASSED",
+    "baseline_passed": true,
+    "error_message": "RetryError[<Future at 0x1a518716850 state=finished raised RuntimeError>]",
+    "latency": 49.629,
+    "run_id": "866e31f7-054f-4eb7-8139-d5dae8e159ab"
   }
 ]

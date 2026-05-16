@@ -38,6 +38,12 @@ from agents.state import FinancialState
 from db.supabase_client import db
 from tenacity import retry, stop_after_attempt, wait_exponential
 
+# Configure logging for UTF-8 output
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[logging.StreamHandler(sys.stdout)]
+)
 logger = logging.getLogger("fagentllm.evaluator")
 
 # ── API key round-robin pool ──────────────────────────────────────────────────
