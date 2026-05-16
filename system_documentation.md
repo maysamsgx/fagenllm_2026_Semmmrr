@@ -13,7 +13,7 @@ The system relies on a **10/10 Causal Perfection Architecture**, emphasising **E
 *   **LLMs:** Tiered Model Architecture via Groq:
     *   **Reasoning Tier:** Qwen3-32B (Best-in-class reasoning for Governance & Reflection)
     *   **Workhorse Tier:** Llama-3.1-8b-instant (High-speed, high-limit extraction)
-    *   **Resilience:** Multi-key round-robin rotation (`gsk_...`) and auto-failover to OpenRouter (Baidu CoBuddy).
+    *   **Resilience:** Multi-key round-robin rotation (`gsk_...`) and auto-failover to OpenRouter (baidu/cobuddy:free).
 *   **Frontend:** React (Vite + TypeScript) — Recharts for Analytics, LangGraph-state-driven Trace Panel
 *   **Resilience:** Auto-failover LLM routing and recursive Pydantic schema enforcement loops (`qwen_structured_with_reflection`)
 *   **Security:** JWT-based authentication (`/token` endpoint); PII masking (`utils/security.mask_pii`) on all XAI trace logs

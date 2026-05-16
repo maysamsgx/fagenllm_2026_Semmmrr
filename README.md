@@ -54,6 +54,7 @@ FAgentLLM solves this by acting as a **Cognitive Intelligence Layer** over tradi
 - **LangGraph** (Stateful multi-agent orchestration)
 - **Qwen3-32B** (Primary Reasoning & Reflection tier)
 - **Llama-3.1-8b-instant** (High-speed Workhorse tier for routine extraction)
+- **Baidu CoBuddy (free)** (Fallback resilience model via OpenRouter)
 - **MiniLM-L6** (Local vector embeddings via `sentence-transformers`)
 - **Baidu Qianfan / Tesseract** (OCR pipeline)
 

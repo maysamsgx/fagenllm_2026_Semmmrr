@@ -280,7 +280,7 @@ export default function OverviewView({ onNavigate }: { onNavigate?: (id: string)
             <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginBottom: '12px', letterSpacing: '0.05em', fontFamily: "'JetBrains Mono', monospace" }}>COGNITIVE LAYER</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <span className="tech-badge">Qwen3-32B Inference</span>
-              <span className="tech-badge">GPT OSS-20b Fallback</span>
+              <span className="tech-badge">Baidu CoBuddy Fallback</span>
               <span className="tech-badge">Recursive Self-Correction</span>
               <span className="tech-badge">Multi-Agent Routing</span>
             </div>

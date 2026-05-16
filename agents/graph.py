@@ -96,3 +96,6 @@ def build_graph() -> StateGraph:
 
 # Compiled once at import; reused for all requests
 graph = build_graph()
+
+# Compiled once at import; reused for all requests
+graph = build_graph()

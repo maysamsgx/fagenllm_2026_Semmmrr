@@ -13,7 +13,7 @@ Ensure the following environments and accounts are provisioned:
 - **Git**
 - **Supabase Account** (Database & Realtime pub/sub with `pgvector` enabled)
 - **Groq API Key** (Orchestration & Reasoning via Qwen3-32B)
-- **OpenRouter API Key** ( OCR - Baidu Qianfan and fallback LLM for reasoing )
+- **OpenRouter API Key** (OCR via Baidu Qianfan and fallback LLM via Baidu CoBuddy)
 
 ---
 

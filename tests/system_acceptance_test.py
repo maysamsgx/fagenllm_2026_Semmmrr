@@ -88,7 +88,7 @@ def mock_db(monkeypatch):
         "cash_account_id": None, "invoice_id": None, "payment_id": None,
         "matched": False,
     }
-    def mock_select(table, filters=None):
+    def mock_select(table, filters=None, limit=None):
         if table == "transactions":
             src = (filters or {}).get("source", "internal")
             return [{**MOCK_TX, "source": src}]
