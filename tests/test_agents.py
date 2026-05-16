@@ -82,7 +82,7 @@ def test_reconciliation_agent_isolated_logic():
         {"description": "Unknown transfer", "id": "tx_2"}
     ]
     
-    with patch("db.supabase_client.db.select", return_value=mock_customers):
+    with patch("execution.db.supabase_client.db.select", return_value=mock_customers):
         found_ids = _find_customers(anomalies)
         assert "cust_1" in found_ids
         assert "cust_2" not in found_ids

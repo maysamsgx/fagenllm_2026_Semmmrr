@@ -19,8 +19,8 @@ def test_llm_fallback_mechanism():
         call_counts["baidu/cobuddy"] += 1
         return '{"decision": "approved", "confidence": 0.95, "technical_explanation": "fallback", "business_explanation": "fallback", "causal_explanation": "fallback", "is_systematic": false, "action": "approve"}'
 
-    with patch("utils.llm._groq_raw_call", side_effect=mock_groq_raw_call):
-        with patch("utils.llm._openrouter_raw_call", side_effect=mock_openrouter_raw_call):
+    with patch("execution.llm._groq_raw_call", side_effect=mock_groq_raw_call):
+        with patch("execution.llm._openrouter_raw_call", side_effect=mock_openrouter_raw_call):
             result = qwen_structured("system", "user", DecisionOutput)
             
             # Verify fallback logic crossed providers successfully
