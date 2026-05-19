@@ -399,13 +399,54 @@ def _baidu_ocr_call(image_bytes: bytes, media_type: str) -> str:
     return text
 
 
+def _nemotron_ocr_call(image_bytes: bytes, media_type: str) -> str:
+    """Secondary OCR fallback using OpenRouter's free vision model."""
+    client = _openrouter_client()
+    
+    img_b64 = base64.b64encode(image_bytes).decode("utf-8")
+    data_url = f"data:{media_type};base64,{img_b64}"
+
+    model = "nvidia/nemotron-nano-12b-v2-vl:free"
+    message = {
+        "role": "user",
+        "content": [
+            {
+                "type": "text",
+                "text": "Extract all text from this invoice image. Return only the extracted text, "
+                        "preserving layout as much as possible. Do not include conversational filler, "
+                        "markdown backticks, or explanations."
+            },
+            {
+                "type": "image_url",
+                "image_url": {"url": data_url}
+            }
+        ]
+    }
+    
+    response = client.chat.completions.create(
+        model=model,
+        messages=[message],
+        temperature=0.0,
+        max_tokens=2048
+    )
+    
+    text = (response.choices[0].message.content or "").strip()
+    if not text:
+        raise RuntimeError("Nemotron OCR returned empty text")
+    return text
+
+
 def baidu_ocr(image_bytes: bytes, media_type: str = "image/jpeg") -> str:
-    """Try Baidu first. On any failure fall back to local Tesseract."""
+    """Try Baidu first. On failure, fall back to Nemotron Vision OCR, then local Tesseract."""
     try:
         return _baidu_ocr_call(image_bytes, media_type)
     except Exception as e:
-        logger.warning(f"Baidu OCR unavailable ({e}); falling back to local Tesseract")
-        return fallback_ocr(image_bytes)
+        logger.warning(f"Baidu OCR unavailable ({e}); trying secondary cloud OCR fallback (Nemotron)")
+        try:
+            return _nemotron_ocr_call(image_bytes, media_type)
+        except Exception as e2:
+            logger.warning(f"Secondary cloud OCR fallback failed ({e2}); falling back to local Tesseract")
+            return fallback_ocr(image_bytes)
 
 
 # ── Fallback OCR: Tesseract ─────────────────────────────────────
