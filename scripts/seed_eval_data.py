@@ -41,9 +41,9 @@ def seed_scientific_data():
         db._ensure_client().table("customers").upsert(c, on_conflict="name").execute()
         print(f"  - Customer: {c['name']} ready.")
 
-    # 5. Cash Account
+    # 5. Cash Account (Uses stable UUID from erp_seed.py to prevent duplicates)
     db._ensure_client().table("cash_accounts").upsert({
-        "id": "00000000-0000-0000-0000-000000000099",
+        "id": "9c2d46bf-2e76-5801-8601-7d9d16286434",
         "account_name": "Operating Account",
         "current_balance": 50000, 
         "minimum_balance": 10000

@@ -249,7 +249,7 @@ export default function EvaluationView() {
 
       // Cash forecast — load live forecast and convert to chart shape {name, inflow, outflow, balance}
       try {
-        const fr = await cashApi.forecast()
+        const fr = await cashApi.forecast(50)
         let bal = lm?.cash?.total_balance ?? 0
         const fmtDay = (d: string) => new Date(d).toLocaleDateString('en', { weekday: 'short', day: 'numeric' })
         setCashForecast(

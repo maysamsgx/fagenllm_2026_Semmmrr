@@ -24,7 +24,7 @@ export default function CashView() {
 
   const load = () => {
     cashApi.position().then(setPos).catch(console.error)
-    cashApi.forecast().then(r => {
+    cashApi.forecast(50).then(r => {
       // Ensure every row has projected_balance — compute running total if missing
       const rows = r.forecast
       let running = 0

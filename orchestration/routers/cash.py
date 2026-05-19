@@ -115,7 +115,18 @@ def get_forecast(background_tasks: BackgroundTasks, days: int = Query(50, le=60)
 
     if len(good_db_rows) >= days:
         # ── Happy path: DB has complete, valid data ──────────────────────────
-        return {"days": days, "forecast": good_db_rows[:days]}
+        accounts = db.get_cash_balances()
+        running_balance = sum(float(a.get("current_balance", 0) or 0) for a in accounts)
+        
+        enriched = []
+        for r in good_db_rows[:days]:
+            net = float(r.get("net_position") or 0) if r.get("net_position") is not None else (float(r.get("projected_inflow", 0)) - float(r.get("projected_outflow", 0)))
+            running_balance += net
+            enriched.append({
+                **r,
+                "projected_balance": round(running_balance, 2)
+            })
+        return {"days": days, "forecast": enriched}
 
     # ── Step 2: Compute in-memory — guaranteed to return data ────────────────
     accounts = db.get_cash_balances()

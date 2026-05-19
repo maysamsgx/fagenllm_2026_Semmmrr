@@ -19,7 +19,7 @@ class SupabaseDB:
 
     def __init__(self):
         self.supabase = None
-        self._dept_uuid_cache: Dict[str, str] = {}  # slug -> UUID string
+        self._dept_uuid_cache: Dict[str, str] = {}  
 
     def _ensure_client(self):
         if self.supabase is None:
