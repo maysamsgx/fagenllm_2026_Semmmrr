@@ -234,19 +234,24 @@ def _handle_new_invoice(state: FinancialState, invoice_id: str) -> FinancialStat
 
     risk_score_raw = vendor_risk.get("risk_score")
     try:
-        risk_score = float(risk_score_raw) if risk_score_raw is not None else 50.0
+        raw_score = float(risk_score_raw) if risk_score_raw is not None else 50.0
     except (TypeError, ValueError):
-        risk_score = 50.0
-    risk_level = vendor_risk.get("risk_level") or ("high" if risk_score >= 70 else "medium" if risk_score >= 40 else "low")
+        raw_score = 50.0
+
+    # Invert the raw trust/reliability score from the DB to represent actual Risk (higher = riskier)
+    risk_score = 100.0 - raw_score
+
+    # Determine risk level based on DB risk_level, or fallback using the risk score (higher = riskier)
+    risk_level = vendor_risk.get("risk_level") or ("high" if risk_score >= 60 else "medium" if risk_score >= 30 else "low")
     is_new_vendor = not vendor_risk or (vendor_risk.get("factors") or {}).get("reason") == "new_vendor_no_history"
     risk_descriptor = "baseline (new vendor, no payment history)" if is_new_vendor else f"{risk_level} risk tier"
     
-    # Risk Reasoning Enrichment
+    # Risk Reasoning Enrichment based on risk_score (higher = riskier)
     if is_new_vendor:
         risk_reasoning = "Vendor identity not yet verified in ERP. Recommended for manual first-time audit."
-    elif risk_score >= 90:
+    elif risk_score <= 10:
         risk_reasoning = "Vendor has high reliability score; consistent history of accurate invoicing and no past discrepancies."
-    elif risk_score >= 70:
+    elif risk_score <= 30:
         risk_reasoning = "Vendor shows stable performance; minor variances recorded but within acceptable operational bounds."
     else:
         risk_reasoning = "Vendor profile shows elevated risk factors (late deliveries or price volatility). Requires oversight."
